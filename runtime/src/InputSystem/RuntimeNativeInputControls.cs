@@ -14,8 +14,25 @@ internal sealed partial class RuntimeNativeInputControls(FalloutInputControls co
     {
         Refresh();
         controls.Changed += Refresh;
+        NativeGamepadInput.BoundInput = BoundInput;
+        NativeGamepadInput.GameplayActive = GameplayActive;
     }
-    public override void _ExitTree() => controls.Changed -= Refresh;
+
+    // Platforms without pointer capture (iOS) cannot signal gameplay through
+    // the mouse mode; the owning player's modal state is authoritative there.
+    private bool GameplayActive() => IsInsideTree() && !GetTree().Paused &&
+        GetParent() is World.Cells.RuntimeNativePlayer { ModalInput: false };
+    public override void _ExitTree()
+    {
+        controls.Changed -= Refresh;
+        if (NativeGamepadInput.BoundInput == BoundInput) NativeGamepadInput.BoundInput = null;
+        if (NativeGamepadInput.GameplayActive == GameplayActive) NativeGamepadInput.GameplayActive = null;
+    }
+
+    // The keyboard binding when present, otherwise the mouse binding.
+    private InputEvent? BoundInput(int control) =>
+        new[] { controls.Get((uint)control), controls.Get((uint)control, 1) }
+            .Where(code => code != -1).Select(NativeScriptKeys.Create).FirstOrDefault();
 
     private void Refresh()
     {

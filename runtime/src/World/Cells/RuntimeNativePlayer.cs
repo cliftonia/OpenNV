@@ -432,7 +432,8 @@ internal partial class RuntimeNativePlayer : CharacterBody3D
             inputEvent is not InputEventMouseMotion motion)
             return;
         if (Input.MouseMode != Input.MouseModeEnum.Captured &&
-            !OpenNV.Runtime.Diagnostics.Parity.RuntimeLiveHarness.IsHeadlessLookInput(motion)) return;
+            !OpenNV.Runtime.Diagnostics.Parity.RuntimeLiveHarness.IsHeadlessLookInput(motion) &&
+            !InputSystem.NativeGamepadInput.IsLookInput(motion)) return;
         if (_furniturePhase is 1 or 2 or 4) return;
         var look = FlatMouseLookScale;
         if (_furniturePhase == 3)
