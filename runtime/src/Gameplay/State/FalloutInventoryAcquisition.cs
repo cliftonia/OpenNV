@@ -201,7 +201,13 @@ internal sealed class FalloutInventoryAcquisition(FalloutPluginStack records, Fa
                 var fields = script.ReadSubrecords().ToArray();
                 var bindings = new FalloutScriptBindings(_records, item, script, fields);
                 var execution = Execution(item, script, bindings, locals, recipient,
-                    () => inventory.RemoveInventoryScriptInstance(item.FormKey, state.Identity));
+                    () => inventory.RemoveInventoryScriptInstance(item.FormKey, state.Identity), () =>
+                    {
+                        // The dynamic reference publishes with the staged plan.
+                        var dropped = _world.PrepareInventoryInstanceDrop(inventory, recipient, item.FormKey, state.Identity);
+                        inventory.RemoveInventoryScriptInstance(item.FormKey, state.Identity);
+                        _leases.Add(_world.PrepareDroppedPublication(dropped));
+                    });
                 FalloutInventoryScriptEvents.Dispatch(_records, item, "OnAdd", recipient, execution);
                 inventory.StoreInventoryScriptState(item.FormKey, state with { Locals = locals.Capture() });
             }
@@ -221,7 +227,8 @@ internal sealed class FalloutInventoryAcquisition(FalloutPluginStack records, Fa
         }
 
         private FalloutInventoryScriptExecution Execution(FalloutPluginRecord owner, FalloutPluginRecord script,
-            FalloutScriptBindings bindings, FalloutScriptEffectLocals? locals, FalloutFormKey recipient, Action? removeMe)
+            FalloutScriptBindings bindings, FalloutScriptEffectLocals? locals, FalloutFormKey recipient, Action? removeMe,
+            Action? dropMe = null)
         {
             bool IsForm(string name) => FalloutScriptBindings.IsPlayer(name) ? bindings.HasPlayerReference : locals?.Contains(name) == true ? locals.Kind(name) == FalloutScriptLocalKind.Form :
                 bindings.TryForm(name) is not null;
@@ -287,6 +294,10 @@ internal sealed class FalloutInventoryAcquisition(FalloutPluginStack records, Fa
                         if (arguments.Count != 0 || parts.Length != 1 || removeMe is null)
                             throw new NotSupportedException("RemoveMe has no actual incoming item owner.");
                         removeMe(); return;
+                    case "dropme":
+                        if (arguments.Count != 0 || parts.Length != 1 || dropMe is null)
+                            throw new NotSupportedException("DropMe has no actual incoming item owner.");
+                        dropMe(); return;
                     case "addcardtoplayer":
                     case "addcard":
                         if (parts.Length != 1 || arguments.Count != 0) throw new NotSupportedException("Card addition arguments are unbound.");

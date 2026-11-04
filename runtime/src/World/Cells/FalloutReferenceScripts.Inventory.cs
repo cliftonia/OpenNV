@@ -4,7 +4,7 @@ using OpenNV.Runtime.Gameplay.State;
 namespace OpenNV.Runtime.World.Cells;
 
 internal sealed record FalloutInventoryScriptContext(FalloutFormKey? Container, Action Remove, bool ElapsedTimeOwned,
-    FalloutScriptInventoryCaller Caller);
+    FalloutScriptInventoryCaller Caller, Action? Drop = null);
 internal sealed record FalloutInventoryScriptResult(FalloutFormKey Item, Guid Identity, int Blocks, string? Error);
 
 internal sealed partial class FalloutReferenceScripts
@@ -152,7 +152,16 @@ internal sealed partial class FalloutReferenceScripts
                         }, initialization is null && gameMode,
                         new(form, identity, initialization is null ? container : null,
                             () => inventory.Item(form)?.Variants?.Any(variant => variant.ScriptState is { } actual &&
-                                actual.Identity == identity && actual.Script == state.Script && actual.Sha256 == state.Sha256) == true));
+                                actual.Identity == identity && actual.Script == state.Script && actual.Sha256 == state.Sha256) == true),
+                        () =>
+                        {
+                            if (initialization is not null) throw new NotSupportedException("Initial inventory DropMe has no native containing-object owner.");
+                            var dropped = world.PrepareInventoryInstanceDrop(inventory, container, form, identity);
+                            using var publication = world.PrepareDroppedPublication(dropped);
+                            inventory.RemoveInventoryScriptInstance(form, identity);
+                            publication.Commit(); publication.Complete();
+                            world.InventoryChanged(container);
+                        });
                     foreach (var _ in Steps(form, program.Bindings, block.Program, null, initialization is null ? seconds : 0,
                         budget: budget, effectLocals: locals, inventoryContext: context)) { }
                     ++executed;

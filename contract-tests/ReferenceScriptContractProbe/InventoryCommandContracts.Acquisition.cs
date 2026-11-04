@@ -29,9 +29,12 @@ internal static partial class InventoryCommandContracts
                 Script(0x200, "scn Convert\nbegin OnAdd player\nplayer.AddItem Product 1 1\nRemoveMe\nend"),
                 Script(0x201, "scn Guard\nshort Visits\nbegin OnAdd player\nif Visits == 0\nplayer.AddItem Product 1 1\nset Visits to 1\nendif\nend", true),
                 Script(0x202, "scn Refuse\nbegin OnAdd player\nplayer.AddItem Product 1 1\nUnknownReachedEffect\nend"),
+                Scripted(9, 0x203), Record("SCPT", 0x203, Field("SCHR", new byte[20]), Field("SCDA", []),
+                    Field("SCTX", Text("scn Restricted\nbegin OnAdd CompanionRef\nDropMe\nend")),
+                    Field("SCRO", BitConverter.GetBytes(0x901u))),
                 Record("NOTE", 5, Field("EDID", Text("CallbackNote"))),
                 Record("CONT", 0x100), Record("CELL", 0x800, Field("DATA", [1])),
-                Group(0x800, Reference("REFR", 0x900, 0x100, "SourceContainer"))));
+                Group(0x800, Join(Reference("REFR", 0x900, 0x100, "SourceContainer"), Reference("ACHR", 0x901, 7, "CompanionRef")))));
             using var records = FalloutPluginStack.Load(directory.FullName, ["Items.esm"]);
             using var world = new FalloutReferenceWorld(records);
             world.LoadCell(FalloutCellSceneReader.Read(records, Key(0x800)));
@@ -65,6 +68,19 @@ internal static partial class InventoryCommandContracts
             owner.Transfer(container, player, Key(0x900), Key(0x14), [new(Key(3), 1)]);
             Require(player.Item(Key(2))?.Count == 3 && player.Item(Key(3))!.Variants!.Single().ScriptState!.Identity == state.Identity,
                 "Returning a retained script instance replayed its one-time source branch.");
+
+            // DropMe moves the received instance out of the companion onto the
+            // ground beside it as a dynamic reference, in the same transaction.
+            var companion = world.Inventory(Key(0x901), 1).Contents;
+            player.Add(records, Key(9), 1, 1, true);
+            owner.Transfer(player, companion, Key(0x14), Key(0x901), [new(Key(9), 1)]);
+            Require(companion.Item(Key(9)) is null && player.Item(Key(9)) is null &&
+                world.DroppedItems is [{ Base: var droppedBase, Placement.Cell: var droppedCell, Item.Count: 1 }] &&
+                droppedBase == Key(9) && droppedCell == Key(0x800),
+                "DropMe did not move its received instance from the companion to one dynamic world reference.");
+            world.TakeDroppedItem(world.DroppedItems[0].Identity, player, 1, null, new(() => { }, () => { }));
+            Require(player.Item(Key(9))?.Count == 1 && world.DroppedItems.Count == 0, "Dropped DropMe instance could not be picked up again.");
+            player.Remove(Key(9), 1, true);
 
             // Crafted products are acquired like AddItem: each scripted output
             // instance runs its own OnAdd after the ingredients were consumed.

@@ -32,7 +32,7 @@ internal static class FalloutScriptActorCommands
         ["setallreachable"] = ([Kind.Number], false, "no-global-pathing-override-owner"),
         ["setcriticalstage"] = ([Kind.Identifier], true, "no-critical-effect-stage-owner"),
         ["alwaysshowactorsubtitles"] = ([Kind.Number], true, "no-actor-subtitle-policy-owner"),
-        ["dropme"] = ([], false, "no-inventory-object-drop-owner"),
+        ["dropme"] = ([], false, "no-containing-inventory-instance"),
     };
 
     private static readonly HashSet<string> Owned =

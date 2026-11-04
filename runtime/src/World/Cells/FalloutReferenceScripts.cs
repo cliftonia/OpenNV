@@ -770,7 +770,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                 parts.Length == 1 && FalloutScriptLeveledItems.Supports(operation) ||
                 parts.Length <= 2 && FalloutScriptPosition.Supports(operation) ||
                 parts.Length <= 2 && FalloutScriptActorFlags.Supports(operation, parts.Length == 2) ||
-                parts.Length <= 2 && FalloutScriptActorCommands.Supports(operation))
+                parts.Length <= 2 && FalloutScriptActorCommands.Supports(operation) && !(operation == "dropme" && inventoryContext?.Drop is not null))
             {
                 _ = FalloutNvseNumericExpression.EvaluateValue([command, .. arguments], values, Function, UserFunction);
                 return;
@@ -1395,6 +1395,9 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                     break;
                 case "removeme" when parts.Length == 1 && inventoryContext is not null && arguments.Count == 0:
                     inventoryContext.Remove();
+                    break;
+                case "dropme" when parts.Length == 1 && inventoryContext?.Drop is { } drop && arguments.Count == 0:
+                    drop();
                     break;
                 case "removeme" when arguments.Count <= 1:
                     var removeMeDestination = arguments.Count == 0 || arguments[0] == "0" ? (FalloutFormKey?)null : Reference(arguments[0]);
