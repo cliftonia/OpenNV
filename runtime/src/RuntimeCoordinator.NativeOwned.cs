@@ -280,6 +280,7 @@ public partial class RuntimeCoordinator
             traitMenu = _nativeOpeningStageDriver?.TraitMenuState,
             vigor = _nativeOpeningStageDriver?.VigorState,
             caravan = _nativeOpeningStageDriver?.CaravanState,
+            casino = _nativeOpeningStageDriver?.CasinoState,
             specialBook = _nativeOpeningStageDriver?.SpecialBookState,
             imageSpace = cellChildren is null ? null : cellNodes.OfType<RuntimeNativeImageSpace>().Select(presenter => new
             {
@@ -712,6 +713,7 @@ public partial class RuntimeCoordinator
             _nativeReferences.RestoreReputations(restore.State.Reputations);
             _nativeReferences.PlayerNotes.Restore(restore.State.PlayerNotes);
             _nativeReferences.PlayerCaravanCards.Restore(restore.State.PlayerCaravanCards);
+            _nativeReferences.CasinoWinnings.Restore(restore.State.CasinoWinnings);
             _nativeReferences.RestoreDroppedItems(restore.State.DroppedItems);
         }
         else if (_nativeBootstrap is null)

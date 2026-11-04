@@ -417,6 +417,49 @@ if (args is ["--caravan-source-contracts"])
     CaravanSourceContracts.Run();
     return;
 }
+if (args is ["--owned-casino-sources", var casinoRoot])
+{
+    RuntimeLiveContentSource.Configure(casinoRoot, RuntimeLiveContentSource.FalloutNewVegasGame);
+    using var content = RuntimeLiveContentSource.Current!;
+    using var records = FalloutPluginStack.Load(content.PluginSources);
+    var casinos = records.EffectiveRecords("CSNO").Where(record => !record.IsDeleted).Select(record => FalloutCasino.Read(records, record)).ToArray();
+    if (casinos.Length == 0) throw new InvalidDataException("No owned casino sources were found.");
+    foreach (var casino in casinos)
+    {
+        var faces = casino.DeckBackTextures.SelectMany(back => new[] { "_c01", "_d10", "_h12", "_s13" }
+            .Select(face => back.Replace("_Back", face, StringComparison.OrdinalIgnoreCase)));
+        foreach (var path in casino.ReelSymbolTextures.Concat(casino.DeckBackTextures).Concat(faces))
+            if (!content.TryRead("textures/" + path.Replace('\\', '/'), null, out _, out _))
+                throw new FileNotFoundException("Owned casino texture is missing.", path);
+        var wallet = 1000;
+        var table = new FalloutCasinoTable(FalloutCasinoCommandRequest.Read(records, FalloutCasinoGame.Blackjack, records.GetEffective(casino.Form), 1, 200, 0),
+            new FalloutCasinoWinnings(records), () => wallet, delta => wallet += delta, 5, 1);
+        var game = new FalloutBlackjackGame(table);
+        game.Deal(10);
+        while (game.Current == FalloutBlackjackGame.Phase.PlayerTurn) game.Stay();
+        if (wallet - 1000 != game.LastReturn - 10) throw new InvalidDataException("Owned casino round did not settle.");
+    }
+    Console.WriteLine($"OPENNV_OWNED_CASINO_SOURCE_PASS casinos={casinos.Length} names={string.Join(";", casinos.Select(casino => casino.EditorId))} textures=true cardFaces=true blackjackRound=true");
+    return;
+}
+if (args is ["--owned-casino-commands", var casinoExecutable])
+{
+    foreach (var command in new[] { "ShowBlackJackMenuParams", "ShowRouletteMenuParams", "ShowSlotMachineMenuParams" })
+    {
+        var declared = FalloutExecutableStringTable.ReadCasinoCommandParameters(casinoExecutable, command);
+        if (!declared.Select(parameter => parameter.Name).SequenceEqual(["Casino", "Min Bet", "Max Bet", "Max Winnings"]) || declared.Any(parameter => parameter.Optional))
+            throw new InvalidDataException(command + " parameters differ from the evidenced declaration.");
+    }
+    if (!FalloutExecutableStringTable.ReadCasinoCommandParameters(casinoExecutable, "GetCasinoWinningsLevel").Select(parameter => parameter.Name).SequenceEqual(["Casino"]) ||
+        !FalloutExecutableStringTable.ReadCasinoCommandParameters(casinoExecutable, "SetCasinoWinningsLevel").Select(parameter => parameter.Name).SequenceEqual(["Casino", "Winning Level"]))
+        throw new InvalidDataException("Casino winnings level declarations differ from the evidenced declaration.");
+    var statisticNames = FalloutExecutableStringTable.ReadMiscStatisticNames(casinoExecutable);
+    foreach (var game in new[] { "Blackjack", "Roulette", "Slots" })
+        if (statisticNames.Count(name => name.Equals(game + " Games Played", StringComparison.OrdinalIgnoreCase)) != 1)
+            throw new InvalidDataException(game + " games statistic is absent or ambiguous.");
+    Console.WriteLine("OPENNV_CASINO_COMMAND_DECLARATION_PASS commands=5 statistics=3 parameters=casino;minBet;maxBet;maxWinnings execution=unverified");
+    return;
+}
 if (args is ["--owned-caravan-command", var caravanExecutable])
 {
     var parameters = FalloutExecutableStringTable.ReadCaravanCommandParameters(caravanExecutable);
@@ -1988,6 +2031,7 @@ AgeRaceContracts.Run();
 FaceGeometryContracts.Run();
 ScriptSoundContracts.Run();
 ScriptContinuationContracts.Run();
+CasinoContracts.Run();
 NoActivationSoundContracts.Run();
 VampireQueryContracts.Run();
 InventoryQueryContracts.Run();

@@ -40,6 +40,7 @@ internal partial class RuntimeNativeOpeningStageDriver
         _vigorEntry is not null ? "special-menu" : _tagSkillEntry is not null ? "tag-menu" :
         _traitEntry is not null ? "trait-menu" : _recipeMenu is not null ? "recipe-menu" :
         _barterMenu is not null ? "barter-menu" : _caravanMenu is not null ? "caravan-menu" :
+        _casinoMenu is not null ? "casino-menu" :
         TerminalSaveBlocker;
     private string? SaveContinuationBlocker => SaveInteractionBlocker ?? (
         _scripts.References?.RegionPublicationPending == true ? "regional-reference-gameplay-binding" :
@@ -232,6 +233,7 @@ internal partial class RuntimeNativeOpeningStageDriver
                 break;
             default:
                 if (parts.Length == 1 && ApplyNativeEffectCommand(source, bindings, operation, arguments)) break;
+                if (parts.Length == 1 && TryApplyCasinoCommand(bindings, operation, arguments)) break;
                 if (TryApplyPlayerScriptCommand(source, target, parts, operation, arguments)) break;
                 throw new NotSupportedException($"Reached native script command {command} ({arguments.Count} arguments) has no owner.");
         }
@@ -302,6 +304,7 @@ internal partial class RuntimeNativeOpeningStageDriver
             CellOwnership = _scripts.References.CaptureCellOwnership(),
             PlayerNotes = _scripts.References.PlayerNotes.Capture(),
             PlayerCaravanCards = _scripts.References.PlayerCaravanCards.Capture(),
+            CasinoWinnings = _scripts.References.CasinoWinnings.Capture(),
             DroppedItems = _scripts.References.CaptureDroppedItems(),
             DynamicMines = _scripts.References.CaptureDynamicMines(),
             RuntimeReferences = _scripts.References.RuntimeReferences.Capture(),
