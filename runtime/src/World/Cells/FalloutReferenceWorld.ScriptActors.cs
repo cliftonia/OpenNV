@@ -8,6 +8,7 @@ internal sealed partial class FalloutReferenceInstance
 {
     // Bound only while a resident RuntimeNativeDestructible owns this reference.
     internal Action<float>? ScriptObjectDamage { get; set; }
+    internal Action? ScriptClearDestruction { get; set; }
 }
 
 // Script-facing actor, alarm and faction commands. Persistent state lives in
@@ -164,13 +165,8 @@ internal sealed partial class FalloutReferenceWorld
     {
         var instance = Get(reference);
         if (FalloutDestructible.Read(records, instance.Base) is not { } source || instance.Destruction is null) return;
-        // The resident stage owner keeps its replaced model; resetting state under
-        // it would desynchronize model stage and health.
-        if (instance.ScriptObjectDamage is not null)
-        {
-            FalloutScriptCommandDeferral.Warn("cleardestruction", "resident-destruction-model-has-no-reset-owner");
-            return;
-        }
+        // The resident stage owner also restores the undamaged model.
+        if (instance.ScriptClearDestruction is { } resident) { resident(); return; }
         if (instance.Destruction.Destroyed) instance.Destroyed = false;
         instance.Destruction = FalloutDestructionState.Initial(source);
     }
