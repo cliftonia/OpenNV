@@ -30,18 +30,26 @@ internal partial class RuntimeNativePlayer
 
     private (bool Left, bool Right) CrippledArms(GameplayVitals vitals)
     {
+        var conditions = ArmConditions(vitals);
+        return (conditions.Left <= 0, conditions.Right <= 0);
+    }
+
+    // Each arm's condition is its weakest part's remaining fraction of the
+    // source cripple threshold; zero is crippled.
+    private (float Left, float Right) ArmConditions(GameplayVitals vitals)
+    {
         var records = _limbRecords ?? throw new InvalidOperationException("Player body-part source is absent.");
         var parts = FalloutBodyPartData.Read(records.GetEffective(records.RuntimeFormKey(0x1d))).Parts;
         var left = parts.Where(part => part.Type is 3 or 4).ToArray();
         var right = parts.Where(part => part.Type is 5 or 6).ToArray();
         if (left.Length == 0 || right.Length == 0)
             throw new NotSupportedException("Weapon spread requires source left and right arm parts.");
-        bool Crippled(IEnumerable<FalloutBodyPart> arm) => arm.Any(part =>
+        float Condition(IEnumerable<FalloutBodyPart> arm) => arm.Min(part =>
         {
             var threshold = vitals.MaximumHitPoints * part.HealthPercent / 100.0f;
-            return threshold > 0 && (vitals.LimbDamage?.GetValueOrDefault(part.Type) ?? 0) >= threshold;
+            return threshold > 0 ? Math.Clamp(1 - (vitals.LimbDamage?.GetValueOrDefault(part.Type) ?? 0) / threshold, 0, 1) : 1;
         });
-        return (Crippled(left), Crippled(right));
+        return (Condition(left), Condition(right));
     }
 
     private void PublishLimbMovementState()

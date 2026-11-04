@@ -30,8 +30,10 @@ internal partial class RuntimeNativePlayer
         }
         var maximum = FalloutGameSettingFloats.Read(_presentationRecords!, "fVATSMaxEngageDistance");
         if (!float.IsFinite(maximum) || maximum < 0) throw new InvalidDataException("VATS maximum engage distance is invalid.");
+        var meleeRange = RequireVatsWeapon() is { IsMeleeWeapon: true } melee ? VatsMeleeRange(melee) : (float?)null;
         _vatsActorChoices = _vatsActors.Values.Where(ActorAvailable)
             .Where(actor => GlobalPosition.DistanceTo(actor.Node.GlobalPosition) / UnitsToMeters <= maximum)
+            .Where(actor => meleeRange is not { } range || VatsMeleeDistance(actor) <= range)
             .OrderBy(actor => GlobalPosition.DistanceSquaredTo(actor.Node.GlobalPosition))
             .Select(actor => actor.Reference).ToArray();
     }
@@ -43,8 +45,14 @@ internal partial class RuntimeNativePlayer
         NativeVatsVisibilitySamples? samples = null;
         try
         {
-            samples = new(this, _xr?.Camera ?? _camera); _vatsVisibility = samples;
-            var targets = await MeasureVatsTargets(samples, session, generation);
+            IReadOnlyList<FalloutVatsSession.Target> targets;
+            // Melee targets the whole actor; no rendered part visibility is sampled.
+            if (RequireVatsWeapon().IsMeleeWeapon) targets = MeasureVatsMeleeTargets();
+            else
+            {
+                samples = new(this, _xr?.Camera ?? _camera); _vatsVisibility = samples;
+                targets = await MeasureVatsTargets(samples, session, generation);
+            }
             if (generation != _vatsGeneration || !ReferenceEquals(session, _vats) || !VatsMenuActive) return;
             _vatsTargets = targets; _vatsPreparing = false; _vatsMenu!.Refresh();
         }
@@ -70,13 +78,13 @@ internal partial class RuntimeNativePlayer
         FalloutVatsSession session, long generation)
     {
         var weapon = RequireVatsWeapon();
-        var instance = _presentationInventory!.SelectedWeapon(weapon.Form).Extra.Instance;
+        var instance = VatsWeaponInstance(weapon);
         var selectedActor = _vatsSelectedActor ?? throw new InvalidOperationException("VATS has no selected-view actor.");
         void RequireCurrent()
         {
             if (generation != _vatsGeneration || !ReferenceEquals(session, _vats) || !VatsMenuActive ||
                 session.CurrentPhase != FalloutVatsSession.Phase.Selecting || _vatsSelectedActor != selectedActor || RequireVatsWeapon().Form != weapon.Form ||
-                _presentationInventory.SelectedWeapon(weapon.Form).Extra.Instance != instance)
+                VatsWeaponInstance(weapon) != instance)
                 throw new InvalidOperationException("VATS visibility preparation lost its selected session/weapon instance.");
         }
         RequireCurrent();
@@ -139,19 +147,25 @@ internal partial class RuntimeNativePlayer
                 ++_vatsPreparationMeasured;
                 var chance = chanceOwner.Calculate(shot.ResolvedMinimumSpread, spread + _playerProjectileLaunch!.AimChaseRadians,
                     distance, diameter, fraction, part.HitChance);
-                _vatsConditionTarget = actor.Reference;
-                try
-                {
-                    using var context = world.VatsConditions.BeginPreview(new(weapon.Form, actor.Reference, source.FormKey, part.ActorValue));
-                    chance = Math.Max(chance, FalloutPlayerPerkNumericEffects.ApplyContext(8, chance / 100,
-                        _combatPerks?.Invoke() ?? [], VatsPerkCondition) * 100);
-                }
-                finally { _vatsConditionTarget = null; }
+                chance = VatsPerkChance(weapon.Form, actor.Reference, source.FormKey, part.ActorValue, chance);
                 targets.Add(new(actor.Reference, part.Type, name, part.Name.Length == 0 ? "Part " + part.Type : part.Name,
                     Math.Clamp(chance, 0, 100), cost, fraction > 0, source.FormKey, part.ActorValue));
             }
         }
         return targets;
+    }
+
+    // Perk entry 8 can only raise the source chance of a previewed action.
+    private float VatsPerkChance(FalloutFormKey weapon, FalloutFormKey reference, FalloutFormKey source, int partActorValue, float chance)
+    {
+        _vatsConditionTarget = reference;
+        try
+        {
+            using var context = _hitReferences!.VatsConditions.BeginPreview(new(weapon, reference, source, partActorValue));
+            return Math.Max(chance, FalloutPlayerPerkNumericEffects.ApplyContext(8, chance / 100,
+                _combatPerks?.Invoke() ?? [], VatsPerkCondition) * 100);
+        }
+        finally { _vatsConditionTarget = null; }
     }
 
     private bool ActorAvailable(VatsActor actor) => IsInstanceValid(actor.Node) && actor.Node.IsInsideTree() &&

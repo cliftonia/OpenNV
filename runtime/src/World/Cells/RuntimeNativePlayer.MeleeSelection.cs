@@ -6,20 +6,32 @@ namespace OpenNV.Runtime.World.Cells;
 
 internal partial class RuntimeNativePlayer
 {
-    private (Node Collider, Vector3 Point, Vector3 Normal)? SelectPlayerMeleeActor(FalloutWeaponPresentation weapon, Transform3D aim)
+    private FalloutMeleeActorGeometry PlayerMeleeAttacker()
     {
         var extent = CombatMeleeExtent;
         var bound = _meleeSourceBound!;
-        var attacker = new FalloutMeleeActorGeometry(new(GlobalPosition.X, GlobalPosition.Y, GlobalPosition.Z), extent,
+        return new(new(GlobalPosition.X, GlobalPosition.Y, GlobalPosition.Z), extent,
             (bound.Center.Z - bound.Dimensions.Z) * UnitsToMeters,
             (bound.Center.Z + bound.Dimensions.Z) * UnitsToMeters, Activity.Swimming);
-        // A nonnull presentation of the engine default is still empty hands.
-        // Actual equipped hand-to-hand items retain their source WEAP reach.
-        var intrinsic = _presentationInventory!.EquippedObject(_presentationRecords!, 5) is null;
+    }
+
+    // A nonnull presentation of the engine default is still empty hands.
+    // Actual equipped hand-to-hand items retain their source WEAP reach.
+    private bool IntrinsicUnarmed => _presentationInventory!.EquippedObject(_presentationRecords!, 5) is null;
+
+    private float PlayerMeleeReach(FalloutWeaponPresentation weapon)
+    {
+        var intrinsic = IntrinsicUnarmed;
         var scale = _thirdPerson!.Actor.Appearance.Height * _sourceScale;
-        var reach = FalloutActorMeleeSelection.Reach(intrinsic, weapon.Reach,
+        return FalloutActorMeleeSelection.Reach(intrinsic, weapon.Reach,
             intrinsic ? FalloutGameSettingFloats.Read(_presentationRecords!, "fHandReachMult") : 0,
             FalloutGameSettingFloats.Read(_presentationRecords!, "fCombatDistance"), scale, UnitsToMeters);
+    }
+
+    private (Node Collider, Vector3 Point, Vector3 Normal)? SelectPlayerMeleeActor(FalloutWeaponPresentation weapon, Transform3D aim)
+    {
+        var attacker = PlayerMeleeAttacker();
+        var reach = PlayerMeleeReach(weapon);
         var cone = FalloutGameSettingFloats.Read(_presentationRecords!, "fCombatHitConeAngle");
         var deadMultiplier = FalloutGameSettingFloats.Read(_presentationRecords!, "fCombatDeadActorHitConeMult");
         var forward = _xr is null ? -GlobalBasis.Z : -aim.Basis.Z;

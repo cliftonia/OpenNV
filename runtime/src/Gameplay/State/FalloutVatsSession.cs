@@ -39,7 +39,8 @@ internal sealed class FalloutVatsSession(FalloutPlayerVitals vitals)
         FalloutVatsAction action)
     {
         Require(Phase.Selecting);
-        if (weaponInstance == Guid.Empty || !target.Visible || !float.IsFinite(target.Chance) || target.Chance is < 0 or > 100 ||
+        // Only the engine's empty-hands fallback has no physical item instance.
+        if (weaponInstance == Guid.Empty && action != FalloutVatsAction.Unarmed || !target.Visible || !float.IsFinite(target.Chance) || target.Chance is < 0 or > 100 ||
             !float.IsFinite(target.ActionPointCost) || target.ActionPointCost < 0 || target.Reference.ObjectId == 0 || target.Part > 14 ||
             target.Base.ObjectId == 0 || !Enum.IsDefined(action))
             throw new InvalidOperationException("The selected VATS body part is unavailable.");

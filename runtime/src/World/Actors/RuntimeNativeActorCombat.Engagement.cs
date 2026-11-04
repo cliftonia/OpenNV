@@ -310,7 +310,7 @@ internal sealed partial class RuntimeNativeActorCombat
             _threat = CurrentThreat();
             _detectRange = ThreatRadius(_threat);
             if (!float.IsFinite(_detectRange) || _detectRange <= 0) throw new InvalidDataException("Actor threat radius is invalid.");
-            if (_threat.Confidence == 0)
+            if (Fleeing)
             {
                 PrepareCombatPresentation();
                 AdvanceFlee(player, delta);
@@ -333,7 +333,7 @@ internal sealed partial class RuntimeNativeActorCombat
     {
         if (_engagementError is not null) return;
         _threat = CurrentThreat();
-        var fleeing = _threat.Confidence == 0;
+        var fleeing = Fleeing;
         if (_engagementPrepared && _engagementFleePrepared != fleeing)
         {
             var previous = _state.Engagement!;
@@ -360,6 +360,8 @@ internal sealed partial class RuntimeNativeActorCombat
         Activity.SetAlerted(true); Activity.SetCombat(true);
         Activity.SetWeaponDrawn(_enemyWeapon is not null);
     }
+
+    private bool Fleeing => _threat!.Confidence == 0 || _state.Engagement?.ForcedFlee == true;
 
     private void PrepareFlee()
     {
@@ -444,6 +446,7 @@ internal sealed partial class RuntimeNativeActorCombat
         {
             if (_state.PrepareNativeInventoryRemoval == PrepareNativeInventoryRemoval) _state.PrepareNativeInventoryRemoval = null;
             if (_state.StopCombat == StopCombat) _state.StopCombat = null;
+            if (_state.ScriptPushAway == ScriptPushAway) _state.ScriptPushAway = null;
             if (_state.QuerySpatialPlacement == CaptureSpatialPlacement) _state.QuerySpatialPlacement = null;
             if (_state.CaptureEngagement == CaptureEngagement)
             {
@@ -466,6 +469,7 @@ internal sealed partial class RuntimeNativeActorCombat
             _state.QuerySpatialPlacement is not null && _state.QuerySpatialPlacement != CaptureSpatialPlacement) return;
         _state.QuerySpatialPlacement ??= CaptureSpatialPlacement;
         _state.StopCombat ??= StopCombat;
+        _state.ScriptPushAway ??= ScriptPushAway;
         _state.CaptureEngagement ??= CaptureEngagement;
         _state.CanCaptureCorpseEquipment ??= CorpseEquipmentCaptureReady;
         _state.CaptureCorpseEquipment ??= CaptureCorpseEquipment;

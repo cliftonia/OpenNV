@@ -72,8 +72,9 @@ internal partial class RuntimeNativePlayer
         var end = origin + direction * range;
         if (!origin.IsFinite() || !direction.IsFinite() || direction.LengthSquared() < .99f || !end.IsFinite())
             throw new InvalidDataException("Melee attack transform is invalid.");
-        var selectedActor = SelectPlayerMeleeActor(weapon, aim);
-        using var collision = selectedActor is null ? CastShotRay(origin, end) : new Godot.Collections.Dictionary();
+        var vats = CaptureVatsShotOwner();
+        var selectedActor = vats is null ? SelectPlayerMeleeActor(weapon, aim) : VatsMeleeContact(weapon, vats.Attack);
+        using var collision = selectedActor is null && vats is null ? CastShotRay(origin, end) : new Godot.Collections.Dictionary();
         var collider = collision.TryGetValue("collider", out var value) ? value.AsGodotObject() as Node : null;
         var point = collision.TryGetValue("position", out var position) ? position.AsVector3() : end;
         var normal = collision.TryGetValue("normal", out var colNorm) ? colNorm.AsVector3() : -direction;
@@ -115,6 +116,9 @@ internal partial class RuntimeNativePlayer
             _damageError = error.Message;
             throw;
         }
+        // The swing publishes its queued AP and actual outcome once, hit or miss.
+        RecordVatsImpact(vats, hit);
+        PublishVatsShot();
         _weaponHandling!.ApplyMeleeConditionWear(weapon, _presentationRecords!);
         FalloutImpact? impact = null;
         if (collider is not null && !impactBytes.IsEmpty)
@@ -155,6 +159,7 @@ internal partial class RuntimeNativePlayer
             impactError = _shotEffectErrors.GetValueOrDefault("melee-impact"),
             unbound = "attack-specific-audio"
         };
-        GD.Print($"OPENNV_WEAPON_MELEE weapon={weapon.Form} reference={reference} part={hit?.Part} damage={hit?.HealthDamage}");
+        GD.Print($"OPENNV_WEAPON_MELEE weapon={weapon.Form} reference={reference} part={hit?.Part} damage={hit?.HealthDamage}" +
+            (vats is null ? "" : $" vats={vats.Attack.Ordinal} success={vats.Attack.Success}"));
     }
 }

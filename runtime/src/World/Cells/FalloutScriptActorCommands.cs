@@ -12,12 +12,10 @@ internal static class FalloutScriptActorCommands
     // behavior without a runtime owner. They validate and then continue.
     private static readonly Dictionary<string, (Kind[] Arguments, bool Actor, string Reason)> Deferred = new()
     {
-        ["pushactoraway"] = ([Kind.Value, Kind.Number], true, "no-scripted-knockback-physics-owner"),
         ["fireweapon"] = ([Kind.Value], false, "no-scripted-projectile-launch-owner"),
         ["useweapon"] = ([Kind.Value, Kind.Value, Kind.Value, Kind.Number, Kind.OptionalNumber, Kind.OptionalNumber,
             Kind.OptionalNumber], true, "no-scripted-attack-owner"),
         ["setpackduration"] = ([Kind.Number], true, "no-package-duration-override-owner"),
-        ["forceflee"] = ([Kind.OptionalValue, Kind.OptionalValue], true, "no-flee-procedure-owner"),
         ["setvatstarget"] = ([Kind.Number], false, "no-vats-target-owner"),
         ["setnoavoidance"] = ([Kind.Number], true, "no-actor-avoidance-owner"),
         ["setactorsai"] = ([Kind.Number], false, "no-actor-ai-enable-owner"),
@@ -37,7 +35,7 @@ internal static class FalloutScriptActorCommands
     [
         "setghost", "resurrect", "resurrectactor", "sendassaultalarm", "sendtrespassalarm", "setpcenemyoffaction",
         "clearfactionplayerenemyflag", "removefromallfactions", "getdetected", "damageobject", "do", "cleardestruction",
-        "setnpcradio", "alwaysshowactorsubtitles",
+        "setnpcradio", "alwaysshowactorsubtitles", "pushactoraway", "forceflee",
     ];
 
     internal static bool Supports(string name) => Owned.Contains(name) || Deferred.ContainsKey(name);
@@ -118,6 +116,22 @@ internal static class FalloutScriptActorCommands
             // Actor.SetNPCRadio Flag StationRef: the actor carries a receiver.
             "setnpcradio" => Command([Kind.Number, Kind.Value], arguments =>
                 world().SetNpcRadio(subject(), Flag(arguments[0].Number), Form(arguments[1]))),
+            // Push markers and the player call this as well as actors.
+            "pushactoraway" => Command([Kind.Value, Kind.Number], arguments =>
+                world().PushActorAway(subject(), Form(arguments[0]), (float)arguments[1].Number)),
+            // Optional cell/reference flee destinations are validated; the flee
+            // procedure runs away from the threat rather than to a destination.
+            "forceflee" => Command([Kind.OptionalValue, Kind.OptionalValue], arguments =>
+            {
+                var references = world();
+                foreach (var argument in arguments)
+                {
+                    var destination = Form(argument);
+                    if (records.GetEffective(destination).Signature != "CELL") references.RequireScriptReference(destination);
+                }
+                if (arguments.Count != 0) FalloutScriptCommandDeferral.Warn("forceflee", "flee-destination-has-no-route-owner");
+                references.ForceFlee(subject());
+            }),
             "getdetected" => new([Kind.Value], arguments =>
                 world().DetectsTarget(subject(), Form(arguments[0]), distance) ? 1 : 0) { ReadOnly = true },
             _ => null,

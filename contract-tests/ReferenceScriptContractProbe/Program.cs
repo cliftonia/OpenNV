@@ -2064,6 +2064,7 @@ AnimationResourceContracts.Run();
 AttackVariantContracts.Run();
 WeaponHandlingContracts.Run();
 WeaponFiringContracts.Run();
+VatsMeleeContracts.Run();
 DestructionContracts.Run();
 var disabledControls = new FalloutPlayerControlState(false, false, false, false, false, false, false);
 Require(new FalloutPlayerControlCommand(true, []).Apply(disabledControls) == FalloutPlayerControlState.AllEnabled,
