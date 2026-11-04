@@ -15,13 +15,25 @@ internal sealed partial class FalloutReferenceWorld
             throw new InvalidOperationException($"Logical activator action requires an ACTI, not {source.Signature}.");
         if (instance.DoorMotion is not null)
             throw new NotSupportedException($"ACTI {reference} retains an Open/Close motion that needs its actual owner.");
+        FalloutFormKey? activationSound = null;
         foreach (var field in source.ReadSubrecords().Where(field => field.Signature is "VNAM" or "WNAM" or "RNAM" or "INAM"))
         {
             if (field.Data.Length != 4)
                 throw new InvalidDataException($"ACTI {source.FormKey} {field.Signature} must contain a FormID.");
-            if (source.Plugin.AdjustOptionalFormId(BinaryPrimitives.ReadUInt32LittleEndian(field.Data.Span)) is not null)
-                throw new NotSupportedException($"Default activation of ACTI {reference} needs its source {field.Signature} activation owner.");
+            if (source.Plugin.AdjustOptionalFormId(BinaryPrimitives.ReadUInt32LittleEndian(field.Data.Span)) is not { } form) continue;
+            // Sound - Activation plays at the activator. Radio station and radio
+            // template make this a receiver whose power is the logical bit below.
+            var expected = field.Signature switch
+            {
+                "VNAM" or "INAM" => "SOUN",
+                "RNAM" => "TACT",
+                _ => throw new NotSupportedException($"Default activation of ACTI {reference} needs its source {field.Signature} activation owner."),
+            };
+            if (!records.TryGetEffective(form, out var target) || target.Signature != expected)
+                throw new InvalidDataException($"ACTI {source.FormKey} {field.Signature} is not a winning {expected}.");
+            if (field.Signature == "VNAM") activationSound = form;
         }
+        if (activationSound is { } sound) Sounds.PlayAtReference(reference, sound);
         // A plain activator's open/close callbacks are empty. Missing sequences
         // toggle this persistent logical bit without starting or resetting a clip.
         instance.DoorOpen = !instance.DoorOpen;

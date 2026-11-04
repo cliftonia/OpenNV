@@ -18,4 +18,5 @@ internal sealed record FalloutActorOverrides(FalloutFormKey Target, string Sourc
     FalloutActorHairOverride? Hair = null, bool? Alerted = null,
     IReadOnlyList<FalloutActorFormOverride>? TeammatePerks = null,
     bool Ghost = false, IReadOnlyList<FalloutActorFormOverride>? PlayerEnemyFactions = null,
-    IReadOnlyList<FalloutActorFormOverride>? Spells = null);
+    IReadOnlyList<FalloutActorFormOverride>? Spells = null, FalloutActorFormOverride? NpcRadio = null,
+    bool AlwaysShowSubtitles = false);

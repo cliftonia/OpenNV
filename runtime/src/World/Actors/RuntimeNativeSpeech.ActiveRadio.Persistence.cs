@@ -16,7 +16,11 @@ internal partial class RuntimeNativeSpeech
         if (what != NotificationPaused && what != NotificationUnpaused) return;
         // Native player pause fades still invoke Mix, and Play has no remembered
         // paused-before-start flag. Bind the authoritative source clock itself.
-        foreach (var voice in _channels.Values) voice.Pcm?.SetSuspended(!CanProcess());
+        foreach (var voice in _channels.Values)
+        {
+            voice.Pcm?.SetSuspended(!CanProcess());
+            foreach (var mirror in voice.Receivers.Values) mirror.Pcm.SetSuspended(!CanProcess());
+        }
     }
     private static bool InactiveVoiceSettled(Voice voice) => voice.Info is null && !voice.Player.Playing &&
         voice.PackageCompleted is null && voice.ResponseCompleted is null && voice.NpcExchange is null &&

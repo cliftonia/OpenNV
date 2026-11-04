@@ -27,11 +27,9 @@ internal static class FalloutScriptActorCommands
         ["startcannibal"] = ([Kind.OptionalValue], true, "no-cannibal-feeding-animation-owner"),
         ["attachashpile"] = ([Kind.OptionalValue], true, "no-ash-pile-spawner"),
         ["pickidle"] = ([], true, "no-scripted-idle-selection-owner"),
-        ["setnpcradio"] = ([Kind.Number, Kind.Value], true, "no-npc-radio-owner"),
         ["setallvisible"] = ([Kind.Number], false, "no-global-detection-override-owner"),
         ["setallreachable"] = ([Kind.Number], false, "no-global-pathing-override-owner"),
         ["setcriticalstage"] = ([Kind.Identifier], true, "no-critical-effect-stage-owner"),
-        ["alwaysshowactorsubtitles"] = ([Kind.Number], true, "no-actor-subtitle-policy-owner"),
         ["dropme"] = ([], false, "no-inventory-object-drop-owner"),
     };
 
@@ -39,6 +37,7 @@ internal static class FalloutScriptActorCommands
     [
         "setghost", "resurrect", "resurrectactor", "sendassaultalarm", "sendtrespassalarm", "setpcenemyoffaction",
         "clearfactionplayerenemyflag", "removefromallfactions", "getdetected", "damageobject", "do", "cleardestruction",
+        "setnpcradio", "alwaysshowactorsubtitles",
     ];
 
     internal static bool Supports(string name) => Owned.Contains(name) || Deferred.ContainsKey(name);
@@ -112,6 +111,13 @@ internal static class FalloutScriptActorCommands
                 world().DamageObject(subject(), amount);
             }),
             "cleardestruction" => Command([], _ => world().ClearDestruction(subject())),
+            // Actor.AlwaysShowActorSubtitles Flag: this actor's lines show
+            // subtitles regardless of the general subtitle preference.
+            "alwaysshowactorsubtitles" => Command([Kind.Number], arguments =>
+                world().SetAlwaysShowSubtitles(subject(), Flag(arguments[0].Number))),
+            // Actor.SetNPCRadio Flag StationRef: the actor carries a receiver.
+            "setnpcradio" => Command([Kind.Number, Kind.Value], arguments =>
+                world().SetNpcRadio(subject(), Flag(arguments[0].Number), Form(arguments[1]))),
             "getdetected" => new([Kind.Value], arguments =>
                 world().DetectsTarget(subject(), Form(arguments[0]), distance) ? 1 : 0) { ReadOnly = true },
             _ => null,
