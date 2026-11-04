@@ -35,6 +35,7 @@ internal static class ReputationContracts
                 Record("SCPT", 11, Field("SCHR", new byte[20]), Field("SCRO", BitConverter.GetBytes(1u)),
                     Field("SCTX", Text("begin OnActivate\nRemoveReputation FirstRep 0 5\nend"))),
                 Record("ACTI", 12, Field("SCRI", BitConverter.GetBytes(11u))),
+                Record("GMST", 16, Field("EDID", Text("fReputationBumpVeryMajor")), Field("DATA", BitConverter.GetBytes(12f))),
                 Record("QUST", 13, Field("DATA", [1, 0]), Field("SCRI", BitConverter.GetBytes(14u))),
                 Record("SCPT", 14, Field("SCHR", QuestHeader()), Field("SCRO", BitConverter.GetBytes(1u)),
                     Field("SCTX", Text("begin GameMode\nif GetReputation FirstRep 1 != -25.25\nUnownedBadCommand\nendif\n" +
@@ -63,14 +64,15 @@ internal static class ReputationContracts
                 Reject(() => world.ReputationPercentage(Key(1), axis));
             foreach (var form in new uint[] { 3, 4, 5, 6, 15 })
                 Reject(() => world.ReputationPercentage(Key(form), 0));
+            // Deed size 5 is fReputationBumpVeryMajor points on the selected axis only.
+            var added = scripts.Activate(Key(0x91), records.RuntimeFormKey(0x14));
+            Require(added.Error is null && world.Reputation(Key(1), 1) == -25.25f + 12 && world.Reputation(Key(1), 0) == 250,
+                $"AddReputation did not add its deed-size points to fame only: {added.Error} fame={world.Reputation(Key(1), 1)} infamy={world.Reputation(Key(1), 0)}");
+            var removed = scripts.Activate(Key(0x92), records.RuntimeFormKey(0x14));
+            Require(removed.Error is null && world.Reputation(Key(1), 0) == 250 - 12 && world.Reputation(Key(1), 1) == -25.25f + 12,
+                $"RemoveReputation did not remove its deed-size points from infamy only: {removed.Error}");
+            world.SetReputation(Key(1), 1, -25.25); world.SetReputation(Key(1), 0, 250);
             var capture = RoundTrip(world.CaptureReputations());
-            foreach (var (reference, command) in new[] { (0x91u, "AddReputation"), (0x92u, "RemoveReputation") })
-            {
-                var result = scripts.Activate(Key(reference), records.RuntimeFormKey(0x14));
-                Require(result.Error?.Contains(command, StringComparison.OrdinalIgnoreCase) == true &&
-                    JsonSerializer.Serialize(world.CaptureReputations()) == JsonSerializer.Serialize(capture),
-                    "Unbound reputation effect was hidden by the independent setter or partly changed reputation.");
-            }
             using var precision = new FalloutReferenceWorld(records);
             precision.SetReputation(Key(2), 1, 1.1);
             Require(precision.Reputation(Key(2), 1) == (float)1.1, "Setter did not use source float precision.");

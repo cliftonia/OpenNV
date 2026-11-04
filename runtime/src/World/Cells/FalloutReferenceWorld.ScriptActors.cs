@@ -14,18 +14,10 @@ internal sealed partial class FalloutReferenceInstance
 // the existing actor-override owner (ghost flag, player-enemy faction flags).
 internal sealed partial class FalloutReferenceWorld
 {
-    private static readonly HashSet<string> DeferredScriptCommands = [];
     private readonly Dictionary<FalloutFormKey, bool> _sourcePlayerEnemy = [];
 
     // A reached command whose effect needs an absent subsystem continues the
     // script, but reports itself once per process so the gap stays visible.
-    internal static void DeferScriptCommand(string name, string reason)
-    {
-        lock (DeferredScriptCommands)
-            if (!DeferredScriptCommands.Add(name)) return;
-        GD.PushWarning($"OPENNV_SCRIPT_COMMAND_DEFERRED name={name} reason={reason}");
-    }
-
     internal void RequireScriptReference(FalloutFormKey reference)
     {
         if (reference != _enginePlayer) _ = Get(reference);
@@ -176,7 +168,7 @@ internal sealed partial class FalloutReferenceWorld
         // it would desynchronize model stage and health.
         if (instance.ScriptObjectDamage is not null)
         {
-            DeferScriptCommand("cleardestruction", "resident-destruction-model-has-no-reset-owner");
+            FalloutScriptCommandDeferral.Warn("cleardestruction", "resident-destruction-model-has-no-reset-owner");
             return;
         }
         if (instance.Destruction.Destroyed) instance.Destroyed = false;

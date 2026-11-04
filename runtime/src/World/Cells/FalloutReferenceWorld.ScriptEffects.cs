@@ -7,23 +7,6 @@ namespace OpenNV.Runtime.World.Cells;
 
 // A reached command whose state is retained but whose presentation or consumer
 // owner does not exist yet. The script continues; the gap stays visible once.
-internal static class FalloutDeferredScriptCommands
-{
-    private static readonly HashSet<string> Reported = [];
-    private static readonly Lock Gate = new();
-
-    // Contract probes run without the engine. The Godot host replaces this with
-    // its warning channel before any session can execute source scripts.
-    internal static Action<string> Sink { get; set; } = message => Console.Error.WriteLine(message);
-
-    internal static void Warn(string operation, string reason)
-    {
-        lock (Gate)
-            if (!Reported.Add(operation)) return;
-        Sink($"OPENNV_SCRIPT_COMMAND_DEFERRED name={operation} reason={reason}");
-    }
-}
-
 // Magic, effect, visual, weather and clock commands shared by quest and object
 // scripts. World-owned state is applied here; the returned arguments, already
 // resolved to literals, are the remainder owned by the native session.
@@ -52,7 +35,7 @@ internal static class FalloutScriptEffectCommands
                 return [arguments[0]];
             case "addspell" or "removespell" when arguments.Count == 1:
                 world.ChangeScriptSpell(target, Require(resolve.Form(arguments[0]), "SPEL"), operation == "addspell");
-                FalloutDeferredScriptCommands.Warn(operation, "spell-list-retained;ability-consumers-read-source-SPLO-only");
+                FalloutScriptCommandDeferral.Warn(operation, "spell-list-retained;ability-consumers-read-source-SPLO-only");
                 return null;
             case "dispel" when arguments.Count == 1:
                 var dispelled = resolve.Form(arguments[0]);
@@ -70,11 +53,11 @@ internal static class FalloutScriptEffectCommands
                 if (arguments.Count == 2 && !double.IsFinite(resolve.Number(arguments[1])))
                     throw new InvalidDataException("Magic shader duration is not finite.");
                 world.SetMagicShader(target, shader, true);
-                FalloutDeferredScriptCommands.Warn("playmagicshadervisuals", "effect-shader-presentation-unbound");
+                FalloutScriptCommandDeferral.Warn("playmagicshadervisuals", "effect-shader-presentation-unbound");
                 return null;
             case "sms" or "stopmagicshadervisuals" when arguments.Count == 1:
                 world.SetMagicShader(target, Require(resolve.Form(arguments[0]), "EFSH"), false);
-                FalloutDeferredScriptCommands.Warn("stopmagicshadervisuals", "effect-shader-presentation-unbound");
+                FalloutScriptCommandDeferral.Warn("stopmagicshadervisuals", "effect-shader-presentation-unbound");
                 return null;
             case "saa" or "setactoralpha" when arguments.Count == 1:
                 var alpha = resolve.Number(arguments[0]);
@@ -89,14 +72,14 @@ internal static class FalloutScriptEffectCommands
             case "setscreensplatterfade" when global && arguments.Count is 1 or 2:
                 if (arguments.Select(resolve.Number).Any(value => !double.IsFinite(value)))
                     throw new InvalidDataException("Screen splatter arguments are not finite.");
-                FalloutDeferredScriptCommands.Warn(operation, "screen-splatter-presentation-unbound");
+                FalloutScriptCommandDeferral.Warn(operation, "screen-splatter-presentation-unbound");
                 return null;
             case "setweather" or "sw" when global && arguments.Count is 1 or 2:
                 _ = Require(resolve.Form(arguments[0]), "WTHR");
                 return arguments.Count == 1 ? [arguments[0]] : [arguments[0], Literal(resolve.Number(arguments[1]))];
             case "setcellimagespace" when global && arguments.Count == 2:
                 world.SetCellImageSpace(Require(resolve.Form(arguments[0]), "CELL"), Require(resolve.Form(arguments[1]), "IMGS"));
-                FalloutDeferredScriptCommands.Warn(operation, "override-applies-on-next-cell-load");
+                FalloutScriptCommandDeferral.Warn(operation, "override-applies-on-next-cell-load");
                 return null;
             case "setglobaltimemultiplier" or "sgtm" when global && arguments.Count is 1 or 2:
                 var multiplier = resolve.Number(arguments[0]);
@@ -114,7 +97,7 @@ internal static class FalloutScriptEffectCommands
             case "setsecuritronexpression" or "setsecexp" when global && arguments.Count == 3:
                 if (records.GetEffective(resolve.Reference(arguments[0])).Signature is not ("ACHR" or "ACRE"))
                     throw new InvalidDataException("Securitron expression target is not a placed actor.");
-                FalloutDeferredScriptCommands.Warn("setsecuritronexpression", "securitron-face-presentation-unbound");
+                FalloutScriptCommandDeferral.Warn("setsecuritronexpression", "securitron-face-presentation-unbound");
                 return null;
             default:
                 throw new InvalidDataException($"{operation} has an invalid target or argument count ({arguments.Count}).");

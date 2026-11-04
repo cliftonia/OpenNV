@@ -120,8 +120,8 @@ internal sealed partial class FalloutReferenceWorld
     }
 
     // AddReputation/RemoveReputation take a deed size 1-5 whose points are the
-    // fReputationBump* settings; the Exact forms take points directly. Each
-    // axis is a nonnegative accumulation of the REPU's current value.
+    // fReputationBump* settings; the Exact forms take points directly. The
+    // change accumulates on the selected axis like the source setter, unclamped.
     private static readonly string[] ReputationBumps =
         ["fReputationBumpVeryMinor", "fReputationBumpMinor", "fReputationBumpAverage", "fReputationBumpMajor", "fReputationBumpVeryMajor"];
 
@@ -137,7 +137,7 @@ internal sealed partial class FalloutReferenceWorld
             points = records.NumericSettings.Float(ReputationBumps[size - 1]);
         }
         var current = Reputation(form, axis);
-        SetReputation(form, axis, Math.Max(0, current + (remove ? -points : points)));
+        SetReputation(form, axis, current + (remove ? -points : points));
     }
 
     internal FalloutReputationsSnapshot CaptureReputations() => new(_freshReputationBaseline,

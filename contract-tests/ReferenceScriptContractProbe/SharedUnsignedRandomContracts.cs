@@ -79,10 +79,10 @@ internal static class SharedUnsignedRandomContracts
         if (OperatingSystem.IsWindows()) _ = FalloutSourceMilliseconds.Read();
         else
         {
-            var refused = false;
-            try { FalloutSourceMilliseconds.Read(); }
-            catch (PlatformNotSupportedException) { refused = true; }
-            Require(refused, "An unqualified platform clock was silently substituted.");
+            // Other platforms read the same 32-bit wrapping uptime milliseconds.
+            var expected = unchecked((uint)Environment.TickCount64);
+            var actual = FalloutSourceMilliseconds.Read();
+            Require(unchecked(actual - expected) < 1000, "The platform uptime clock differs from GetTickCount's domain.");
         }
         Console.WriteLine("OPENNV_SHARED_UNSIGNED_RANDOM_PASS lazySeed=true zeroNoDraw=true " +
             "rawBlocks=true exactBounds=true processIdentity=true cancelNoDraw=true sourceWindow100ms=true " +

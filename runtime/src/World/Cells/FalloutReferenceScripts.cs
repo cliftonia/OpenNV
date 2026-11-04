@@ -994,7 +994,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                     new(name => bindings.Form(name), Number, Reference)) is { } native)
                 {
                     if (host.Command is { } nativeCommand) nativeCommand(target, bindings, operation, native);
-                    else FalloutDeferredScriptCommands.Warn(operation, "no-native-session-owner");
+                    else FalloutScriptCommandDeferral.Warn(operation, "no-native-session-owner");
                 }
                 return;
             }

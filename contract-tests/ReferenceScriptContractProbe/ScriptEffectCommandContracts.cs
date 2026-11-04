@@ -10,11 +10,11 @@ internal static class ScriptEffectCommandContracts
     internal static void Run()
     {
         var directory = Directory.CreateTempSubdirectory("opennv-script-effects-");
-        var previousSink = FalloutDeferredScriptCommands.Sink;
+        var previousSink = FalloutScriptCommandDeferral.Sink;
         var warnings = new List<string>();
         try
         {
-            FalloutDeferredScriptCommands.Sink = warnings.Add;
+            FalloutScriptCommandDeferral.Sink = warnings.Add;
             File.WriteAllBytes(Path.Combine(directory.FullName, "Effects.esm"), Join(
                 Record("TES4", 0),
                 Record("NPC_", 0x7, Field("EDID", Name("Player"))),
@@ -89,7 +89,7 @@ internal static class ScriptEffectCommandContracts
         }
         finally
         {
-            FalloutDeferredScriptCommands.Sink = previousSink;
+            FalloutScriptCommandDeferral.Sink = previousSink;
             directory.Delete(true);
         }
     }

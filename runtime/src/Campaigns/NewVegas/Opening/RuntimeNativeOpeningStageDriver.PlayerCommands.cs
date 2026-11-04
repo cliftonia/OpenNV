@@ -5,7 +5,6 @@ namespace OpenNV.Runtime.Campaigns.NewVegas.Opening;
 
 internal partial class RuntimeNativeOpeningStageDriver
 {
-    private static readonly HashSet<string> DeferredScriptCommands = new(StringComparer.Ordinal);
 
     // Opens a living actor's inventory as a transfer container. The scene host
     // owns the container menu, input capture and pause policy.
@@ -81,9 +80,7 @@ internal partial class RuntimeNativeOpeningStageDriver
         if (deferred is not { } rule) return false;
         if (arguments.Count < rule.Minimum || arguments.Count > rule.Maximum)
             throw new InvalidDataException($"{operation} has an invalid argument count {arguments.Count}.");
-        bool first;
-        lock (DeferredScriptCommands) first = DeferredScriptCommands.Add(operation);
-        if (first) GD.PushWarning($"OPENNV_SCRIPT_COMMAND_DEFERRED name={operation} reason={rule.Reason}");
+        World.Cells.FalloutScriptCommandDeferral.Warn(operation, rule.Reason);
         return true;
     }
 

@@ -66,7 +66,7 @@ public partial class RuntimeCoordinator : Node3D
     {
         AddChild(new Formats.Gamebryo.RuntimeNifApplicationClock());
         AddChild(new InputSystem.NativeGamepadInput());
-        FalloutDeferredScriptCommands.Sink = message => GD.PushWarning(message);
+        FalloutScriptCommandDeferral.Sink = message => GD.PushWarning(message);
         BeginLoadingScreen("Starting OpenNV");
         Callable.From(StartRuntimeAfterLoadingFrame).CallDeferred();
     }

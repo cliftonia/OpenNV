@@ -20,7 +20,7 @@ internal partial class RuntimeNativeOpeningStageDriver
             case "cios" or "castimmediateonself" when arguments.Count == 1:
                 if (!player)
                 {
-                    FalloutDeferredScriptCommands.Warn("castimmediateonself", "npc-actor-effect-owner-unbound");
+                    FalloutScriptCommandDeferral.Warn("castimmediateonself", "npc-actor-effect-owner-unbound");
                     return true;
                 }
                 try { _ = _ingestibles.PrepareActorEffect(bindings.Form(arguments[0]).FormKey).Commit(); }
@@ -28,7 +28,7 @@ internal partial class RuntimeNativeOpeningStageDriver
                 {
                     // Spell types, scripted and presentation effects have no
                     // staged actor lifecycle yet; value effects already applied.
-                    FalloutDeferredScriptCommands.Warn("castimmediateonself", $"player-effect-unbound:{error.Message}");
+                    FalloutScriptCommandDeferral.Warn("castimmediateonself", $"player-effect-unbound:{error.Message}");
                 }
                 return true;
             case "dispel" when player && arguments.Count == 1:
@@ -42,7 +42,7 @@ internal partial class RuntimeNativeOpeningStageDriver
                 var alpha = float.Parse(arguments[0], NumberStyles.Float, CultureInfo.InvariantCulture);
                 if (player)
                 {
-                    FalloutDeferredScriptCommands.Warn("setactoralpha", "player-self-visibility-owner-unbound");
+                    FalloutScriptCommandDeferral.Warn("setactoralpha", "player-self-visibility-owner-unbound");
                     return true;
                 }
                 // Residency rebuilds presentation from source; the world retains

@@ -114,9 +114,9 @@ internal sealed partial class FalloutReferenceScripts
             // Remaining names have no OpenNV consumer for their engine effect:
             // item barter value overrides, unowned overrides, CELL public flags
             // (no trespass owner), door path cost, navmesh travel exclusion,
-            // 3D/animation reset, and "do" (DamageObject's short name, see the
-            // retail trap script comment "; do = DamageObject").
-            case "setitemvalue" or "setminimaluse" or "do":
+            // and 3D/animation reset. ("do", DamageObject's short name, is owned
+            // by FalloutScriptActorCommands with DamageObject.)
+            case "setitemvalue" or "setminimaluse":
                 RequireArguments(context, 1, 1);
                 _ = context.Number(arguments[0]);
                 _ = world.Get(context.Target);

@@ -113,7 +113,16 @@ internal static class RadioContracts
         using var playback = world.PipBoyRadio.Bind(_ => new RadioLease(() => ++stops));
         radio.SelectPipBoy(Key(902));
         Require(world.PipBoyRadio.CurrentStation == Key(902), "Prepared receiver did not own the selected source station.");
-        Reject(() => world.PipBoyRadio.Capture());
+        // A playing station saves as tuned and resumes on a cold owner once bound.
+        var playing = JsonSerializer.Deserialize<FalloutPipBoyRadioSnapshot>(JsonSerializer.Serialize(world.PipBoyRadio.Capture()))!;
+        Require(playing.Playing && playing.LastStation == Key(902), "A playing station did not save as tuned.");
+        using (var resumed = new FalloutReferenceWorld(records))
+        {
+            resumed.PipBoyRadio.Restore(playing);
+            var resumes = 0;
+            using var lease = resumed.PipBoyRadio.Bind(_ => { ++resumes; return new RadioLease(() => { }); });
+            Require(resumes == 1 && resumed.PipBoyRadio.CurrentStation == Key(902), "A saved playing station did not resume once bound.");
+        }
         var quest = records.GetEffective(Key(1000));
         var scripts = new FalloutReferenceScripts(records, world, new(records), new((_, _) => false,
             _ => throw new InvalidDataException("Source radio off escaped its receiver owner.")));

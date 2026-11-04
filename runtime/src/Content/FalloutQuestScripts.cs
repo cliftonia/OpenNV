@@ -1275,7 +1275,7 @@ internal sealed partial class FalloutQuestScripts
                 if (FalloutScriptEffectCommands.Execute(_records, References ?? throw new NotSupportedException($"{command} has no shared reference world."),
                     parts.Length == 2 ? ReferenceArgument(parts[0]) : instance.Quest.FormKey, operation, parts.Length == 1, arguments,
                     new(Form, NumberArgument, ReferenceArgument)) is not null)
-                    FalloutDeferredScriptCommands.Warn(operation, "no-native-session-owner");
+                    FalloutScriptCommandDeferral.Warn(operation, "no-native-session-owner");
                 return;
             }
             if (parts.Length == 1 && FalloutSharedScriptCommands.TryExecute(operation, arguments, _quests, () => Challenges, Form)) return;
