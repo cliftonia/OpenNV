@@ -76,9 +76,11 @@ internal sealed partial class FalloutReferenceWorld
         return (float)Math.Sqrt(dx * dx + dy * dy + dz * dz);
     }
 
+    // An unowned or public-area cell can never be trespassed in.
     internal bool HasUnownedCell(FalloutFormKey subject, FalloutReferencePlacement? player, float unitsToMetres)
     {
         var cell = SpatialPlacement(subject, player, unitsToMetres).Cell;
+        if (IsPublicCell(cell)) return true;
         var ownership = LocalOwnership(AccessRecord(cell));
         return ownership.Owner is null && EncounterOwner(CellEncounterZone(cell)) is null;
     }

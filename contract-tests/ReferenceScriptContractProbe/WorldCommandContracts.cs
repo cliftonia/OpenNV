@@ -54,7 +54,7 @@ internal static class WorldCommandContracts
                 "ActorRef.AddItemHealthPercent Gun 1 0.35", "ActorRef.AddItemHealthPercent Suit 1 0.5",
                 "ActorRef.AddItemHealthPercent Kept 1 1", "ActorRef.AddItemHealthPercent Loot 2 0.5",
                 "ActorRef.RemoveAllTypedItems ChestRef 0 1 24 KeptList",
-                "SetCellOwnership TestCell Owners", "ResetQuest ResetMe", "RemoveRecurringFromChallenge Chal",
+                "SetCellOwnership TestCell Owners", "SetCellPublicFlag TestCell 1", "ResetQuest ResetMe", "RemoveRecurringFromChallenge Chal",
                 "PurgeCellBuffers", "SetSceneIsComplex 1", "BoxRef.EnterTrigger player", "BoxRef.TrapUpdate",
                 "ActorRef.SetAngle Z 90"));
             var actor = world.Inventory(Key(0x900), 1).Contents;
@@ -65,6 +65,10 @@ internal static class WorldCommandContracts
                 actor.Item(Key(6)) is { Variants: null or [{ Condition: null }] } && actor.Item(Key(2)) is not null && chest.Item(Key(6)) is null,
                 "RemoveAllTypedItems ignored its type code, exemption list or the item's condition.");
             Require(world.Ownership(Key(0x901)).Owner == Key(0x700), "SetCellOwnership did not reach inherited reference ownership.");
+            Require(world.IsPublicCell(Key(0x800)) && world.HasUnownedCell(Key(0x900), null, 1), "SetCellPublicFlag did not make its owned cell trespass-free.");
+            executor.ExecuteStage(quest, quest.ReadSubrecords().ToArray(), "SetPublic TestCell 0");
+            Require(!world.IsPublicCell(Key(0x800)) && !world.HasUnownedCell(Key(0x900), null, 1), "SetPublic did not clear the public flag.");
+            executor.ExecuteStage(quest, quest.ReadSubrecords().ToArray(), "SetCellPublicFlag TestCell 1");
             Require(!quests.StageDone(Key(0x601), 10) && quests.Stage(Key(0x601)) == 0, "ResetQuest retained entered stages.");
             challenges.IncrementScripted(Key(0x300));
             Require(challenges.State(Key(0x300)) is { Completed: true, RecurringRemoved: true }, "Challenge stayed recurring.");
@@ -75,12 +79,12 @@ internal static class WorldCommandContracts
             cold.RestoreCellOwnership(JsonSerializer.Deserialize<FalloutCellOwnershipSnapshot>(JsonSerializer.Serialize(world.CaptureCellOwnership())));
             cold.Restore(world.Capture());
             cold.LoadCell(FalloutCellSceneReader.Read(records, Key(0x800)));
-            Require(cold.Ownership(Key(0x901)).Owner == Key(0x700), "CELL ownership did not survive save restoration.");
+            Require(cold.Ownership(Key(0x901)).Owner == Key(0x700) && cold.IsPublicCell(Key(0x800)), "CELL ownership or public flag did not survive save restoration.");
             var restoredChallenges = new FalloutChallenges(records, new());
             restoredChallenges.Restore(challenges.Capture());
             Require(restoredChallenges.State(Key(0x300)).RecurringRemoved, "Challenge recurrence removal did not survive restoration.");
             Reject(() => executor.ExecuteStage(quest, quest.ReadSubrecords().ToArray(), "ActorRef.RemoveAllTypedItems 0 1"));
-            Console.WriteLine("OPENNV_WORLD_COMMAND_CONTRACT_PASS item-condition typed-removal cell-ownership quest-reset challenge-recurrence trigger-enter set-angle cold");
+            Console.WriteLine("OPENNV_WORLD_COMMAND_CONTRACT_PASS item-condition typed-removal cell-ownership cell-public quest-reset challenge-recurrence trigger-enter set-angle cold");
         }
         finally { directory.Delete(true); }
     }
