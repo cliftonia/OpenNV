@@ -667,6 +667,7 @@ internal sealed partial class FalloutReferenceWorld(FalloutPluginStack records,
         }
     }
     internal FalloutPlayerCaravanCards PlayerCaravanCards { get; } = new(records);
+    internal FalloutCasinoWinnings CasinoWinnings { get; } = new(records);
     internal FalloutScriptMenus Menus { get; } = new();
     private FalloutReferencePackageEvents? _packageEvents;
     internal FalloutReferencePackageEvents PackageEvents => _packageEvents ??= new(records);

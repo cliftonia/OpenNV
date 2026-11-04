@@ -16,7 +16,7 @@ internal partial class RuntimeNativeOpeningStageDriver
     internal object? RestState => _restMenu?.State;
 
     private bool PlayerInteractionBusy => _moviePlaying || _levelUpMenu is not null || _restMenu is not null || _repairServicesMenu is not null ||
-        _player.FurnitureActive || _recipeMenu is not null || _barterMenu is not null || _caravanMenu is not null ||
+        _player.FurnitureActive || _recipeMenu is not null || _barterMenu is not null || _caravanMenu is not null || _casinoMenu is not null ||
         _nameEntry is not null || _raceSexEntry is not null || _vigorEntry is not null || _specialBookEntry is not null ||
         _tagSkillEntry is not null || _traitEntry is not null || _conversation?.Active == true || _speech?.Active == true ||
         TerminalSaveBlocker is not null;

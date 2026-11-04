@@ -60,9 +60,6 @@ internal partial class RuntimeNativeOpeningStageDriver
     {
         (int Minimum, int Maximum, string Reason)? deferred = operation switch
         {
-            "showroulettemenuparams" => (1, 4, "roulette-menu-presentation-unbound"),
-            "showblackjackmenuparams" => (1, 4, "blackjack-menu-presentation-unbound"),
-            "showslotmachinemenuparams" => (1, 4, "slot-machine-menu-presentation-unbound"),
             "showtutorialmenu" => (1, 1, "tutorial-menu-presentation-unbound"),
             "startmistersandman" => (0, 1, "sandman-kill-animation-owner-unbound"),
             "setpccanusepowerarmor" => (1, 1, "power-armor-training-owner-unbound"),

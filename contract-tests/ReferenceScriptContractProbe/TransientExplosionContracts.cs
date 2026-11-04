@@ -173,6 +173,10 @@ internal static class TransientExplosionContracts
             "v71 source-mine saves were not admitted without changing their contents.");
         Reject(() => FalloutNativeCampaignSave.AdmitPreviousOwnerSchema(v71 with { RuntimeReferences = new(0, []) }));
         Reject(() => FalloutNativeCampaignSave.AdmitPreviousOwnerSchema(v71 with { DynamicMines = [] }));
+        var v72 = admitted with { Schema = FalloutNativeCampaignSave.BeforeCasinoWinningsSchema };
+        Check(FalloutNativeCampaignSave.AdmitPreviousOwnerSchema(v72).Schema == FalloutNativeCampaignSave.ExpectedSchema,
+            "v72 saves were not admitted before casino winnings existed.");
+        Reject(() => FalloutNativeCampaignSave.AdmitPreviousOwnerSchema(v72 with { CasinoWinnings = new([]) }));
     }
     private static FalloutFormKey Key(uint id) => new("Explosion.esm", id);
     private static void Check(bool valid, string message) { if (!valid) throw new InvalidDataException(message); }

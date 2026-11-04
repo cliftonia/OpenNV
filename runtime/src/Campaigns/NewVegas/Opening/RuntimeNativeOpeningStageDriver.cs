@@ -137,6 +137,7 @@ internal partial class RuntimeNativeOpeningStageDriver : Node
         if (_caravanMenu is not null) yield return _caravanMenu.MenuId;
         if (_restMenu is not null) yield return FalloutPlayerRest.MenuId;
         if (_repairServicesMenu is not null) yield return FalloutRepairServices.MenuId;
+        if (_casinoMenu is not null) yield return _casinoMenu.MenuId;
         if (_player.VatsMenuActive) yield return NativeVatsMenu.MenuId;
         if (_terminalMenus.Values.Any(menu => menu.Active)) yield return FalloutTerminal.MenuId;
     }
@@ -381,7 +382,7 @@ internal partial class RuntimeNativeOpeningStageDriver : Node
             return;
         }
         if (_machine is not null && !_moviePlaying && _nameEntry is null && _raceSexEntry is null && _vigorEntry is null && _specialBookEntry is null &&
-            _tagSkillEntry is null && _traitEntry is null && _recipeMenu is null && _barterMenu is null && _caravanMenu is null && _levelUpMenu is null &&
+            _tagSkillEntry is null && _traitEntry is null && _recipeMenu is null && _barterMenu is null && _caravanMenu is null && _casinoMenu is null && _levelUpMenu is null &&
             _restMenu is null && _repairServicesMenu is null)
         {
             try { _scripts.AdvanceClaimed(_controls.Stage(QuestEditorId, Stage).Quest, delta, _scriptHost); }

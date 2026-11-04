@@ -26,7 +26,8 @@ internal partial class RuntimeNativeOpeningStageDriver
     private void OpenRepairServicesMenu(FalloutFormKey vendor)
     {
         if (_repairServicesMenu is not null) throw new InvalidOperationException("A repair services menu is already active.");
-        if (_restMenu is not null || _levelUpMenu is not null || _recipeMenu is not null || _barterMenu is not null || _caravanMenu is not null)
+        if (_restMenu is not null || _levelUpMenu is not null || _recipeMenu is not null || _barterMenu is not null || _caravanMenu is not null ||
+            _casinoMenu is not null)
             throw new InvalidOperationException("Repair services cannot open while another player menu owns input.");
         var world = _scripts.References ?? throw new InvalidOperationException("Repair services have no reference-world owner.");
         var skill = world.ActorValue(vendor, "Repair");
