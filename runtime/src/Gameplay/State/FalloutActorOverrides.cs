@@ -17,4 +17,5 @@ internal sealed record FalloutActorOverrides(FalloutFormKey Target, string Sourc
     FalloutActorFormOverride? Race = null, FalloutActorFaceGeometryOverride? FaceGeometry = null, float? Height = null,
     FalloutActorHairOverride? Hair = null, bool? Alerted = null,
     IReadOnlyList<FalloutActorFormOverride>? TeammatePerks = null,
-    bool Ghost = false, IReadOnlyList<FalloutActorFormOverride>? PlayerEnemyFactions = null);
+    bool Ghost = false, IReadOnlyList<FalloutActorFormOverride>? PlayerEnemyFactions = null,
+    IReadOnlyList<FalloutActorFormOverride>? Spells = null);

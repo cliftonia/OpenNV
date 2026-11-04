@@ -231,6 +231,7 @@ internal partial class RuntimeNativeOpeningStageDriver
                 RequestWorldSave();
                 break;
             default:
+                if (parts.Length == 1 && ApplyNativeEffectCommand(source, bindings, operation, arguments)) break;
                 throw new NotSupportedException($"Reached native script command {command} ({arguments.Count} arguments) has no owner.");
         }
     }

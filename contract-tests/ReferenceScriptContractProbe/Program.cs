@@ -856,6 +856,11 @@ if (args is ["--music-type-contracts"])
     return;
 }
 
+if (args is ["--script-effect-command-contracts"])
+{
+    ScriptEffectCommandContracts.Run();
+    return;
+}
 if (args is ["--weather-command-contracts"])
 {
     WeatherCommandContracts.Run();
@@ -1913,6 +1918,7 @@ DialoguePackageContracts.Run();
 DialogueSpatialContracts.Run();
 HeadingQueryContracts.Run();
 WeatherCommandContracts.Run();
+ScriptEffectCommandContracts.Run();
 MovementSpeedContracts.Run();
 FastTravelContracts.Run();
 MusicTypeContracts.Run();

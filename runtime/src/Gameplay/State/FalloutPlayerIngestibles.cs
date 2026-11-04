@@ -225,6 +225,30 @@ internal sealed class FalloutPlayerIngestibles(FalloutPluginStack records, Fallo
         _active.Clear(); _active.AddRange(next);
     }
 
+    // Dispel ends matching timers early. Reversible modifiers are returned
+    // exactly as at natural expiry; gradual increments already applied remain.
+    internal int Dispel(Func<FalloutFormKey, bool> source)
+    {
+        if (_executingScript) throw new NotSupportedException("Dispel cannot interrupt an executing ingestible script.");
+        var removed = _active.Where(timer => source(timer.Item)).ToArray();
+        if (removed.Length == 0) return 0;
+        var beforePools = pools?.Capture();
+        try
+        {
+            foreach (var timer in removed)
+                if (FalloutIngestibleApplications.Reversible(Definition(timer.Item).Effects[timer.Index]))
+                    (pools ?? throw new InvalidOperationException("Reversible effect has no actor-value pool owner."))
+                        .AddModifier(Definition(timer.Item).Effects[timer.Index].ActorValue, FalloutActorValuePool.Temporary, -timer.Magnitude);
+        }
+        catch
+        {
+            if (beforePools is not null) pools!.Restore(beforePools);
+            throw;
+        }
+        _active.RemoveAll(timer => source(timer.Item));
+        return removed.Length;
+    }
+
     internal void Restore(FalloutIngestiblesSnapshot snapshot)
     {
         if (_active.Count != 0 || _scriptReceipts.Count != 0) throw new InvalidOperationException("Ingestible restoration needs a fresh owner.");

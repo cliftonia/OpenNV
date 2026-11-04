@@ -1688,7 +1688,8 @@ public partial class RuntimeCoordinator
             Name = $"NativeEnvironment_{cell.Cell.FormKey}",
             Environment = environment,
         };
-        world.Compositor = AddNativeImageSpace(root, FalloutImageSpaceReader.ForCell(_nativePluginStack!, cell.Cell.FormKey));
+        world.Compositor = AddNativeImageSpace(root, _nativeReferences?.CellImageSpace(cell.Cell.FormKey) ??
+            FalloutImageSpaceReader.ForCell(_nativePluginStack!, cell.Cell.FormKey));
         root.AddChild(world);
         var surfaceToLight = RetailLighting.SurfaceToLightFromXcllDegrees(
             lighting.DirectionalXDegrees,

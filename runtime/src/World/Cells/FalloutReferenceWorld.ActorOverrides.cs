@@ -53,7 +53,7 @@ internal sealed partial class FalloutReferenceWorld
                 enemies.Any(item => item is null || item.Value is not (0 or 1))))
                 throw new InvalidDataException("Player-enemy faction flags must be boolean and retained on the player.");
             foreach (var (items, signature) in new[] { (snapshot.Perks, "PERK"), (snapshot.Factions, "FACT"),
-                (snapshot.TeammatePerks ?? [], "PERK"), (snapshot.PlayerEnemyFactions ?? [], "FACT") })
+                (snapshot.TeammatePerks ?? [], "PERK"), (snapshot.PlayerEnemyFactions ?? [], "FACT"), (snapshot.Spells ?? [], "SPEL") })
             {
                 var seen = new HashSet<FalloutFormKey>();
                 foreach (var item in items)

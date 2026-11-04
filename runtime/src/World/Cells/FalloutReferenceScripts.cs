@@ -985,6 +985,18 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                 }
                 return;
             }
+            if (FalloutScriptEffectCommands.Supports(operation))
+            {
+                // The native remainder addresses the resolved caller directly,
+                // so reference-variable qualifiers need no second binding.
+                if (FalloutScriptEffectCommands.Execute(records, world, target, operation, parts.Length == 1, arguments,
+                    new(name => bindings.Form(name), Number, Reference)) is { } native)
+                {
+                    if (host.Command is { } nativeCommand) nativeCommand(target, bindings, operation, native);
+                    else FalloutDeferredScriptCommands.Warn(operation, "no-native-session-owner");
+                }
+                return;
+            }
             switch (operation)
             {
                 case "settalkingactivatoractor" when arguments.Count <= 1:

@@ -1268,6 +1268,16 @@ internal sealed partial class FalloutQuestScripts
                     _ = Auxiliary.SetString(setOwner, caller, name, StringArgument(arguments[1]), index);
                 return;
             }
+            if (parts.Length <= 2 && FalloutScriptEffectCommands.Supports(operation))
+            {
+                // Without a reference-script host, the native remainder (player
+                // active effects, sky, clock, haptics) stays visibly deferred.
+                if (FalloutScriptEffectCommands.Execute(_records, References ?? throw new NotSupportedException($"{command} has no shared reference world."),
+                    parts.Length == 2 ? ReferenceArgument(parts[0]) : instance.Quest.FormKey, operation, parts.Length == 1, arguments,
+                    new(Form, NumberArgument, ReferenceArgument)) is not null)
+                    FalloutDeferredScriptCommands.Warn(operation, "no-native-session-owner");
+                return;
+            }
             switch (command.ToLowerInvariant())
             {
                 case "pipboyradiooff" when arguments.Count == 0:
