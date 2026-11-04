@@ -20,7 +20,7 @@ internal sealed record FalloutQuestScriptClockSnapshot(float Remaining, float El
 internal sealed class FalloutQuestScriptClock
 {
     private readonly float _defaultDelay;
-    internal float Interval { get; }
+    internal float Interval { get; private set; }
     internal float Remaining { get; private set; }
     internal float Elapsed { get; private set; }
     internal long Invocations { get; private set; }
@@ -65,19 +65,29 @@ internal sealed class FalloutQuestScriptClock
         Invocations = invocations;
     }
 
+    // SetQuestDelay replaces the recurrence interval; zero or less restores the
+    // installation default. A pending countdown never exceeds the new interval.
+    internal void SetInterval(float seconds)
+    {
+        if (!float.IsFinite(seconds)) throw new InvalidDataException("Quest delay is not finite.");
+        if (_defaultDelay <= 0) return;
+        Interval = seconds > 0 ? seconds : _defaultDelay;
+        if (Remaining > Interval) Remaining = Interval;
+    }
+
     internal FalloutQuestScriptClockSnapshot Capture() => new(Remaining, Elapsed, Invocations);
 
     internal void Validate(FalloutQuestScriptClockSnapshot snapshot)
     {
         snapshot.Validate();
-        if (snapshot.Invocations > 0 && snapshot.Remaining > Interval)
-            throw new InvalidDataException("Saved recurrence exceeds its source interval.");
+        // A script may have lengthened the interval with SetQuestDelay before
+        // saving; Restore caps such a countdown to the source interval.
     }
 
     internal void Restore(FalloutQuestScriptClockSnapshot snapshot)
     {
         Validate(snapshot);
-        Remaining = snapshot.Remaining;
+        Remaining = snapshot.Invocations > 0 && snapshot.Remaining > Interval ? Interval : snapshot.Remaining;
         Elapsed = snapshot.Elapsed;
         Invocations = snapshot.Invocations;
     }

@@ -36,4 +36,15 @@ internal sealed partial class FalloutReferenceWorld
             instance.StopCombat?.Invoke();
         }
     }
+
+    // StopCombat ends this actor's own engagement; other fighters keep theirs.
+    internal void StopCombat(FalloutFormKey reference)
+    {
+        if (records.RuntimeFormId(reference) == 0x14) return;
+        var instance = Get(reference);
+        _ = Actor(reference);
+        instance.Engagement = null;
+        instance.AggroWarning = null;
+        instance.StopCombat?.Invoke();
+    }
 }

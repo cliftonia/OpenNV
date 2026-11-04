@@ -119,6 +119,27 @@ internal sealed partial class FalloutReferenceWorld
         _reputations[source.Form] = positive ? previous with { Positive = (float)amount } : previous with { Negative = (float)amount };
     }
 
+    // AddReputation/RemoveReputation take a deed size 1-5 whose points are the
+    // fReputationBump* settings; the Exact forms take points directly. Each
+    // axis is a nonnegative accumulation of the REPU's current value.
+    private static readonly string[] ReputationBumps =
+        ["fReputationBumpVeryMinor", "fReputationBumpMinor", "fReputationBumpAverage", "fReputationBumpMajor", "fReputationBumpVeryMajor"];
+
+    internal void ChangeReputation(FalloutFormKey form, double axis, double amount, bool exact, bool remove)
+    {
+        if (!double.IsFinite(amount)) throw new InvalidDataException("Reputation change is not finite.");
+        double points;
+        if (exact) points = amount;
+        else
+        {
+            var size = (int)Math.Round(amount);
+            if (size is < 1 or > 5 || size != amount) throw new InvalidDataException("AddReputation deed size must be 1 to 5.");
+            points = records.NumericSettings.Float(ReputationBumps[size - 1]);
+        }
+        var current = Reputation(form, axis);
+        SetReputation(form, axis, Math.Max(0, current + (remove ? -points : points)));
+    }
+
     internal FalloutReputationsSnapshot CaptureReputations() => new(_freshReputationBaseline,
         _reputations.Values.OrderBy(value => value.Form.ToString(), StringComparer.Ordinal).ToArray());
 

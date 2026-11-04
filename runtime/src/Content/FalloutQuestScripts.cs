@@ -1163,6 +1163,15 @@ internal sealed partial class FalloutQuestScripts
                         NumberArgument(arguments[1]), NumberArgument(arguments[2]));
                 return;
             }
+            if (parts.Length <= 2 && operation is "addreputation" or "addreputationexact" or "removereputation" or "removereputationexact")
+            {
+                if (arguments.Count != 3) throw new InvalidDataException($"{command} requires a reputation, axis and amount.");
+                (References ?? throw new NotSupportedException("Reputation change has no shared world owner."))
+                    .ChangeReputation(TryForm(arguments[0])?.FormKey ?? AuxiliaryValueOwner(NumberArgument(arguments[0])),
+                        NumberArgument(arguments[1]), NumberArgument(arguments[2]),
+                        exact: operation.EndsWith("exact", StringComparison.Ordinal), remove: operation.StartsWith("remove", StringComparison.Ordinal));
+                return;
+            }
             if (parts.Length == 1 && operation is "setally" or "setenemy")
             {
                 if (arguments.Count is < 2 or > 4) throw new InvalidDataException("Faction relationship requires two factions and optional directional flags.");
@@ -1262,6 +1271,11 @@ internal sealed partial class FalloutQuestScripts
                 case "short" or "int" or "long" or "float" when arguments.Count == 1: _ = Variable(arguments[0]); break;
                 case "showmessage" when arguments.Count == 1:
                     ShowMessage(Form(arguments[0]).FormKey, instance.Script.FormKey);
+                    break;
+                case "setquestdelay" or "sqd" when arguments.Count == 2:
+                    var delayed = Quest(arguments[0]).FormKey;
+                    foreach (var owner in _instances.Where(candidate => candidate.Quest.FormKey == delayed))
+                        owner.Clock.SetInterval((float)NumberArgument(arguments[1]));
                     break;
                 case "startquest" or "stopquest" when arguments.Count == 1:
                     _quests.SetRunning(Quest(arguments[0]).FormKey, command.Equals("startquest", StringComparison.OrdinalIgnoreCase));

@@ -1068,6 +1068,9 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                 case "stopcombatalarmonactor" or "scaonactor" when arguments.Count == 0:
                     world.StopCombatAlarmOnActor(target);
                     break;
+                case "stopcombat" when arguments.Count == 0:
+                    world.StopCombat(target);
+                    break;
                 case "startcombat" when arguments.Count == 1:
                     world.StartCombat(target, Reference(arguments[0]));
                     break;
@@ -1154,6 +1157,11 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                     break;
                 case "setreputation" when parts.Length == 1 && arguments.Count == 3:
                     world.SetReputation(bindings.Form(arguments[0]).FormKey, Number(arguments[1]), Number(arguments[2]));
+                    break;
+                case "addreputation" or "addreputationexact" or "removereputation" or "removereputationexact"
+                    when arguments.Count == 3:
+                    world.ChangeReputation(bindings.Form(arguments[0]).FormKey, Number(arguments[1]), Number(arguments[2]),
+                        exact: operation.EndsWith("exact", StringComparison.Ordinal), remove: operation.StartsWith("remove", StringComparison.Ordinal));
                     break;
                 case "setally" or "setenemy" when parts.Length == 1 && arguments.Count is >= 2 and <= 4:
                     world.SetFactionRelationship(bindings.Form(arguments[0]).FormKey, bindings.Form(arguments[1]).FormKey,
