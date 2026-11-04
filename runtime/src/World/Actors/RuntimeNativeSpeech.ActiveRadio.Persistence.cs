@@ -37,9 +37,11 @@ internal partial class RuntimeNativeSpeech
 
     internal bool CanCaptureState => CanCaptureFinishedState || Error is null && !_emptyCompletions.Active &&
         _deferredRequests.Count == 0 && _npcDialogueParticipants.Count == 0 &&
-        _channels.Values.All(voice => InactiveVoiceSettled(voice) || CanCaptureRadioVoice(voice)) &&
+        _channels.Values.All(voice => InactiveVoiceSettled(voice) || IsBroadcastVoice(voice) || CanCaptureRadioVoice(voice)) &&
         _radioConversations.Where(pair => pair.Value.Active).All(pair =>
-            _channels.TryGetValue(pair.Key, out var voice) && CanCaptureRadioVoice(voice));
+            _channels.TryGetValue(pair.Key, out var voice) && (IsBroadcastVoice(voice) || CanCaptureRadioVoice(voice)));
+
+    private static bool IsBroadcastVoice(Voice voice) => voice.Broadcast && voice.Radio is not null;
 
     internal FalloutNativeFinishedSpeechSnapshot CaptureState()
     {
@@ -49,7 +51,7 @@ internal partial class RuntimeNativeSpeech
         {
             var snapshot = CaptureHistory() with
             {
-                ActiveRadio = _channels.Values.Where(voice => voice.Info is not null)
+                ActiveRadio = _channels.Values.Where(voice => voice.Info is not null && !IsBroadcastVoice(voice))
                     .OrderBy(voice => voice.Reference.ToString(), StringComparer.Ordinal).Select(voice =>
                         new FalloutActiveRadioVoiceSnapshot(voice.Radio!.CaptureActiveState(), voice.Generation,
                             voice.ResponseIndex, voice.Binding!, voice.Pcm!.Data.MediaSha256,

@@ -143,6 +143,7 @@ internal partial class RuntimeNativeSpeech
             if (conversation.Info is not { } info) { _radioRetryAt[station] = _radioClock + 5; return; }
             StartCore(new(station.ToString(), "", conversation.Topic!.Value.ToString()), _stack.GetEffective(station),
                 conversation.Topic.Value, null, selectedInfo: info, radio: conversation);
+            if (_channels.TryGetValue(station, out var started)) started.Broadcast = true;
             GD.Print($"OPENNV_NATIVE_RADIO_BROADCAST station={station} topic={conversation.Topic} info={info.Record.FormKey}");
         }
         catch (Exception error) when (error is InvalidDataException or NotSupportedException or FileNotFoundException or
@@ -160,7 +161,8 @@ internal partial class RuntimeNativeSpeech
         var source = FalloutSoundRecordReader.Read(_stack, sound);
         var content = RuntimeLiveContentSource.Current ?? throw new InvalidOperationException("Owned source is absent.");
         var variants = FalloutAnimationSound.Variants(source, source.HasExactFile ? [] : content.ResourcePathsUnder(source.LogicalPath));
-        var path = variants[variants.Count == 1 ? 0 : (int)((_dialogueRandom ?? (bound => (uint)Random.Shared.Next((int)bound)))((uint)variants.Count))];
+        var path = variants[variants.Count == 1 ? 0 : (int)(_dialogueRandom ??
+            throw new NotSupportedException("Radio song variant selection has no dialogue random owner."))((uint)variants.Count)];
         voice.Pcm = new(RadioPcm(path), new(FalloutSoundLoopMode.None, 0, 0), null, !CanProcess());
         voice.Player.Stream = voice.Pcm.Stream;
         voice.Player.ProcessMode = ProcessModeEnum.Pausable;
@@ -184,6 +186,7 @@ internal partial class RuntimeNativeSpeech
             voice.Unrecorded = null;
             voice.Radio = null;
             voice.Info = null;
+            voice.Broadcast = false;
         }
         _radioConversations.Remove(station);
     }

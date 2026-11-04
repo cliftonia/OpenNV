@@ -20,6 +20,8 @@ internal partial class RuntimeNativeSpeech : Node
         internal FalloutFormKey? Topic;
         internal FalloutFormKey? Listener;
         internal FalloutDialogueInfo? Info;
+        // Started by the Pip-Boy broadcast scheduler: not saved, restarted on load.
+        internal bool Broadcast;
         internal int ResponseIndex;
         internal FalloutDialogueSpeaker? Identity;
         internal FalloutDialogueVoiceBinding? Binding;

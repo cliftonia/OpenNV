@@ -3,7 +3,7 @@ using OpenNV.Runtime.Content;
 
 namespace OpenNV.Runtime.Gameplay.State;
 
-internal sealed record FalloutPipBoyRadioSnapshot(FalloutFormKey? LastStation = null, string? SourceSha256 = null)
+internal sealed record FalloutPipBoyRadioSnapshot(FalloutFormKey? LastStation = null, string? SourceSha256 = null, bool Playing = false)
 {
     internal void Validate()
     {
@@ -39,6 +39,7 @@ internal sealed class FalloutPipBoyRadio(FalloutPluginStack records)
         ArgumentNullException.ThrowIfNull(prepare);
         if (_prepare is not null) throw new InvalidOperationException("Pip-Boy radio already has a playback owner.");
         _prepare = prepare;
+        if (_resume) Resume();
         return new Scope(() => { Off(); _prepare = null; });
     }
 
@@ -72,10 +73,17 @@ internal sealed class FalloutPipBoyRadio(FalloutPluginStack records)
         return Convert.ToHexString(hash.GetHashAndReset());
     }
 
-    internal FalloutPipBoyRadioSnapshot Capture()
+    // A playing station is saved as "tuned"; its broadcast restarts with a
+    // fresh segment on load rather than resuming mid-line.
+    internal FalloutPipBoyRadioSnapshot Capture() =>
+        new(LastStation, LastStation is { } station ? SourceHash(station) : null, _playback is not null);
+
+    private bool _resume;
+
+    private void Resume()
     {
-        if (_playback is not null) throw new NotSupportedException("Saving an active Pip-Boy station requires its broadcast timeline.");
-        return new(LastStation, LastStation is { } station ? SourceHash(station) : null);
+        _resume = false;
+        if (LastStation is { } station) Select(FalloutRadioStation.Read(records, records.GetEffective(station)));
     }
 
     internal void Restore(FalloutPipBoyRadioSnapshot? snapshot)
@@ -87,6 +95,9 @@ internal sealed class FalloutPipBoyRadio(FalloutPluginStack records)
         if (snapshot.LastStation is { } station && SourceHash(station) != snapshot.SourceSha256)
             throw new InvalidDataException("Saved receiver station differs from its source records.");
         LastStation = snapshot.LastStation;
+        if (!snapshot.Playing || LastStation is null) return;
+        _resume = true;
+        if (_prepare is not null) Resume();
     }
 
     private sealed class Scope(Action release) : IDisposable
