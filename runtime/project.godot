@@ -30,6 +30,8 @@ jolt_physics_3d/queries/enable_ray_cast_face_index=true
 
 [rendering]
 
+textures/vram_compression/import_etc2_astc=true
+
 driver/threads/thread_model=1
 textures/streaming/enabled=true
 limits/global_shader_variables/buffer_size=1048576
