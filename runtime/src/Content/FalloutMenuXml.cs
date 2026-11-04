@@ -102,6 +102,11 @@ internal static class FalloutMenuXml
     internal static float Number(XElement property, Func<string, string, float> reference)
         => Number(property, reference, 0);
 
+    // Retail menus also accept the bare screen source used by authored
+    // overrides such as YUP's globals.xml line-thickness expression.
+    private static string SourceName(string source)
+        => string.Equals(source.Trim(), "screen", StringComparison.OrdinalIgnoreCase) ? "screen()" : source;
+
     private static float Number(XElement property, Func<string, string, float> reference, float accumulator)
     {
         if (property.Attribute("src") is { } source)
@@ -113,7 +118,7 @@ internal static class FalloutMenuXml
                     throw new InvalidDataException("Menu indexed trait requires an integral accumulator.");
                 trait += accumulator.ToString(CultureInfo.InvariantCulture);
             }
-            return reference(source.Value, trait);
+            return reference(SourceName(source.Value), trait);
         }
         if (!property.HasElements)
         {

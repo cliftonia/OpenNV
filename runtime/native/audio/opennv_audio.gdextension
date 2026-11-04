@@ -6,3 +6,5 @@ reloadable = false
 [libraries]
 windows.debug.x86_64 = "res://generated/native/opennv_audio.dll"
 windows.release.x86_64 = "res://generated/native/opennv_audio.dll"
+macos.debug = "res://generated/native/opennv_audio.dylib"
+macos.release = "res://generated/native/opennv_audio.dylib"

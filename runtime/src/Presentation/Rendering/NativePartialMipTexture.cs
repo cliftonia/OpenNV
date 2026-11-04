@@ -11,6 +11,19 @@ internal sealed partial class NativePartialMipTexture : Texture2Drd
 
     internal static NativePartialMipTexture Create(byte[] bytes, FalloutDdsMipChain chain)
     {
+        // Texture2DRD maps BC1 only through Godot's opaque BC1_RGB owner, the
+        // same format its own DXT1 path uses. Encoded transparency has no
+        // partial-chain owner and stays rejected rather than rendered opaque.
+        var blockFormat = chain.Format switch
+        {
+            "BC1" when FalloutBc1Alpha.ContainsTransparency(bytes.AsSpan(128), chain.Levels[0].Width,
+                chain.Levels[0].Height, chain.Levels.Count) =>
+                throw new NotSupportedException("Partial BC1 mip chains with encoded transparency have no texture owner."),
+            "BC1" => RenderingDevice.DataFormat.Bc1RgbUnormBlock,
+            "BC2" => RenderingDevice.DataFormat.Bc2UnormBlock,
+            "BC3" => RenderingDevice.DataFormat.Bc3UnormBlock,
+            _ => throw new NotSupportedException("Unknown authored block compression format."),
+        };
         var result = new NativePartialMipTexture();
         Exception? failure = null;
         using var completed = new ManualResetEventSlim();
@@ -26,13 +39,7 @@ internal sealed partial class NativePartialMipTexture : Texture2Drd
                     Height = (uint)chain.Levels[0].Height,
                     Mipmaps = (uint)chain.Levels.Count,
                     TextureType = RenderingDevice.TextureType.Type2D,
-                    Format = chain.Format switch
-                    {
-                        "BC1" => RenderingDevice.DataFormat.Bc1RgbaUnormBlock,
-                        "BC2" => RenderingDevice.DataFormat.Bc2UnormBlock,
-                        "BC3" => RenderingDevice.DataFormat.Bc3UnormBlock,
-                        _ => throw new NotSupportedException("Unknown authored block compression format."),
-                    },
+                    Format = blockFormat,
                     UsageBits = RenderingDevice.TextureUsageBits.SamplingBit | RenderingDevice.TextureUsageBits.CanCopyFromBit,
                 };
                 using var view = new RDTextureView();

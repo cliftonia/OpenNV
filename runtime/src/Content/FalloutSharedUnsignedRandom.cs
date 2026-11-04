@@ -63,8 +63,9 @@ internal static partial class FalloutSourceMilliseconds
 {
     internal static uint Read()
     {
-        if (!OperatingSystem.IsWindows())
-            throw new PlatformNotSupportedException("The source unsigned clock requires its qualified Win32 GetTickCount boundary.");
+        // GetTickCount is milliseconds since system start, wrapping at 32 bits.
+        // Other platforms expose the same monotonic uptime through TickCount64.
+        if (!OperatingSystem.IsWindows()) return unchecked((uint)Environment.TickCount64);
         return NativeGetTickCount();
     }
 

@@ -42,7 +42,12 @@ internal static partial class FalloutExecutableStringTable
             if (table is not null) throw new InvalidDataException("Owned input profile reader is ambiguous.");
             table = names; mouseBase = lane;
         }
-        if (table is null || mouseBase is null) throw new NotSupportedException("Owned input profile reader is missing.");
+        if (table is null || mouseBase is null)
+        {
+            if (!TryReadFramePointerProfileReader(code, literal, import, out var directTable, out var directMouse))
+                throw new NotSupportedException("Owned input profile reader is missing.");
+            table = directTable; mouseBase = directMouse;
+        }
         var pointers = read(table.Value, 28 * sizeof(uint));
         var labels = Enumerable.Range(0, 28).Select(index => literal(U32(pointers, index * 4)) ??
             throw new InvalidDataException("Owned control table has an absent name.")).ToArray();
@@ -93,6 +98,7 @@ internal static partial class FalloutExecutableStringTable
             if (bindings is not null) throw new InvalidDataException("Owned input constructor is ambiguous.");
             bindings = values;
         }
+        bindings ??= ReadFramePointerInputDefaults(code, mouseBase.Value);
         if (bindings is null) throw new NotSupportedException("Owned input constructor is unbound.");
         return labels.Select((name, index) => (name, Keyboard: bindings[index], Mouse: bindings[index + 28]))
             .ToDictionary(row => row.name, row => (row.Keyboard, row.Mouse), StringComparer.OrdinalIgnoreCase);
