@@ -103,10 +103,13 @@ internal sealed class NativeOwnedPcmStream : IDisposable
         if (!ClassDB.ClassExists("OpenNVPcmStream")) throw new InvalidOperationException("The native audio extension is not loaded.");
         var fileName = OperatingSystem.IsMacOS() ? "opennv_audio.dylib" : "opennv_audio.dll";
         var executable = Path.GetDirectoryName(OS.GetExecutablePath())!;
-        // Exported macOS bundles place GDExtension libraries in Contents/Frameworks.
-        var candidates = new[] { Path.Combine(executable, fileName),
-            Path.Combine(executable, "..", "Frameworks", fileName),
-            ProjectSettings.GlobalizePath("res://generated/native/" + fileName) };
+        // Exported macOS bundles place GDExtension libraries in Contents/Frameworks;
+        // iOS embeds the extension as Frameworks/opennv_audio.framework.
+        var candidates = OperatingSystem.IsIOS()
+            ? new[] { Path.Combine(executable, "Frameworks", "opennv_audio.framework", "opennv_audio") }
+            : new[] { Path.Combine(executable, fileName),
+                Path.Combine(executable, "..", "Frameworks", fileName),
+                ProjectSettings.GlobalizePath("res://generated/native/" + fileName) };
         nint library = 0;
         foreach (var path in candidates) if (NativeLibrary.TryLoad(path, out library)) break;
         if (library == 0) throw new DllNotFoundException("The installed native audio extension could not be opened.");

@@ -69,6 +69,16 @@ internal sealed partial class NativeGamebryoMovie : CanvasLayer
                 node.ProcessMode = ProcessModeEnum.Always;
         }
         GetTree().Paused = true;
+        if (!OwnedMovieDecoderAvailable)
+        {
+            // The decoder runs as a child process, which sandboxed platforms
+            // (iOS) forbid. Play a user-converted Theora copy when one exists
+            // in Documents/OpenNV/Movies; otherwise present the movie as skipped.
+            if (PlayConverted(background)) return;
+            GD.Print($"OPENNV_MOVIE_UNAVAILABLE source={_command.FileName} platform={OS.GetName()} disposition=skipped");
+            Finish(interrupted: _command.Interruptible);
+            return;
+        }
         try
         {
             var source = RuntimeLiveContentSource.Current ?? throw new InvalidOperationException("Owned movie source is absent.");
@@ -217,9 +227,13 @@ internal sealed partial class NativeGamebryoMovie : CanvasLayer
 
     public override void _Input(InputEvent inputEvent)
     {
-        if (_finished || _failed || _decoder.Failure is not null || !_command.Interruptible ||
-            inputEvent is not InputEventKey { Pressed: true, Echo: false } key ||
-            (key.PhysicalKeycode != Key.Escape && key.Keycode != Key.Escape))
+        if (_finished || _failed || _decoder.Failure is not null || !_command.Interruptible)
+            return;
+        // Escape skips; on touch screens a tap does too.
+        var skip = inputEvent is InputEventKey { Pressed: true, Echo: false } key &&
+            (key.PhysicalKeycode == Key.Escape || key.Keycode == Key.Escape) ||
+            inputEvent is InputEventScreenTouch { Pressed: true };
+        if (!skip)
             return;
         GetViewport().SetInputAsHandled();
         Finish(interrupted: true);
@@ -237,6 +251,31 @@ internal sealed partial class NativeGamebryoMovie : CanvasLayer
         GD.Print($"OPENNV_MOVIE_COMPLETE source={_command.FileName} frame={_lastFrame} interrupted={interrupted}");
         QueueFree();
         _completed(interrupted);
+    }
+
+    private static bool OwnedMovieDecoderAvailable => !OperatingSystem.IsIOS() && !OperatingSystem.IsTvOS();
+
+    private bool PlayConverted(Control background)
+    {
+        var documents = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
+        var converted = Path.Combine(documents, "OpenNV", "Movies",
+            Path.ChangeExtension(Path.GetFileName(_command.FileName.Replace('\\', '/')), ".ogv"));
+        if (string.IsNullOrEmpty(documents) || !File.Exists(converted)) return false;
+        var frame = new AspectRatioContainer { Ratio = 16f / 9f, StretchMode = AspectRatioContainer.StretchModeEnum.Fit,
+            MouseFilter = Control.MouseFilterEnum.Ignore };
+        frame.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
+        var player = new VideoStreamPlayer
+        {
+            Name = "ConvertedMovie", ProcessMode = ProcessModeEnum.Always, Expand = true,
+            Stream = new VideoStreamTheora { File = converted }, MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        frame.AddChild(player);
+        background.AddChild(frame);
+        player.Finished += () => Finish(interrupted: false);
+        player.Play();
+        SetMeta("opennv_movie_decoder", "converted-theora; user-owned derivative");
+        GD.Print($"OPENNV_MOVIE_READY source={converted} decoder=theora interruptible={_command.Interruptible}");
+        return true;
     }
 
     private void Fail(Exception error)

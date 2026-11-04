@@ -65,6 +65,7 @@ public partial class RuntimeCoordinator : Node3D
     public override void _Ready()
     {
         AddChild(new Formats.Gamebryo.RuntimeNifApplicationClock());
+        AddChild(new InputSystem.NativeGamepadInput());
         BeginLoadingScreen("Starting OpenNV");
         Callable.From(StartRuntimeAfterLoadingFrame).CallDeferred();
     }
@@ -81,10 +82,11 @@ public partial class RuntimeCoordinator : Node3D
         try
         {
             _configuration = RuntimeConfiguration.Load();
-            _options = _nextSessionOptions ?? ParseOptions(OS.GetCmdlineUserArgs());
+            _options = _nextSessionOptions ?? ParseOptions(LaunchArguments());
             RuntimeLaunchValidator.NormalizePresentation(_options);
             if (_options.ContainsKey("fullscreen") && DisplayServer.GetName() != "headless")
                 GetWindow().Mode = Window.ModeEnum.Fullscreen;
+            ApplyPresentationScale();
             _continueAfterRestart = _nextSessionContinue;
             _pauseAfterCheckpointLoad = _nextSessionPauseAfterCheckpointLoad;
             _pendingCheckpointRestore = _nextSessionCheckpoint;
@@ -1070,6 +1072,49 @@ public partial class RuntimeCoordinator : Node3D
         {
             WriteIndented = true,
         }) + System.Environment.NewLine);
+    }
+
+    // --render-scale renders 3D below the output resolution and upscales with
+    // FSR; mobile GPUs default to 0.6. --show-fps overlays a frame counter.
+    private void ApplyPresentationScale()
+    {
+        var viewport = GetViewport();
+        var mobile = OperatingSystem.IsIOS() || OperatingSystem.IsAndroid();
+        var scale = _options.TryGetValue("render-scale", out var text) &&
+            float.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsed)
+            ? Math.Clamp(parsed, .25f, 1f) : mobile ? .6f : 1f;
+        if (scale < 1f)
+        {
+            viewport.Scaling3DMode = Viewport.Scaling3DModeEnum.Fsr;
+            viewport.Scaling3DScale = scale;
+        }
+        GD.Print($"OPENNV_PRESENTATION_SCALE scale={scale:0.00} mode={viewport.Scaling3DMode}");
+        if (!_options.ContainsKey("show-fps") || _fpsLabel is not null) return;
+        var layer = new CanvasLayer { Layer = 126 };
+        _fpsLabel = new Label { Position = new Vector2(12, 8), MouseFilter = Control.MouseFilterEnum.Ignore };
+        _fpsLabel.AddThemeColorOverride("font_color", new Color(.35f, 1f, .55f));
+        layer.AddChild(_fpsLabel);
+        AddChild(layer);
+        var timer = new Godot.Timer { WaitTime = .5, Autostart = true, ProcessMode = ProcessModeEnum.Always };
+        timer.Timeout += () => _fpsLabel.Text = $"{Engine.GetFramesPerSecond():0} FPS  {scale:0.00}x";
+        layer.AddChild(timer);
+    }
+
+    private Label? _fpsLabel;
+
+    // Platforms without a command line (iOS) read the same arguments, one per
+    // line, from Documents/OpenNV/launch-args.txt. {documents} expands to the
+    // sandboxed Documents folder, whose absolute path changes per install.
+    private static string[] LaunchArguments()
+    {
+        var arguments = OS.GetCmdlineUserArgs();
+        if (arguments.Length != 0) return arguments;
+        var documents = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
+        var file = Path.Combine(documents, "OpenNV", "launch-args.txt");
+        if (string.IsNullOrEmpty(documents) || !File.Exists(file)) return arguments;
+        return File.ReadAllLines(file).Select(line => line.Trim())
+            .Where(line => line.Length != 0 && !line.StartsWith('#'))
+            .Select(line => line.Replace("{documents}", documents, StringComparison.Ordinal)).ToArray();
     }
 
     private static Dictionary<string, string> ParseOptions(string[] arguments)
