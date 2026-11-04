@@ -1,5 +1,7 @@
 using Function = OpenNV.Runtime.Content.Definitions.FalloutConditionFunction;
 using OpenNV.Runtime.Content;
+using OpenNV.Runtime.Content.Definitions;
+using OpenNV.Runtime.World.Actors;
 using OpenNV.Runtime.World.Cells;
 
 namespace OpenNV.Runtime.Campaigns.NewVegas.Opening;
@@ -15,6 +17,8 @@ internal partial class RuntimeNativeOpeningStageDriver
         PlayerFemale = () => _character.Female,
         Race = subject => _scripts.References!.ActorRace(subject),
         ActorValue = DialogueActorValue,
+        ActorValueRead = (subject, value, read) => (float)ReadActorValue(subject,
+            FalloutActorValueNames.Name((FalloutActorValueId)value), read),
         ItemCount = (subject, item) => InventoryCommands.ItemCount(subject, item),
         Equipped = (subject, item) => InventoryCommands.IsEquipped(subject, item),
         WeaponInList = InventoryCommands.IsWeaponInList,
@@ -42,6 +46,17 @@ internal partial class RuntimeNativeOpeningStageDriver
     private float EvaluatePlayerNativeCondition(FalloutConditionQuery condition) => condition.Kind switch
     {
         Function.GetActorValue => DialogueActorValue(_pluginStack.RuntimeFormKey(0x14), checked((int)condition.Argument1)),
+        Function.GetBaseActorValue or Function.GetPermanentActorValue => (float)ReadPlayerActorValue(
+            FalloutActorValueNames.Name((FalloutActorValueId)checked((int)condition.Argument1)),
+            condition.Kind == Function.GetBaseActorValue ? FalloutActorValueRead.Base : FalloutActorValueRead.Permanent),
+        // The player is never the actor behind a talking activator, nor its own teammate.
+        Function.IsActorTalkingThroughActivator or Function.GetPlayerTeammate => 0,
+        Function.IsWeaponOut => _player.Activity.WeaponDrawn ? 1 : 0,
+        Function.IsSwimming => _player.Activity.Swimming ? 1 : 0,
+        Function.GetForceHitReaction => _player.Activity.ForceHitReaction ? 1 : 0,
+        Function.GetAttacked => _player.Activity.Attacked ? 1 : 0,
+        Function.GetPlantedExplosive => _player.Activity.PlantedExplosive ? 1 : 0,
+        Function.GetAlerted => _player.Activity.Alerted ? 1 : 0,
         Function.GetIsAlignment when condition.Argument2 == 0 =>
             (uint)FalloutKarma.Alignment(_pluginStack, _playerActorValues.ReadCurrent(23)) == condition.Argument1 ? 1 : 0,
         Function.GetDead => Vitals.HitPoints == 0 ? 1 : 0,

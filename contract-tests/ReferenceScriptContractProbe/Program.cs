@@ -1973,6 +1973,7 @@ DialogueSpatialContracts.Run();
 HeadingQueryContracts.Run();
 WorldspaceQueryContracts.Run();
 CompiledBranchContracts.Run();
+ConditionOwnerContracts.Run();
 WeatherCommandContracts.Run();
 ScriptEffectCommandContracts.Run();
 MovementSpeedContracts.Run();
