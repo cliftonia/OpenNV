@@ -18,10 +18,10 @@ internal sealed partial class NativeTouchControls : Control
     // Positions are (x from right edge, y from bottom edge) in screen heights.
     private static readonly TouchButton[] Buttons =
     [
-        new("FIRE", 4, new(.14f, .17f), .095f), new("AIM", 6, new(.34f, .11f), .06f),
-        new("USE", 5, new(.31f, .31f), .06f), new("JUMP", 12, new(.11f, .37f), .06f),
-        new("RELOAD", 7, new(.47f, .22f), .055f), new("SNEAK", 8, new(.11f, .53f), .055f),
-        new("VATS", 16, new(.27f, .48f), .055f), new("PIP-BOY", 14, new(.11f, .88f), .055f),
+        new("FIRE", FalloutControl.Use, new(.14f, .17f), .095f), new("AIM", FalloutControl.Block, new(.34f, .11f), .06f),
+        new("USE", FalloutControl.Activate, new(.31f, .31f), .06f), new("JUMP", FalloutControl.Jump, new(.11f, .37f), .06f),
+        new("RELOAD", FalloutControl.ReadyItem, new(.47f, .22f), .055f), new("SNEAK", FalloutControl.Sneak, new(.11f, .53f), .055f),
+        new("VATS", FalloutControl.Vats, new(.27f, .48f), .055f), new("PIP-BOY", FalloutControl.MenuMode, new(.11f, .88f), .055f),
         new("PAUSE", PauseControl, new(.27f, .88f), .05f),
     ];
 
