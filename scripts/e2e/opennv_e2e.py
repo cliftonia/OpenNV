@@ -321,8 +321,10 @@ def test_opening() -> str:
                 game.press("Done")
             elif "Done" in texts and stage >= 100:
                 game.press("Done")  # traits
-            elif "OK" in texts:
-                game.press("OK")
+            elif "NEXT" in texts:
+                game.press("NEXT")  # appearance (race/face) menu
+            elif ok := next((t for t in texts if t and t.lower() == "ok"), None):
+                game.press(ok)  # message boxes say OK; name entry says Ok
             elif answer_dialogue(game):
                 pass
             elif stage >= 200 and (game.state().get("bot") or {}).get("phase") not in ("awaiting-interaction", "planning"):

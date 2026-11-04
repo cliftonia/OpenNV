@@ -1104,8 +1104,22 @@ public partial class RuntimeCoordinator : Node3D
         _fpsLabel.AddThemeColorOverride("font_color", new Color(.35f, 1f, .55f));
         layer.AddChild(_fpsLabel);
         AddChild(layer);
+        // GPU against CPU frame time tells whether a scene is fill- or script-bound;
+        // the periodic log line lets a device run be read back afterwards.
+        var viewportRid = viewport.GetViewportRid();
+        RenderingServer.ViewportSetMeasureRenderTime(viewportRid, true);
+        var ticks = 0;
         var timer = new Godot.Timer { WaitTime = .5, Autostart = true, ProcessMode = ProcessModeEnum.Always };
-        timer.Timeout += () => _fpsLabel.Text = $"{Engine.GetFramesPerSecond():0} FPS  {scale:0.00}x";
+        timer.Timeout += () =>
+        {
+            var gpu = RenderingServer.ViewportGetMeasuredRenderTimeGpu(viewportRid);
+            var cpu = Performance.GetMonitor(Performance.Monitor.TimeProcess) * 1000;
+            _fpsLabel.Text = $"{Engine.GetFramesPerSecond():0} FPS  gpu {gpu:0.0}ms  cpu {cpu:0.0}ms  {scale:0.00}x";
+            if (++ticks % 10 == 0)
+                GD.Print($"OPENNV_FPS fps={Engine.GetFramesPerSecond():0} gpuMs={gpu:0.0} processMs={cpu:0.0} " +
+                    $"drawCalls={Performance.GetMonitor(Performance.Monitor.RenderTotalDrawCallsInFrame):0} " +
+                    $"primitives={Performance.GetMonitor(Performance.Monitor.RenderTotalPrimitivesInFrame):0}");
+        };
         layer.AddChild(timer);
     }
 
