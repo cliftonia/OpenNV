@@ -821,7 +821,8 @@ internal static partial class RuntimeNativeNifMeshBuilder
                             ValidateEditorMarkerTree(child);
                         else if (UnboundPropertyFreeLod is not null &&
                             _source.Blocks[child].TypeName is ("NiTriShape" or "NiTriStrips" or "BSSegmentedTriShape") &&
-                            _source.ReadGeometry(child) is { } unbound && unbound.Properties.All(index => index == -1))
+                            _source.ReadGeometry(child) is { } unbound && unbound.Properties.All(index => index == -1) &&
+                            _materialOverride?.Invoke(_source, unbound) is null)
                             UnboundPropertyFreeLod(unbound);
                         else if (SelectedGeometryName is not null && _source.Blocks[child].TypeName is "NiTriShape" or "NiTriStrips" or "BSSegmentedTriShape" &&
                             !_source.ReadGeometry(child).Name.Equals(SelectedGeometryName, StringComparison.OrdinalIgnoreCase))

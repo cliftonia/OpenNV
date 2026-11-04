@@ -41,6 +41,8 @@ internal static partial class RuntimeNativeNifMeshBuilder
         internal int MissingOrdinaryWaterGeometries { get; private set; }
         internal int MissingReflectiveWaterGeometries { get; private set; }
 
+        internal TerrainStreamRole Role(int block) => _roles.GetValueOrDefault(block);
+
         internal TerrainStreamRole Omit(int block)
         {
             var role = _roles.GetValueOrDefault(block);
@@ -73,7 +75,7 @@ internal static partial class RuntimeNativeNifMeshBuilder
         private bool _complete;
 
         internal LodAssembly(FalloutNifFile source, float units, RuntimeLiveContentSource content,
-            Action<FalloutNifGeometry>? omitted)
+            Action<FalloutNifGeometry>? omitted, Func<FalloutNifGeometry, Material?>? propertyFreeMaterial = null)
         {
             if (!float.IsFinite(units) || units <= 0) throw new ArgumentOutOfRangeException(nameof(units));
             // Deferred hierarchy construction is valid for static LOD only.
@@ -96,7 +98,11 @@ internal static partial class RuntimeNativeNifMeshBuilder
                 else if (block.TypeName.EndsWith("Node", StringComparison.Ordinal) || block.TypeName == "NiParticleSystem")
                     throw new NotSupportedException($"Distant hierarchy requires a static owner for {block.TypeName}.");
             }
-            _state = new(source, units, null, contentSource: content)
+            // A property-free geometry owned by a world material (distant
+            // water) is built with that material; every other one stays omitted.
+            Material? PropertyFree(FalloutNifFile _, FalloutNifGeometry geometry) =>
+                geometry.Properties.All(index => index == -1) ? propertyFreeMaterial?.Invoke(geometry) : null;
+            _state = new(source, units, null, materialOverride: propertyFreeMaterial is null ? null : PropertyFree, contentSource: content)
             {
                 UnboundPropertyFreeLod = omitted,
                 DeferStaticChild = (parent, block, markers) => _pending.Enqueue((parent, block, markers))
@@ -105,7 +111,8 @@ internal static partial class RuntimeNativeNifMeshBuilder
             _root.SetMeta("opennv_nif_fixed_strings", source.Strings.ToArray());
             foreach (var block in source.Roots)
                 if (omitted is not null && source.Blocks[block].TypeName is ("NiTriShape" or "NiTriStrips" or "BSSegmentedTriShape") &&
-                    source.ReadGeometry(block) is { } geometry && geometry.Properties.All(index => index == -1)) omitted(geometry);
+                    source.ReadGeometry(block) is { } geometry && geometry.Properties.All(index => index == -1) &&
+                    propertyFreeMaterial?.Invoke(geometry) is null) omitted(geometry);
                 else _pending.Enqueue((_root, block, false));
         }
 

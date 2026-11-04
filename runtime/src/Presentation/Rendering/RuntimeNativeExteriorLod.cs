@@ -39,6 +39,27 @@ internal partial class RuntimeNativeExteriorLod : Node3D
     private long _residentBytes;
     private int _detailRadius;
     private bool _completeTerrainCover, _completeObjectCover;
+    // Distant water carries no NIF properties; retail shades it with the
+    // worldspace water owner. Until that shader exists, present it with a
+    // calm, sky-reflecting surface instead of leaving the lake beds empty.
+    private static readonly StandardMaterial3D DistantWaterMaterial = new()
+    {
+        ResourceName = "OpenNVDistantWater",
+        AlbedoColor = new Color(0.10f, 0.22f, 0.27f),
+        Metallic = 0.35f,
+        Roughness = 0.08f,
+        MetallicSpecular = 0.7f,
+        CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+    };
+
+    private readonly HashSet<string> _waterTiles = [];
+    private Material TrackWater(string path, FalloutNifGeometry geometry)
+    {
+        if (_waterTiles.Add($"{path}#{geometry.Block.Index}"))
+            GD.Print($"OPENNV_NATIVE_LOD_WATER source={path}#geometry{geometry.Block.Index} tiles={_waterTiles.Count}");
+        return DistantWaterMaterial;
+    }
+
     private bool _completeOrdinaryWaterCover, _completeReflectiveWaterCover;
     private double _detailImageMilliseconds, _detailTextureMilliseconds, _detailBindingMilliseconds;
     private int _detailBoundMaterials;
@@ -332,7 +353,11 @@ internal partial class RuntimeNativeExteriorLod : Node3D
                             new NotSupportedException($"Property-free LOD geometry role={role} requires its world material owner; this draw remains missing."));
                     }
                     : null;
-                    assembly = new(tile.Source, _units, _source, omitted);
+                    Func<FalloutNifGeometry, Material?>? water = isTerrain ? geometry =>
+                        terrainCoverage!.Role(geometry.Block.Index) is RuntimeNativeNifMeshBuilder.TerrainStreamRole.OrdinaryWater or
+                            RuntimeNativeNifMeshBuilder.TerrainStreamRole.ReflectiveWater ? TrackWater(tile.Path!, geometry) : null
+                    : null;
+                    assembly = new(tile.Source, _units, _source, omitted, water);
                 }
                 catch (Exception error) { Report(tile.Path!, error); }
                 if (assembly is null) continue;
