@@ -52,7 +52,7 @@ internal partial class RuntimeNativeOpeningStageDriver
         !GetTree().Paused && _vitals.State.ExactHitPoints > 0 && !_moviePlaying &&
         !_player.FurnitureActive && !_player.ModalInput && _conversation?.Active != true && _speech?.Active != true &&
         _nameEntry is null && _raceSexEntry is null && _vigorEntry is null && _specialBookEntry is null &&
-        _tagSkillEntry is null && _traitEntry is null && _recipeMenu is null && _barterMenu is null && _restMenu is null &&
+        _tagSkillEntry is null && _traitEntry is null && _recipeMenu is null && _barterMenu is null && _restMenu is null && _repairServicesMenu is null &&
         TerminalSaveBlocker is null && !_scripts.References!.PlayerMoves.Pending);
 
     private FalloutLevelUpMenuBinding BindLevelUpMenu(int level, FalloutLevelUpRules rules)

@@ -9,6 +9,7 @@ internal static partial class InventoryQueryContracts
     private static void EquipmentQueries()
     {
         RepairAdmissionQueries();
+        RepairServiceQueries();
         var directory = Directory.CreateTempSubdirectory("opennv-equipped-query-");
         try
         {

@@ -48,6 +48,7 @@ internal partial class RuntimeNativeOpeningStageDriver
             default:
                 return TryApplyRestCommand(target, parts, operation, arguments) ||
                     TryApplyProgressionCommand(parts, operation, arguments) ||
+                    TryApplyRepairServicesCommand(target, parts, operation, arguments) ||
                     TryDeferPlayerScriptCommand(operation, arguments);
         }
     }
@@ -59,7 +60,6 @@ internal partial class RuntimeNativeOpeningStageDriver
     {
         (int Minimum, int Maximum, string Reason)? deferred = operation switch
         {
-            "showrepairmenu" => (0, 0, "repair-menu-presentation-unbound"),
             "showroulettemenuparams" => (1, 4, "roulette-menu-presentation-unbound"),
             "showblackjackmenuparams" => (1, 4, "blackjack-menu-presentation-unbound"),
             "showslotmachinemenuparams" => (1, 4, "slot-machine-menu-presentation-unbound"),

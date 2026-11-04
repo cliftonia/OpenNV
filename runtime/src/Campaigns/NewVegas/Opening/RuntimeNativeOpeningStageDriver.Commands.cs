@@ -40,7 +40,7 @@ internal partial class RuntimeNativeOpeningStageDriver
         _vigorEntry is not null ? "special-menu" : _tagSkillEntry is not null ? "tag-menu" :
         _traitEntry is not null ? "trait-menu" : _recipeMenu is not null ? "recipe-menu" :
         _barterMenu is not null ? "barter-menu" : _caravanMenu is not null ? "caravan-menu" :
-        _restMenu is not null ? "sleep-wait-menu" :
+        _restMenu is not null ? "sleep-wait-menu" : _repairServicesMenu is not null ? "repair-services-menu" :
         TerminalSaveBlocker;
     private string? SaveContinuationBlocker => SaveInteractionBlocker ?? (
         _scripts.References?.RegionPublicationPending == true ? "regional-reference-gameplay-binding" :
