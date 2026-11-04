@@ -15,13 +15,13 @@ internal sealed partial class FalloutRadioConversation(FalloutPluginStack record
     internal long CompletedLines { get; private set; }
     internal bool Active => Info is not null;
 
-    internal void Start(FalloutFormKey reference, FalloutFormKey? topic = null)
+    internal void Start(FalloutFormKey reference, FalloutFormKey? topic = null, bool broadcast = false)
     {
         var station = FalloutRadioStation.Read(records, records.GetEffective(reference));
         var selectedTopic = topic ?? FalloutDialogueTopic.Find(records, "DIAL", "RadioHello").FormKey;
         RequireRadioTopic(selectedTopic);
         if (Active) throw new NotSupportedException("Interrupting an active radio conversation requires its result/cursor owner.");
-        if (world.GetBroadcastState(reference))
+        if (!broadcast && world.GetBroadcastState(reference))
             throw new NotSupportedException("Continuous radio generation requires its broadcast scheduler.");
         var info = world.IsEnabled(reference) ? Select(station, selectedTopic) : null;
         if (info is not null) _ = VoiceIdentity(station, info);

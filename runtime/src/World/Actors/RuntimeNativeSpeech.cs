@@ -279,9 +279,11 @@ internal partial class RuntimeNativeSpeech : Node
         _dialogueRandom = dialogueRandom;
         _references?.UnbindGreetingPlayer(IsGreetingPlayer);
         _references?.UnbindTalking(QueryIsTalking);
+        _pipBoyRadioBinding?.Dispose(); _pipBoyRadioBinding = null;
         _references = references;
         _references?.BindGreetingPlayer(IsGreetingPlayer);
         _references?.BindTalking(QueryIsTalking);
+        _pipBoyRadioBinding = _references?.PipBoyRadio.Bind(TunePipBoyRadio);
         _conditionContext = conditionContext;
         _templates = templates;
         _soundRandom = soundRandom; _unitsToMetres = unitsToMetres;
@@ -536,6 +538,13 @@ internal partial class RuntimeNativeSpeech : Node
         {
             if (info.Speaker is { } specified && specified != voice.Identity!.Actor)
                 throw new InvalidDataException("Explicit dialogue sound belongs to a different actor.");
+            // A broadcast transmitter has no body: its song is receiver output,
+            // decoded and mixed through the radio voice like spoken radio lines.
+            if (voice.Radio is not null && !IsInstanceValid(voice.Presentation))
+            {
+                PlayRadioSound(voice, info, response.Number, sound);
+                return;
+            }
             var actor = IsInstanceValid(voice.Presentation) ? voice.Presentation! :
                 throw new NotSupportedException("Source sound response has no live speaker presentation owner.");
             voice.ResponseSound = new(_stack, RuntimeLiveContentSource.Current!, actor, _unitsToMetres,
@@ -621,6 +630,7 @@ internal partial class RuntimeNativeSpeech : Node
                     ProcessVoice(entry.Voice, delta);
                 }
             AdvanceDeferredSpeech();
+            AdvanceRadioBroadcasts(delta);
         }
         catch (Exception error) when (error is InvalidDataException or NotSupportedException or FileNotFoundException or
             InvalidOperationException or KeyNotFoundException or OverflowException)
@@ -735,6 +745,7 @@ internal partial class RuntimeNativeSpeech : Node
 
     public override void _ExitTree()
     {
+        _pipBoyRadioBinding?.Dispose(); _pipBoyRadioBinding = null;
         _references?.UnbindGreetingPlayer(IsGreetingPlayer);
         _references?.UnbindTalking(QueryIsTalking);
         StopVoices();
