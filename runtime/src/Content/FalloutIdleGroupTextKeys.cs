@@ -48,9 +48,15 @@ internal sealed class FalloutIdleGroupTextKeys
                 if (field.Equals("Blend", StringComparison.OrdinalIgnoreCase) ||
                     field.Equals("BlendIn", StringComparison.OrdinalIgnoreCase) || field.Equals("BlendOut", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (!metadata.Add(field) || !byte.TryParse(text.AsSpan(colon + 1).Trim(),
+                    if (!byte.TryParse(text.AsSpan(colon + 1).Trim(),
                         System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var count))
-                        throw new NotSupportedException("Idle blend metadata requires one finite byte declaration per field.");
+                        throw new NotSupportedException($"Idle blend metadata requires one finite byte declaration per field: '{text}' in {sequenceName}.");
+                    // Fallout 3 sequences can repeat an identical declaration
+                    // on several keys; only a conflicting repeat is ambiguous.
+                    var previous = field.Equals("Blend", StringComparison.OrdinalIgnoreCase) ? blend :
+                        field.Equals("BlendIn", StringComparison.OrdinalIgnoreCase) ? blendIn : blendOut;
+                    if (!metadata.Add(field) && previous != count)
+                        throw new NotSupportedException($"Idle blend metadata declares conflicting values: '{text}' in {sequenceName}.");
                     if (field.Equals("Blend", StringComparison.OrdinalIgnoreCase)) blend = count;
                     else if (field.Equals("BlendIn", StringComparison.OrdinalIgnoreCase)) blendIn = count;
                     else blendOut = count;

@@ -112,7 +112,10 @@ internal partial class NativeOwnedGameplayHud : Control
             }
         }
         InitializeMeterDetails(records, Template, condition,
-            condition is not null && _ap is not null ? Branch("CNDArrows") : null);
+            // Fallout 3's HUD has no weapon-condition arrow branch; its menu
+            // simply omits that presentation rather than failing the HUD.
+            condition is not null && _ap is not null &&
+                source.Elements().Any(element => (string?)element.Attribute("name") == "CNDArrows") ? Branch("CNDArrows") : null);
         if (notice is not null)
         {
             _warning = Template("template_justify_center_text", menu);

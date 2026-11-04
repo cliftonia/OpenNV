@@ -39,12 +39,16 @@ internal partial class NativeOwnedGameplayHud
         _tiles.Bind(_conditionMeter, "_OriginalX", 90); _tiles.Bind(_conditionMeter, "_TotalWidth", 60);
         _tiles.Bind(_conditionMeter, "_ImageWidth", 1); _tiles.Bind(_conditionMeter, "zoom", 200);
         _tiles.Bind(_conditionMeter, "y", 83); _tiles.Bind(_conditionMeter, "brightness", 175);
-        _conditionArrows = conditionArrows ?? throw new InvalidDataException("Source HUD condition arrows are unavailable.");
-        // Native initializes the root arrow with the HUD palette even though
-        // the shipped XML leaves its system-color declaration empty.
-        if (string.IsNullOrWhiteSpace(_conditionArrows.Element("systemcolor")?.Value))
-            _conditionArrows.SetElementValue("systemcolor", "entity_hudmain");
-        _tiles.Bind(_conditionArrows, "height", _tiles.Number(_conditionBackground, "height"));
+        // Fallout 3's HUD declares the condition meter without arrows.
+        _conditionArrows = conditionArrows;
+        if (_conditionArrows is not null)
+        {
+            // Native initializes the root arrow with the HUD palette even though
+            // the shipped XML leaves its system-color declaration empty.
+            if (string.IsNullOrWhiteSpace(_conditionArrows.Element("systemcolor")?.Value))
+                _conditionArrows.SetElementValue("systemcolor", "entity_hudmain");
+            _tiles.Bind(_conditionArrows, "height", _tiles.Number(_conditionBackground, "height"));
+        }
         BindMeter(_conditionMeter, 0, false, 0);
         ShowCondition(false);
     }
@@ -96,8 +100,8 @@ internal partial class NativeOwnedGameplayHud
     private void ShowCondition(bool shown)
     {
         if (_conditionMeter is null) return;
-        foreach (var tile in new[] { _conditionLabel!, _conditionMeter, _conditionBackground!, _conditionArrows! })
-            _tiles.Bind(tile, "visible", shown ? 1 : 0);
+        foreach (var tile in new[] { _conditionLabel, _conditionMeter, _conditionBackground, _conditionArrows })
+            if (tile is not null) _tiles.Bind(tile, "visible", shown ? 1 : 0);
     }
 
     private void UpdateCondition()
