@@ -665,6 +665,7 @@ public partial class RuntimeCoordinator
         _restoredNativeCheckpoint = _pendingCheckpointRestore;
         _pendingCheckpointRestore = null;
         _pendingSaveActivation?.Commit(); _pendingSaveActivation = null;
+        _nativePlayer?.PreparePresentation();
         DismissLoadingScreen();
     }
 

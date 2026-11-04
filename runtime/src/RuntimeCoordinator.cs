@@ -10,6 +10,7 @@ using OpenNV.Runtime.Campaigns.TTW;
 using OpenNV.Runtime.Content;
 using OpenNV.Runtime.Diagnostics.Capture;
 using OpenNV.Runtime.InputSystem;
+using OpenNV.Runtime.Presentation.Rendering;
 using OpenNV.Runtime.Presentation.Ui;
 using OpenNV.Runtime.World.Actors;
 using OpenNV.Runtime.World.Cells;
@@ -1075,21 +1076,28 @@ public partial class RuntimeCoordinator : Node3D
         }) + System.Environment.NewLine);
     }
 
-    // --render-scale renders 3D below the output resolution and upscales with
-    // FSR; mobile GPUs default to 0.6. --show-fps overlays a frame counter.
+    // --quality selects a configured renderer cost profile; --render-scale
+    // overrides its 3D scale, rendered below the output resolution and
+    // upscaled with FSR. --show-fps overlays a frame counter.
     private void ApplyPresentationScale()
     {
         var viewport = GetViewport();
-        var mobile = OperatingSystem.IsIOS() || OperatingSystem.IsAndroid();
+        _quality = RuntimePresentationQuality.Resolve(_options, _configuration.Renderer.QualityProfiles);
+        var profile = _quality.Profile;
         var scale = _options.TryGetValue("render-scale", out var text) &&
             float.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsed)
-            ? Math.Clamp(parsed, .25f, 1f) : mobile ? .6f : 1f;
+            ? Math.Clamp(parsed, .25f, 1f) : profile.RenderScale;
         if (scale < 1f)
         {
             viewport.Scaling3DMode = Viewport.Scaling3DModeEnum.Fsr;
             viewport.Scaling3DScale = scale;
         }
+        RenderingServer.DirectionalShadowAtlasSetSize(profile.DirectionalShadowAtlasPixels, true);
         GD.Print($"OPENNV_PRESENTATION_SCALE scale={scale:0.00} mode={viewport.Scaling3DMode}");
+        GD.Print($"OPENNV_QUALITY profile={_quality.Kind.ToString().ToLowerInvariant()} source={_quality.Source} " +
+            $"processor=\"{OS.GetProcessorName()}\" renderScale={scale:0.00} sunShadowSplits={profile.SunShadowSplits} " +
+            $"sunShadowDistanceScale={profile.SunShadowDistanceScale:0.00} directionalShadowAtlas={profile.DirectionalShadowAtlasPixels} " +
+            $"grassStartFadeScale={profile.GrassStartFadeScale:0.00}");
         if (!_options.ContainsKey("show-fps") || _fpsLabel is not null) return;
         var layer = new CanvasLayer { Layer = 126 };
         _fpsLabel = new Label { Position = new Vector2(12, 8), MouseFilter = Control.MouseFilterEnum.Ignore };
@@ -1102,6 +1110,7 @@ public partial class RuntimeCoordinator : Node3D
     }
 
     private Label? _fpsLabel;
+    private RuntimePresentationQuality _quality = null!;
 
     // Platforms without a command line (iOS) read the same arguments, one per
     // line, from Documents/OpenNV/launch-args.txt. {documents} expands to the

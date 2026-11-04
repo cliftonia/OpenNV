@@ -26,6 +26,7 @@ internal partial class RuntimeNativeExteriorEnvironment : Node
     private float? _sunlightDimmer;
     private float? _skyScale;
     private float _shadowDistance = 100;
+    private DirectionalLight3D.ShadowMode _shadowMode = DirectionalLight3D.ShadowMode.Parallel4Splits;
     internal Compositor? Compositor { get; set; }
     internal FalloutImageSpace? ImageSpace { get; set; }
     internal int RegisteredSurfaces => _meshes.Count;
@@ -43,11 +44,18 @@ internal partial class RuntimeNativeExteriorEnvironment : Node
     };
 
     internal void Configure(FalloutPluginStack records, FalloutSkyLightingState sky, Func<float> hour, float units,
-        Node? sceneRoot = null, float shadowDistance = 100)
+        Node? sceneRoot = null, float shadowDistance = 100, int shadowSplits = 4)
     {
         if (!float.IsFinite(shadowDistance) || shadowDistance <= 0)
             throw new InvalidDataException("Exterior shadow distance must cover a positive finite region.");
         _records = records; _sky = sky; _hour = hour; _units = units; _sceneRoot = sceneRoot; _shadowDistance = shadowDistance;
+        _shadowMode = shadowSplits switch
+        {
+            1 => DirectionalLight3D.ShadowMode.Orthogonal,
+            2 => DirectionalLight3D.ShadowMode.Parallel2Splits,
+            4 => DirectionalLight3D.ShadowMode.Parallel4Splits,
+            _ => throw new ArgumentOutOfRangeException(nameof(shadowSplits)),
+        };
         _sunSource = FalloutExteriorSun.Read(records);
     }
 
@@ -104,7 +112,7 @@ internal partial class RuntimeNativeExteriorEnvironment : Node
         {
             Name = "OwnedExteriorSun",
             ShadowEnabled = true,
-            DirectionalShadowMode = DirectionalLight3D.ShadowMode.Parallel4Splits,
+            DirectionalShadowMode = _shadowMode,
             DirectionalShadowMaxDistance = _shadowDistance,
             DirectionalShadowBlendSplits = true
         };

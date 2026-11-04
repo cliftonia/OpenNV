@@ -701,11 +701,16 @@ public partial class RuntimeCoordinator
         var diameter = checked((int)FalloutInstallationSettings.Read(RuntimeLiveContentSource.Current!).Unsigned("General", "uGridsToLoad"));
         // Cover the complete resident square, including its diagonal when the
         // player crosses an anchor boundary. Engine defaults cut this at 100m.
-        var shadowDistance = (diameter / 2 + 1) * 4096 * _configuration.World.GameUnitsToMeters * MathF.Sqrt(2);
-        sky.Configure(_nativePluginStack!, _nativeSkyLighting!, () => _nativeGameTime!.Hour, _configuration.World.GameUnitsToMeters, this, shadowDistance);
+        // The presentation quality profile shortens this on low-power devices.
+        var quality = _quality.Profile;
+        var shadowDistance = (diameter / 2 + 1) * 4096 * _configuration.World.GameUnitsToMeters * MathF.Sqrt(2) *
+            quality.SunShadowDistanceScale;
+        sky.Configure(_nativePluginStack!, _nativeSkyLighting!, () => _nativeGameTime!.Hour, _configuration.World.GameUnitsToMeters, this,
+            shadowDistance, quality.SunShadowSplits);
         root.AddChild(sky);
         var grass = new RuntimeNativeGrassOwner { Name = "OwnedTerrainGrass" };
-        grass.Configure(root, RuntimeLiveContentSource.Current!, _nativePluginStack!, sky, _configuration.World.GameUnitsToMeters);
+        grass.Configure(root, RuntimeLiveContentSource.Current!, _nativePluginStack!, sky, _configuration.World.GameUnitsToMeters,
+            quality.GrassStartFadeScale);
         grass.Register(root.GetChildren().OfType<RuntimeNativeLandscapeTransport>());
         root.AddChild(grass);
         var wind = new RuntimeNativeWind { Name = "ExteriorWindOwner" };

@@ -14,6 +14,7 @@ internal partial class RuntimeNativeGrassOwner : Node
     private readonly Dictionary<(FalloutFormKey Grass, uint Area), LiveArea> _live = [];
     private readonly Dictionary<string, RuntimeNativeGrassModel> _models = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<FalloutFormKey, ShaderMaterial> _materials = [];
+    private readonly HashSet<FalloutFormKey> _sampled = [];
     private RuntimeLiveContentSource _content = null!;
     private FalloutPluginStack _records = null!;
     private FalloutInstallationSettings _ini = null!;
@@ -55,7 +56,7 @@ internal partial class RuntimeNativeGrassOwner : Node
     };
 
     internal void Configure(Node3D root, RuntimeLiveContentSource content, FalloutPluginStack records,
-        RuntimeNativeExteriorEnvironment environment, float units)
+        RuntimeNativeExteriorEnvironment environment, float units, float startFadeScale)
     {
         _root = root; _content = content; _records = records; _environment = environment; _units = units;
         _ini = FalloutInstallationSettings.Read(content);
@@ -63,7 +64,9 @@ internal partial class RuntimeNativeGrassOwner : Node
         var terrain = new FalloutGrassLandscape((x, y) => _cells.TryGetValue((x, y), out var cell) ? cell.Node.Source : null);
         _population = new(_settings, terrain);
         _maximumWind = Math.Max(MathF.Abs(_ini.Number("Grass", "fGrassWindMagnitudeMin")), MathF.Abs(_ini.Number("Grass", "fGrassWindMagnitudeMax")));
-        _start = _ini.Number("Grass", "fGrassStartFadeDistance");
+        // The quality profile scales the retail grass-distance slider value, as
+        // the retail medium preset does; the fade range itself is unchanged.
+        _start = _ini.Number("Grass", "fGrassStartFadeDistance") * startFadeScale;
         _fade = _ini.Number("Grass", "fGrassFadeRange");
         _minimumStart = _ini.Number("Grass", "fGrassMinStartFadeDistance");
         _defaultFov = FalloutCameraProjection.Read(_ini).ReferenceHorizontalFovDegrees;
@@ -120,18 +123,20 @@ internal partial class RuntimeNativeGrassOwner : Node
                 var started = System.Diagnostics.Stopwatch.GetTimestamp();
                 Update(view); _lastEye = eye; _lastForward = forward; _dirty = false;
                 SetMeta("opennv_grass_population_milliseconds", System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds);
+                // Residency changes only here (retirement marks the owner dirty),
+                // so per-frame republication of these counts is redundant.
+                SetMeta("opennv_grass_source_cells", _cells.Count);
+                SetMeta("opennv_grass_batches", _live.Count);
+                SetMeta("opennv_grass_instances", _live.Values.Sum(value => value.Count));
             }
             var frame = _environment.GrassFrame(camera, _ini, _start, _fade);
             _lastFrame = frame;
-            var sampled = new HashSet<FalloutFormKey>();
+            _sampled.Clear();
             foreach (var (key, live) in _live)
             {
-                if (sampled.Add(key.Grass)) live.Draw.Sample(frame);
+                if (_sampled.Add(key.Grass)) live.Draw.Sample(frame);
                 else live.Draw.Show();
             }
-            SetMeta("opennv_grass_source_cells", _cells.Count);
-            SetMeta("opennv_grass_batches", _live.Count);
-            SetMeta("opennv_grass_instances", _live.Values.Sum(value => value.Count));
         }
         catch (Exception error)
         {

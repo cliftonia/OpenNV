@@ -159,52 +159,8 @@ internal partial class RuntimeNativePlayer
         if (!GetTree().Paused) AdvancePendingProjectileImpacts((float)delta);
         if (_presentationRecords is null) return;
         if (FatigueOwnsPose) { PublishPlayerFatiguePose(); return; }
-        var active = !_modalInput && _sourceCamera is null && _furniturePhase == 0 && _movementEnabled;
-        if (_firstPersonPixels is not null) _firstPersonPixels.Visible = _presentationError is null && active && !_thirdPersonMode && (_firstPerson?.Weapon is null || _weaponHandling!.Drawn || _weaponAction is not null);
-        if (_thirdPerson is not null)
-        {
-            _thirdPerson.Visible = _presentationError is null && (_xr is not null || _sourceCamera is null && _furniturePhase == 0);
-            _thirdPerson.SetViewPolicy(_xr is not null || _thirdPersonMode, true);
-        }
-        if (_xr is not null && _firstPerson is not null) _firstPerson.Visible = _presentationError is null;
-        var equipment = _presentationEquipment is not null && _presentationInventoryRevision == _presentationInventory!.Revision
-            ? _presentationEquipment : _presentationInventory!.Equipped.ToArray();
-        var appearanceRevision = _appearanceRevision?.Invoke() ?? 0;
-        var equippedWeapon = equipment.Select(_presentationRecords.RuntimeFormKey)
-            .FirstOrDefault(form => _presentationRecords.GetEffective(form).Signature == "WEAP");
-        if (equippedWeapon.ObjectId != 0) _presentationInventory.EnsureWeaponInstance(equippedWeapon);
-        _presentationInventoryRevision = _presentationInventory.Revision;
-        var weaponMods = equippedWeapon.ObjectId == 0 ? (byte)0 : _presentationInventory.WeaponModMask(equippedWeapon);
-        var weaponInstance = equippedWeapon.ObjectId == 0 ? null : _presentationInventory.SelectedWeapon(equippedWeapon).Extra.Instance;
-        if (_presentationEquipment is null || !equipment.SequenceEqual(_presentationEquipment) || appearanceRevision != _presentationAppearanceRevision || weaponMods != _presentationWeaponMods || weaponInstance != _presentationWeaponInstance)
-        {
-            var changing = _presentationEquipment is not null;
-            var weaponChanged = _firstPerson?.Weapon?.Form != (equippedWeapon.ObjectId == 0 ? FalloutDefaultUnarmedWeapon.Form(_presentationRecords) : equippedWeapon) ||
-                weaponMods != _presentationWeaponMods || weaponInstance != _presentationWeaponInstance;
-            if (weaponChanged)
-            {
-                // Preparation/action errors belong to the retired instance.
-                // World impacts and damage errors keep their independent owners.
-                _firePreparationError = _weaponActionError = _muzzleError = null;
-                _weaponResourcePreparation = _firePreparationTiming = null;
-                _firePreparationMilliseconds = 0;
-            }
-            _presentationEquipment = equipment; _presentationError = null; CancelWeaponAction(); _pendingShotCount = 0; _shot = null;
-            _presentationAppearanceRevision = appearanceRevision;
-            _presentationWeaponMods = weaponMods;
-            _presentationWeaponInstance = weaponInstance;
-            try { RebuildPresentation(equipment); }
-            catch (Exception error)
-            {
-                _presentationError = error.Message;
-                if (_firstPerson is not null) _firstPerson.Visible = false;
-                if (_thirdPerson is not null) _thirdPerson.Visible = false;
-                if (_firstPersonPixels is not null) _firstPersonPixels.Visible = false;
-                PresentationChanged?.Invoke();
-                GD.PushError("OPENNV_PLAYER_PRESENTATION_UNBOUND " + error.Message);
-            }
-            if (changing && _presentationError is null && _weaponHandling!.Drawn) RequestWeaponAction("equip");
-        }
+        var active = PublishPresentationVisibility();
+        SynchronizePresentation();
         if (_playerPolicy is not null && _presentationError is null)
         {
             var policy = _playerPolicy();
@@ -241,6 +197,71 @@ internal partial class RuntimeNativePlayer
         PublishPendingShot();
         PublishAutomaticReloadAfterDischarge();
         PublishSoundPoseBoundary();
+    }
+
+    // The first build of both player models is the costliest presentation
+    // step; the loading owner runs it before the loading screen is dismissed.
+    internal void PreparePresentation()
+    {
+        if (_presentationRecords is null || FatigueOwnsPose || _presentationEquipment is not null) return;
+        SynchronizePresentation();
+        PublishPresentationVisibility();
+    }
+
+    private bool PublishPresentationVisibility()
+    {
+        var active = !_modalInput && _sourceCamera is null && _furniturePhase == 0 && _movementEnabled;
+        if (_firstPersonPixels is not null) _firstPersonPixels.Visible = _presentationError is null && active && !_thirdPersonMode && (_firstPerson?.Weapon is null || _weaponHandling!.Drawn || _weaponAction is not null);
+        if (_thirdPerson is not null)
+        {
+            _thirdPerson.Visible = _presentationError is null && (_xr is not null || _sourceCamera is null && _furniturePhase == 0);
+            _thirdPerson.SetViewPolicy(_xr is not null || _thirdPersonMode, true);
+        }
+        if (_xr is not null && _firstPerson is not null) _firstPerson.Visible = _presentationError is null;
+        return active;
+    }
+
+    private void SynchronizePresentation()
+    {
+        var records = _presentationRecords!;
+        var equipment = _presentationEquipment is not null && _presentationInventoryRevision == _presentationInventory!.Revision
+            ? _presentationEquipment : _presentationInventory!.Equipped.ToArray();
+        var appearanceRevision = _appearanceRevision?.Invoke() ?? 0;
+        var equippedWeapon = equipment.Select(records.RuntimeFormKey)
+            .FirstOrDefault(form => records.GetEffective(form).Signature == "WEAP");
+        if (equippedWeapon.ObjectId != 0) _presentationInventory.EnsureWeaponInstance(equippedWeapon);
+        _presentationInventoryRevision = _presentationInventory.Revision;
+        var weaponMods = equippedWeapon.ObjectId == 0 ? (byte)0 : _presentationInventory.WeaponModMask(equippedWeapon);
+        var weaponInstance = equippedWeapon.ObjectId == 0 ? null : _presentationInventory.SelectedWeapon(equippedWeapon).Extra.Instance;
+        if (_presentationEquipment is null || !equipment.SequenceEqual(_presentationEquipment) || appearanceRevision != _presentationAppearanceRevision || weaponMods != _presentationWeaponMods || weaponInstance != _presentationWeaponInstance)
+        {
+            var changing = _presentationEquipment is not null;
+            var weaponChanged = _firstPerson?.Weapon?.Form != (equippedWeapon.ObjectId == 0 ? FalloutDefaultUnarmedWeapon.Form(records) : equippedWeapon) ||
+                weaponMods != _presentationWeaponMods || weaponInstance != _presentationWeaponInstance;
+            if (weaponChanged)
+            {
+                // Preparation/action errors belong to the retired instance.
+                // World impacts and damage errors keep their independent owners.
+                _firePreparationError = _weaponActionError = _muzzleError = null;
+                _weaponResourcePreparation = _firePreparationTiming = null;
+                _firePreparationMilliseconds = 0;
+            }
+            _presentationEquipment = equipment; _presentationError = null; CancelWeaponAction(); _pendingShotCount = 0; _shot = null;
+            _presentationAppearanceRevision = appearanceRevision;
+            _presentationWeaponMods = weaponMods;
+            _presentationWeaponInstance = weaponInstance;
+            try { RebuildPresentation(equipment); }
+            catch (Exception error)
+            {
+                _presentationError = error.Message;
+                if (_firstPerson is not null) _firstPerson.Visible = false;
+                if (_thirdPerson is not null) _thirdPerson.Visible = false;
+                if (_firstPersonPixels is not null) _firstPersonPixels.Visible = false;
+                PresentationChanged?.Invoke();
+                GD.PushError("OPENNV_PLAYER_PRESENTATION_UNBOUND " + error.Message);
+            }
+            if (changing && _presentationError is null && _weaponHandling!.Drawn) RequestWeaponAction("equip");
+        }
     }
 
     private void PublishWeaponSight(double seconds)

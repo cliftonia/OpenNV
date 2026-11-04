@@ -53,7 +53,22 @@ internal sealed record RendererConfiguration(
     float EnvironmentNormalDecodeBias,
     float EnvironmentReflectionHomogeneousW,
     float EnvironmentOpaqueAlpha,
-    int CubemapFaceCount);
+    int CubemapFaceCount,
+    RendererQualityProfiles QualityProfiles);
+
+// Presentation-only cost scaling for low-power devices. High must stay the
+// unscaled renderer; no profile changes source data or gameplay residency.
+internal sealed record RendererQualityProfiles(
+    RendererQualityProfile High,
+    RendererQualityProfile Medium,
+    RendererQualityProfile Low);
+
+internal sealed record RendererQualityProfile(
+    float RenderScale,
+    int SunShadowSplits,
+    float SunShadowDistanceScale,
+    int DirectionalShadowAtlasPixels,
+    float GrassStartFadeScale);
 
 internal sealed record PlayerConfiguration(
     ConfigurationProvenance Provenance,

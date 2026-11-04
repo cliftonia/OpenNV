@@ -387,6 +387,14 @@ internal sealed record RuntimeConfiguration(
             throw new InvalidOperationException(
                 "Content compiler non-presentation base FormIDs must be nonempty and unique.");
         RequirePositive(Renderer.CubemapFaceCount, nameof(Renderer.CubemapFaceCount));
+        foreach (var profile in new[] { Renderer.QualityProfiles.High, Renderer.QualityProfiles.Medium, Renderer.QualityProfiles.Low })
+        {
+            if (profile.RenderScale is not (>= .25f and <= 1f) || profile.SunShadowSplits is not (1 or 2 or 4) ||
+                profile.DirectionalShadowAtlasPixels < 256 || !int.IsPow2(profile.DirectionalShadowAtlasPixels))
+                throw new InvalidOperationException("Renderer quality profiles require a [0.25, 1] render scale, 1/2/4 sun splits and a power-of-two shadow atlas.");
+            RequirePositive(profile.SunShadowDistanceScale, nameof(profile.SunShadowDistanceScale));
+            RequirePositive(profile.GrassStartFadeScale, nameof(profile.GrassStartFadeScale));
+        }
         RequireColor(Hud.DesktopPanelColorRgba, nameof(Hud.DesktopPanelColorRgba));
         RequireColor(Hud.TextColorRgba, nameof(Hud.TextColorRgba));
         foreach (var text in Hud.Copy.Values)
