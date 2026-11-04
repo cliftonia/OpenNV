@@ -25,7 +25,7 @@ public partial class RuntimeCoordinator
         try
         {
             var destination = _nativePluginStack!.RuntimeFormId(move.Destination) == 0x14 ? active.Cell.FormKey : references.Placement(move.Destination).Cell;
-            if (destination != active.Cell.FormKey) await ShowNativeLoadingScreens(destination);
+            if (driver.ConsumeForcedLoadingMenu() | destination != active.Cell.FormKey) await ShowNativeLoadingScreens(destination);
             await RuntimeNativePlayerMoves.ApplyNextAsync(references, player, active.Cell.FormKey, StreamNativePlayerMove);
             CompleteDiagnosticPlayerMove(references, move, null);
             driver.FastTravel.CompleteRelocation();

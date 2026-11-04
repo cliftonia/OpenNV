@@ -40,6 +40,7 @@ internal partial class RuntimeNativeOpeningStageDriver
         _vigorEntry is not null ? "special-menu" : _tagSkillEntry is not null ? "tag-menu" :
         _traitEntry is not null ? "trait-menu" : _recipeMenu is not null ? "recipe-menu" :
         _barterMenu is not null ? "barter-menu" : _caravanMenu is not null ? "caravan-menu" :
+        _restMenu is not null ? "sleep-wait-menu" : _repairServicesMenu is not null ? "repair-services-menu" :
         _casinoMenu is not null ? "casino-menu" :
         TerminalSaveBlocker;
     private string? SaveContinuationBlocker => SaveInteractionBlocker ?? (
@@ -140,7 +141,8 @@ internal partial class RuntimeNativeOpeningStageDriver
                 SynchronizeNameEntry(sourceRequested: true);
                 if (_nameEntry is null) throw new NotSupportedException("Name input has no active menu owner.");
                 break;
-            case "showracemenu" or "ttw_showgeneprojector" when parts.Length == 1 && arguments.Count == 0:
+            case "showracemenu" or "ttw_showgeneprojector" or "showbarbermenu" or "showplasticsurgeonmenu"
+                when parts.Length == 1 && arguments.Count == 0:
                 SynchronizeRaceSexEntry(sourceRequested: true, sourceCommand: operation);
                 if (_raceSexEntry is null) throw new NotSupportedException("Race input has no active menu owner.");
                 break;
@@ -302,6 +304,7 @@ internal partial class RuntimeNativeOpeningStageDriver
             PlayerRegions = _scripts.References.CapturePlayerRegions(),
             ActorBaseFlags = _scripts.References.ActorBaseFlags.Capture(),
             CellOwnership = _scripts.References.CaptureCellOwnership(),
+            ActorNames = _scripts.References.CaptureActorNames(),
             PlayerNotes = _scripts.References.PlayerNotes.Capture(),
             PlayerCaravanCards = _scripts.References.PlayerCaravanCards.Capture(),
             CasinoWinnings = _scripts.References.CasinoWinnings.Capture(),

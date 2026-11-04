@@ -2036,6 +2036,7 @@ NumericGameSettingContracts.Run();
 ActorAppearanceContracts.Run();
 ChallengeContracts.Run();
 WorldCommandContracts.Run();
+PlayerRestContracts.Run();
 AgeRaceContracts.Run();
 FaceGeometryContracts.Run();
 ScriptSoundContracts.Run();

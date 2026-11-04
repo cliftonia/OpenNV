@@ -165,6 +165,9 @@ public partial class RuntimeCoordinator
             "PROJ" when mine is not null => mine.ActionSetting,
             "DOOR" => _nativeReferences!.Get(reference.FormKey).DoorOpen ? "sCloseButton" : "sTargetTypeOpenDoor",
             "CONT" => "sSearch",
+            // MNAM's top bit marks bed furniture, which offers Sleep.
+            "FURN" when source.ReadSubrecords().SingleOrDefault(field => field.Signature == "MNAM").Data is { Length: 4 } markers &&
+                (System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(markers.Span) & 0x80000000u) != 0 => "sTargetTypeSleep",
             "FURN" => "sTargetTypeSit",
             "NPC_" or "CREA" when _nativeReferences!.IsDead(reference.FormKey) => "sSearch",
             "NPC_" or "CREA" when FalloutDialogueSpeaker.AllowsPlayerDialogue(_nativePluginStack, reference.Base, _nativeReferences!.Get(reference.FormKey).Templates) => "sTargetTypeTalk",

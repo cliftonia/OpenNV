@@ -68,7 +68,10 @@ internal partial class RuntimeNativeOpeningStageDriver
                 _scripts.MiscStatistics.Modify(FalloutMiscStatisticNames.Index(content, Unquote(arguments[0])), amount);
                 return true;
             default:
-                return TryDeferPlayerScriptCommand(operation, arguments);
+                return TryApplyRestCommand(target, parts, operation, arguments) ||
+                    TryApplyProgressionCommand(parts, operation, arguments) ||
+                    TryApplyRepairServicesCommand(target, parts, operation, arguments) ||
+                    TryDeferPlayerScriptCommand(operation, arguments);
         }
     }
 
@@ -79,19 +82,8 @@ internal partial class RuntimeNativeOpeningStageDriver
     {
         (int Minimum, int Maximum, string Reason)? deferred = operation switch
         {
-            "showrepairmenu" => (0, 0, "repair-menu-presentation-unbound"),
-            "showbarbermenu" => (0, 0, "barber-menu-presentation-unbound"),
-            "showplasticsurgeonmenu" => (0, 0, "plastic-surgeon-menu-presentation-unbound"),
             "showtutorialmenu" => (1, 1, "tutorial-menu-presentation-unbound"),
-            "showsleepwaitmenu" => (0, 2, "sleep-wait-menu-presentation-unbound"),
-            "setpcsleephours" => (1, 1, "player-sleep-owner-unbound"),
-            "wakeuppc" => (0, 0, "player-sleep-owner-unbound"),
             "setpccanusepowerarmor" => (1, 1, "power-armor-training-owner-unbound"),
-            "addtagskills" => (1, 1, "level-up-tag-selection-owner-unbound"),
-            "addspecialpoints" => (1, 1, "level-up-special-selection-owner-unbound"),
-            "setspecialpoints" => (1, 1, "special-allocation-menu-owner-unbound"),
-            "resetxp" => (0, 0, "experience-reset-owner-unbound"),
-            "enableloadingmenu" => (1, 1, "loading-menu-presentation-unbound"),
             _ => null,
         };
         if (deferred is not { } rule) return false;

@@ -702,6 +702,7 @@ public partial class RuntimeCoordinator
             if (restore.State.LeveledItems is { } leveledItems) _nativeReferences.LeveledItems.Restore(leveledItems);
             if (restore.State.ActorBaseFlags is { } baseFlags) _nativeReferences.ActorBaseFlags.Restore(baseFlags);
             _nativeReferences.RestoreCellOwnership(restore.State.CellOwnership);
+            _nativeReferences.RestoreActorNames(restore.State.ActorNames);
             _nativeReferences.RestoreEncounterZones(restore.State.EncounterZones);
             _nativeReferences.RuntimeReferences.Restore(restore.State.RuntimeReferences, restore.State.TransientExplosions);
             _nativeReferences.TransientExplosions.Restore(restore.State.TransientExplosions);

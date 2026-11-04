@@ -324,6 +324,8 @@ internal sealed partial class NativeOwnedHudMessages : Control
             _quickSaveNotice ??= FalloutExecutableStringTable.ReadQuickSaveNotice(source.FalloutExecutablePath);
             result = (FalloutGameSettingStrings.Read(_records, _quickSaveNotice.Setting), _quickSaveNotice.Icon, _quickSaveNotice.Seconds);
         }
+        else if (value.Kind == FalloutHudEventKind.ExecutableNotice && FalloutPlayerRest.IsRefusalNotice(value.Text))
+            result = (FalloutGameSettingStrings.Read(_records, value.Text!), null, FalloutPlayerRest.RefusalNoticeSeconds);
         else if (value.Kind == FalloutHudEventKind.ExecutableNotice)
         {
             var source = RuntimeLiveContentSource.Current ?? throw new InvalidOperationException("Executable notice source is absent.");
