@@ -1611,6 +1611,7 @@ public partial class RuntimeCoordinator
             ReferencePresentation = () => _nativeReferencePresentation ??
                 throw new InvalidOperationException("Native reference presentation is absent."),
             SayToCompleted = receipt => _nativeOpeningStageDriver!.DispatchSpeechCompletion(receipt),
+            OpenActorContainer = OpenNativeTeammateContainer,
         };
         _nativeOpeningStageDriver.Configure(
             _nativeOpeningTransitions ??

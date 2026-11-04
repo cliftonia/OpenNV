@@ -229,39 +229,9 @@ public partial class RuntimeCoordinator
         if (type == "CONT" || type is "NPC_" or "CREA" && world.IsDead(reference.FormKey))
         {
             if (_nativeContainerLayer is not null) return;
-            var inventory = world.Inventory(reference.FormKey, _nativeOpeningStageDriver!.PlayerLevel, _nativeGlobals).Contents;
             var record = _nativePluginStack!.GetEffective(reference.Base);
-            var title = FalloutDialogueTopic.Text(record.ReadSubrecords().Single(field => field.Signature == "FULL").Data.Span);
-            var wasPaused = GetTree().Paused;
-            var menu = new NativeOwnedContainerMenu(_nativePluginStack, _nativeInventory, inventory,
-                title, () =>
-                {
-                    _nativeContainerLayer!.QueueFree(); _nativeContainerLayer = null;
-                    _nativeContainerReference = null;
-                    GetTree().Paused = wasPaused; _nativePlayer!.SetModalInput(false);
-                    Input.MouseMode = Input.MouseModeEnum.Captured; SaveNativeInteraction();
-                }, () => { }, () => _nativePlayer!.InventoryBurden, transferWithEvents: (side, transfers) =>
-                {
-                    var playerReference = _nativePluginStack!.RuntimeFormKey(0x14);
-                    _nativeOpeningStageDriver!.InventoryAcquisition.Transfer(
-                        side == 1 ? inventory : _nativeInventory, side == 1 ? _nativeInventory : inventory,
-                        side == 1 ? reference.FormKey : playerReference, side == 1 ? playerReference : reference.FormKey, transfers);
-                });
-            _nativePlayer!.SetModalInput(true); Input.MouseMode = Input.MouseModeEnum.Visible;
-            _nativeContainerLayer = new CanvasLayer { Name = "NativeContainerLayer", Layer = 100, ProcessMode = ProcessModeEnum.Always };
-            AddChild(_nativeContainerLayer);
-            _nativeContainerLayer.AddChild(menu);
-            _nativeContainerReference = reference.FormKey;
-            if (menu.Error is { } failure)
-            {
-                _nativeContainerLayer.QueueFree(); _nativeContainerLayer = null;
-                _nativeContainerReference = null;
-                GetTree().Paused = wasPaused; _nativePlayer.SetModalInput(false);
-                Input.MouseMode = Input.MouseModeEnum.Captured;
-                throw new NotSupportedException(failure);
-            }
-            GetTree().Paused = _nativeXr is null;
-            GD.Print($"OPENNV_NATIVE_CONTAINER_OPEN reference={reference.FormKey} items={inventory.Items.Count} source=winning-CNTO-LVLI");
+            OpenNativeContainerMenu(reference.FormKey,
+                FalloutDialogueTopic.Text(record.ReadSubrecords().Single(field => field.Signature == "FULL").Data.Span));
             return;
         }
         world.Take(reference.FormKey, _nativeInventory, _nativeOpeningStageDriver!.PlayerLevel, _nativeGlobals);

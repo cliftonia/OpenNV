@@ -127,9 +127,11 @@ internal sealed partial class FalloutTerminalMenu
         catch (Exception error)
         {
             LastReceipt = new(selected, FalloutTerminalSelectionState.Failed, error.Message);
+            _forceBack = false;
             throw;
         }
         finally { _executing = false; }
+        ApplyForcedBack();
         return selected;
     }
 

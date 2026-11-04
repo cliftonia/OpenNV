@@ -997,6 +997,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                 }
                 return;
             }
+            if (TryPlayerCommand(source, bindings, parts, operation, target, arguments, Number, Reference, StringValue)) return;
             switch (operation)
             {
                 case "settalkingactivatoractor" when arguments.Count <= 1:
@@ -1131,7 +1132,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                 case "setplayerteammate" when arguments.Count == 1:
                     world.SetPlayerTeammate(target, Boolean(arguments[0]));
                     break;
-                case "moveto" when arguments.Count is >= 1 and <= 4:
+                case "moveto" or "movetofade" or "movetomarkerwithfade" when arguments.Count is >= 1 and <= 4:
                     var moveDestination = Reference(arguments[0]);
                     var moveX = arguments.Count > 1 ? (float)Number(arguments[1]) : 0;
                     var moveY = arguments.Count > 2 ? (float)Number(arguments[2]) : 0;

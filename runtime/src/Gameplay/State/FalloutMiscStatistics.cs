@@ -44,14 +44,29 @@ internal sealed class FalloutMiscStatistics
             throw new NotSupportedException($"Saved miscellaneous statistic {index} has no authoritative count.");
     }
 
-    internal void Increment(int index)
+    internal void Increment(int index) => Modify(index, 1);
+
+    // ModPCMiscStat changes the count by a signed amount. Each positive unit is
+    // one statistic event for challenge progress; a decrease publishes none.
+    internal void Modify(int index, int amount)
     {
         RequireIncrement(index);
-        var next = unchecked(Read(index) + 1);
+        if (amount == 0) return;
         var wasPublishing = _publishing;
         _publishing = true;
-        _values[index] = next;
-        try { _changed(index, 1); }
+        try
+        {
+            if (amount < 0)
+            {
+                _values[index] = unchecked(Read(index) + amount);
+                return;
+            }
+            for (var unit = 0; unit < amount; ++unit)
+            {
+                _values[index] = unchecked(Read(index) + 1);
+                _changed(index, 1);
+            }
+        }
         catch (Exception error)
         {
             // Neither undo the published count nor repeat an uncertain callback.

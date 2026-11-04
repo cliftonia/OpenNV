@@ -1947,6 +1947,7 @@ HackingContracts.Run();
 ElsePayloadContracts.Run();
 EmptyDialogueResultContracts.Run();
 TerminalContracts.Run();
+TerminalContracts.RunForceBack();
 ScriptDeathContracts.Run();
 ActivationParentContracts.Run();
 DefaultActivationContracts.Run();

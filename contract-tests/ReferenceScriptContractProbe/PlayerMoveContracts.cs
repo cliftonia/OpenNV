@@ -87,6 +87,13 @@ internal static class PlayerMoveContracts
             world.PlayerMoves.Complete(first);
             var second = world.PlayerMoves.Next!;
             Require(second.Destination == Key(0x900), "Independent movement requests lost their order.");
+            world.PlayerMoves.Complete(second);
+            Run("Player.MoveToMarkerWithFade ArrivalREF\nPlayer.MoveToFade OriginREF 64 (-64)");
+            var faded = world.PlayerMoves.Next!;
+            Require(faded is { Destination.ObjectId: 0x901, X: 0, Y: 0, Z: 0 }, "MoveToMarkerWithFade did not use the shared player move owner.");
+            world.PlayerMoves.Complete(faded);
+            second = world.PlayerMoves.Next!;
+            Require(second is { Destination.ObjectId: 0x900, X: 64, Y: -64 }, "MoveToFade lost its destination or offsets.");
             world.PlayerMoves.Fail(second, new InvalidDataException("Unavailable destination presentation."));
             Require(world.PlayerMoves.Next is null && world.PlayerMoves.Pending && world.PlayerMoves.Error is not null,
                 "Failed movement lost its request or became eligible for automatic retry.");
