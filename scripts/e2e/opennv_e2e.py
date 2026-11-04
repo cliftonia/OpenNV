@@ -257,9 +257,12 @@ def test_radio() -> str:
         game.wait_log("OPENNV_NATIVE_RADIO_BROADCAST", 30)
         first = game.wait(lambda: (game.gameplay().get("speech") or {}).get("positionSeconds") or None, 30,
                           "radio audio position")
-        time.sleep(4)
-        later = (game.gameplay().get("speech") or {}).get("positionSeconds") or 0
-        require(later != first, "radio audio position is not advancing")
+        def advanced():
+            # A DLC "signal found" message can pause the game right after tuning.
+            game.press("OK")
+            later = (game.gameplay().get("speech") or {}).get("positionSeconds")
+            return later if later and later != first else None
+        game.wait(advanced, 20, "radio audio position to advance")
         failures = [l for l in game.log_text().splitlines() if "RADIO_BROADCAST_FAILED" in l or "PIPBOY_ACTION_FAILED" in l]
         require(not failures, f"radio failures: {failures[:2]}")
         # Saving must work while a station plays (quicksave on F5).
@@ -297,14 +300,18 @@ def answer_dialogue(game: Game) -> bool:
     return preferred is not None and game.press(preferred)
 
 
-def opening_target(stage: int) -> str | None:
-    """Reference Doc Mitchell's opening asks the player to walk to next."""
-    for minimum, reference in ((200, "FalloutNV.esm:103e61"),   # house door
-                               (90, "FalloutNV.esm:104c0f"),    # Doc Mitchell
-                               (80, "FalloutNV.esm:103e55"),    # couch (psych test)
-                               (55, "FalloutNV.esm:104c13")):   # Vigor Tester
+def opening_target(stage: int) -> dict | None:
+    """Bot goal for where Doc Mitchell's opening asks the player to go next."""
+    goals = ((200, "FalloutNV.esm:103e61", "interact", 1.5),  # house door
+             (90, "FalloutNV.esm:104c0f", "interact", 1.5),   # Doc Mitchell
+             (80, "FalloutNV.esm:103e55", "interact", 1.5),   # couch (psych test)
+             (60, "FalloutNV.esm:104c13", "interact", 1.5),   # use the Vigor Tester
+             # Stage 60 is set by a trigger volume in front of the tester; only
+             # walking into it (not activating from range) advances the quest.
+             (55, "FalloutNV.esm:104c13", "approach", 0.6))
+    for minimum, reference, mode, distance in goals:
         if stage >= minimum:
-            return reference
+            return {"op": "bot", "mode": mode, "reference": reference, "distance": distance, "pauseAfter": False}
     return None
 
 
@@ -352,7 +359,7 @@ def test_opening() -> str:
             elif (target := opening_target(stage)) and (gameplay.get("player") or {}).get("movementEnabled"):
                 bot = game.state().get("bot") or {}
                 if bot.get("phase") not in ("awaiting-interaction", "planning", "approaching"):
-                    game.command({"op": "bot", "mode": "interact", "reference": target, "pauseAfter": False})
+                    game.command(target)
             time.sleep(2)
         require(game.gameplay().get("cell") == "FalloutNV.esm:0daebb", "did not reach Goodsprings")
         game.dismiss_popups()
