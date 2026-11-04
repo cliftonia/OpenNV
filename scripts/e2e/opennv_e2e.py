@@ -315,56 +315,91 @@ def opening_target(stage: int) -> dict | None:
     return None
 
 
+def drive_opening(game: Game, done, timeout: float = 900) -> None:
+    """Plays a new game through Doc Mitchell's opening until done(gameplay, stage)."""
+    game.wait_log("OPENNV_NATIVE_ACTIVE_CELL", 180)
+    time.sleep(3)
+    game.tap("Escape")  # skip the intro movie
+    game.command({"op": "campaign", "action": "start", "entry": "new"})
+    deadline = time.time() + timeout
+    tagged: list[str] = []
+    while time.time() < deadline:
+        gameplay = game.gameplay()
+        stage = (gameplay.get("opening") or {}).get("stage") or 0
+        if done(gameplay, stage):
+            return
+        texts = [c.get("text") for c in game.controls()]
+
+        def label(name: str) -> str | None:
+            # Menus differ in case: OK/Ok, Done/DONE, Next/NEXT.
+            return next((t for t in texts if t and t.lower() == name.lower()), None)
+
+        if "No (Recommended)" in texts:
+            game.press("No (Recommended)")
+        elif "Guns" in texts and label("done"):
+            for skill in ("Guns", "Speech", "Lockpick"):
+                if skill not in tagged:
+                    game.press(skill); tagged.append(skill); time.sleep(0.5)
+            game.press(label("done"))
+        elif "P1_RT_Btn:0" in texts:
+            # Vigor Tester SPECIAL: spend any remaining point on this page,
+            # then page forward; the same button is Done on the review page.
+            if "P1_Increase_Btn:0" in texts:
+                game.press("P1_Increase_Btn:0"); time.sleep(0.3)
+            game.press("P1_RT_Btn:0")
+        elif "AllDone_Btn:0" in texts:
+            game.press("AllDone_Btn:0")
+        elif button := label("yes") if label("no") and label("done") else None:
+            game.press(button)  # "finished with your appearance?" confirmation
+        elif button := label("next") or label("done") or label("ok"):
+            game.press(button)  # appearance pages, traits, message boxes, name entry
+        elif answer_dialogue(game):
+            pass
+        elif (target := opening_target(stage)) and (gameplay.get("player") or {}).get("movementEnabled"):
+            bot = game.state().get("bot") or {}
+            if bot.get("phase") not in ("awaiting-interaction", "planning", "approaching"):
+                game.command(target)
+        time.sleep(2)
+    raise Failure(f"opening did not finish within {timeout:.0f}s")
+
+
 def test_opening() -> str:
     """New game from the intro to standing outside Doc Mitchell's house."""
     with Game("opening", new_game=True) as game:
-        game.wait_log("OPENNV_NATIVE_ACTIVE_CELL", 180)
-        time.sleep(3)
-        game.tap("Escape")  # skip the intro movie
-        game.command({"op": "campaign", "action": "start", "entry": "new"})
-        deadline = time.time() + 900
-        tagged: list[str] = []
-        while time.time() < deadline:
-            gameplay = game.gameplay()
-            if gameplay.get("cell") == "FalloutNV.esm:0daebb":
-                break
-            texts = [c.get("text") for c in game.controls()]
-            stage = (gameplay.get("opening") or {}).get("stage") or 0
-
-            def label(name: str) -> str | None:
-                # Menus differ in case: OK/Ok, Done/DONE, Next/NEXT.
-                return next((t for t in texts if t and t.lower() == name.lower()), None)
-
-            if "No (Recommended)" in texts:
-                game.press("No (Recommended)")
-            elif "Guns" in texts and label("done"):
-                for skill in ("Guns", "Speech", "Lockpick"):
-                    if skill not in tagged:
-                        game.press(skill); tagged.append(skill); time.sleep(0.5)
-                game.press(label("done"))
-            elif "P1_RT_Btn:0" in texts:
-                # Vigor Tester SPECIAL: spend any remaining point on this page,
-                # then page forward; the same button is Done on the review page.
-                if "P1_Increase_Btn:0" in texts:
-                    game.press("P1_Increase_Btn:0"); time.sleep(0.3)
-                game.press("P1_RT_Btn:0")
-            elif "AllDone_Btn:0" in texts:
-                game.press("AllDone_Btn:0")
-            elif button := label("yes") if label("no") and label("done") else None:
-                game.press(button)  # "finished with your appearance?" confirmation
-            elif button := label("next") or label("done") or label("ok"):
-                game.press(button)  # appearance pages, traits, message boxes, name entry
-            elif answer_dialogue(game):
-                pass
-            elif (target := opening_target(stage)) and (gameplay.get("player") or {}).get("movementEnabled"):
-                bot = game.state().get("bot") or {}
-                if bot.get("phase") not in ("awaiting-interaction", "planning", "approaching"):
-                    game.command(target)
-            time.sleep(2)
-        require(game.gameplay().get("cell") == "FalloutNV.esm:0daebb", "did not reach Goodsprings")
+        drive_opening(game, lambda gameplay, _: gameplay.get("cell") == "FalloutNV.esm:0daebb")
         game.dismiss_popups()
         require(not game.fatal_errors(), f"fatal errors: {game.fatal_errors()[:3]}")
         return "reached Goodsprings from a new game"
+
+
+def test_rest() -> str:
+    """Doc Mitchell's owned bed refuses sleep; the Wait control advances the clock."""
+    with Game("rest", new_game=True) as game:
+        drive_opening(game, lambda gameplay, stage:
+                      stage >= 200 and (gameplay.get("player") or {}).get("movementEnabled"))
+        game.dismiss_popups(3)
+        game.tap("T")
+        game.wait(lambda: "Wait" in [c.get("text") for c in game.controls()], 30, "Wait menu")
+        for _ in range(2):
+            game.tap("Right")
+            time.sleep(0.3)
+        require(game.press("Wait"), "Wait button is not offered")
+        done = game.wait_log("OPENNV_REST_COMPLETE", 60)
+        require("kind=Wait hours=3" in done, f"wait did not run three hours: {done}")
+        game.wait(lambda: not game.state()["sceneTreePaused"], 30, "gameplay to resume")
+        # Both of Doc Mitchell's beds are his; activating one must refuse sleep.
+        for bed in ("FalloutNV.esm:103e3a", "FalloutNV.esm:103e5b"):
+            game.command({"op": "bot", "mode": "interact", "reference": bed, "distance": 2.0, "pauseAfter": False})
+            try:
+                refused = game.wait_log("OPENNV_REST_REFUSED", 60)
+                break
+            except Failure:
+                continue
+        else:
+            raise Failure("no owned bed in Doc Mitchell's house could be activated")
+        require("reason=sNoSleepInOwnedBed" in refused, f"owned bed was not refused: {refused}")
+        require(not game.fatal_errors(), f"fatal errors: {game.fatal_errors()[:3]}")
+        return done.split("OPENNV_REST_COMPLETE")[1].strip() + "; owned bed refused"
 
 
 def test_fo3() -> str:
@@ -387,7 +422,7 @@ def test_fo3() -> str:
 
 
 TESTS = {"boot": test_boot, "continue": test_continue, "radio": test_radio, "perf": test_perf,
-         "opening": test_opening, "fo3": test_fo3}
+         "opening": test_opening, "rest": test_rest, "fo3": test_fo3}
 DEFAULT = ["boot", "continue", "radio", "perf", "opening", "fo3"]
 
 

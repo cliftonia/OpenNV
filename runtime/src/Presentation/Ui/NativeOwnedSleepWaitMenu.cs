@@ -42,6 +42,15 @@ internal sealed partial class NativeOwnedSleepWaitMenu : Control
         XElement Named(string name) => menu.DescendantsAndSelf().Single(tile => (string?)tile.Attribute("name") == name);
         _scrollbar = Named("SWM_Scrollbar"); _hours = Named("SWM_HoursChosen");
         _time = Named("SWM_CurrentTime"); _prompt = Named("SWM_HowManyText");
+        // The hour scrollbar is code-driven: its value is bound directly and
+        // its drag/click inputs are idle, as the recipe list binds its bar.
+        _tiles.Bind(_scrollbar, "_SetInCode", 1); _tiles.Bind(_scrollbar, "_marker_offset", 0);
+        _tiles.Bind(Named("SWM_MainRect"), "wheelmoved", 0);
+        var marker = Named("scrollbar_horiz_marker");
+        _tiles.Bind(marker, "dragx", 0); _tiles.Bind(marker, "dragoffsetx", 0); _tiles.Bind(marker, "dragstartx", -1);
+        foreach (var part in new[] { "scrollbar_horiz_left", "scrollbar_horiz_right", "scrollbar_horiz_page_left", "scrollbar_horiz_page_right" })
+            if (menu.DescendantsAndSelf().SingleOrDefault(tile => (string?)tile.Attribute("name") == part) is { } clickable)
+                _tiles.Bind(clickable, "clicked", 0);
         _verb = Setting(kind == FalloutRestKind.Sleep ? "sSleep" : "sWait");
         _tiles.Text[_prompt] = $"{Setting("sHowManyWait")} {_verb}?";
         var begin = Named("SWM_WaitButton");
