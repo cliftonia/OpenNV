@@ -22,6 +22,18 @@ internal sealed partial class FalloutReferenceWorld
         actor.Engagement = new(target);
     }
 
+    // ForceFlee puts the actor into its flee procedure away from its current
+    // combat target, or the player outside combat, until that flee completes.
+    internal void ForceFlee(FalloutFormKey reference)
+    {
+        if (reference == _enginePlayer) throw new NotSupportedException("ForceFlee requires an actor caller.");
+        var actor = Actor(reference);
+        if (actor.Injury?.Dead == true || actor.Unconscious || !IsEnabled(reference)) return;
+        var current = actor.Engagement ?? new(_enginePlayer);
+        actor.AggroWarning = null;
+        actor.Engagement = (current.Action == "flee" ? current : current.Transition("flee")) with { ForcedFlee = true };
+    }
+
     internal void StopCombatAlarmOnActor(FalloutFormKey target)
     {
         if (records.RuntimeFormId(target) != 0x14) _ = Actor(target);

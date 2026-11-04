@@ -463,6 +463,8 @@ internal sealed partial class FalloutReferenceInstance
     internal FalloutActorEngagement? Engagement { get; set; }
     internal FalloutAggroRadiusWarning? AggroWarning { get; set; }
     internal Action? StopCombat { get; set; }
+    // Bound while a resident combat owner has a ragdoll: (origin in game units, or null for the player; force).
+    internal Action<System.Numerics.Vector3?, float>? ScriptPushAway { get; set; }
     internal Func<FalloutActorEngagement?>? CaptureEngagement { get; set; }
     internal FalloutActorCorpseEquipment? CorpseEquipment { get; set; }
     internal Func<bool, bool>? CanCaptureCorpseEquipment { get; set; }

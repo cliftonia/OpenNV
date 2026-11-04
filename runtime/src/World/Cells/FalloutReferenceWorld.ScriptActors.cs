@@ -61,6 +61,29 @@ internal sealed partial class FalloutReferenceWorld
         actor.AggroWarning = null;
     }
 
+    // Caller.PushActorAway Target Force knocks the target down and pushes its
+    // ragdoll away from the caller (towards it for a negative force). Only a
+    // resident actor has physics; an unloaded target is unchanged.
+    internal void PushActorAway(FalloutFormKey source, FalloutFormKey target, float force)
+    {
+        if (!float.IsFinite(force)) throw new InvalidDataException("PushActorAway force is not finite.");
+        RequireScriptReference(source);
+        if (target == _enginePlayer)
+        {
+            FalloutScriptCommandDeferral.Warn("pushactoraway", "player-knockdown-has-no-ragdoll-owner");
+            return;
+        }
+        var actor = Actor(target);
+        if (actor.ScriptPushAway is not { } resident) return;
+        System.Numerics.Vector3? origin = null;
+        if (source != _enginePlayer)
+        {
+            var position = (Get(source).QuerySpatialPlacement?.Invoke() ?? Placement(source)).Position;
+            origin = new(position[0], position[1], position[2]);
+        }
+        resident(origin, force);
+    }
+
     internal void RemoveFromAllFactions(FalloutFormKey reference)
     {
         foreach (var (faction, rank) in ActorFactions(reference))

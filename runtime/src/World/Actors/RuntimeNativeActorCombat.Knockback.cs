@@ -23,6 +23,27 @@ internal sealed partial class RuntimeNativeActorCombat
         _hitKnockbackError = null;
     }
 
+    // Scripted PushActorAway: the same knockdown and ragdoll impulse an
+    // explosion push publishes, from the caller's position.
+    private void ScriptPushAway(System.Numerics.Vector3? origin, float force)
+    {
+        if (Dead || !EffectiveEnabled) return;
+        var basis = FalloutActorTemplateOwner.Resolve(_records, _records.GetEffective(_state.Base),
+            (ushort)FalloutActorTemplateGroup.BaseData, _state.Templates);
+        if (FalloutHitKnockback.NotPushable(basis)) return;
+        var units = _skeleton.UnitsToMetres;
+        var center = origin is { } source ? new Vector3(source.X, source.Z, -source.Y) * units
+            : (_context?.Player() ?? throw new NotSupportedException("PushActorAway has no resident player origin.")).GlobalPosition;
+        if (force < 0) center = 2 * _actor.GlobalPosition - center;
+        if (!_state.KnockedDown && !_state.Unconscious)
+        {
+            PrepareRecovery();
+            PrepareDeath(); _state.KnockedDown = true; BeginKnockdown();
+        }
+        if (_ragdoll is { Active: true } ragdoll) ragdoll.ApplyBlast(center, MathF.Abs(force) * units);
+        GD.Print($"OPENNV_ACTOR_PUSHED reference={_state.Reference} force={force} knockedDown={_state.KnockedDown}");
+    }
+
     private Vector3 AdvanceHitKnockbackMotion(double delta)
     {
         var frame = Engine.GetPhysicsFrames();

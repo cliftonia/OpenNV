@@ -33,6 +33,19 @@ internal partial class RuntimeNativeOpeningStageDriver
                     throw new InvalidDataException("OpenTeammateContainer caller is not a placed actor.");
                 (OpenActorContainer ?? throw new NotSupportedException("OpenTeammateContainer has no container menu owner."))(target);
                 return true;
+            // Victim.StartMisterSandman Player: the Mister Sandman perk's sleeping
+            // victim dies with the player as killer. The paired kill idle has no
+            // player third-person presentation owner and is reported once.
+            case "startmistersandman":
+                if (arguments.Count > 1 || arguments.Count == 1 && Unquote(arguments[0]).ToLowerInvariant() is not ("player" or "playerref"))
+                    throw new InvalidDataException("StartMisterSandman takes an optional player killer.");
+                if (_pluginStack.RuntimeFormId(target) == 0x14 || _pluginStack.GetEffective(target).Signature is not ("ACHR" or "ACRE"))
+                    throw new InvalidDataException("StartMisterSandman caller is not a placed actor.");
+                var killed = (_scripts.References ?? throw new InvalidOperationException("StartMisterSandman has no world owner."))
+                    .KillActor(target, _pluginStack.RuntimeFormKey(0x14), SourcePlayerLevel, _globals);
+                World.Cells.FalloutScriptCommandDeferral.Warn(operation, "sandman-kill-idle-presentation-unbound");
+                GD.Print($"OPENNV_SCRIPT_SANDMAN_KILL victim={target} killed={killed}");
+                return true;
             case "systemsave" when parts.Length == 1:
                 if (arguments.Count != 0) throw new InvalidDataException("SystemSave takes no arguments.");
                 RequestWorldSave();
@@ -67,7 +80,6 @@ internal partial class RuntimeNativeOpeningStageDriver
             "showsleepwaitmenu" => (0, 2, "sleep-wait-menu-presentation-unbound"),
             "setpcsleephours" => (1, 1, "player-sleep-owner-unbound"),
             "wakeuppc" => (0, 0, "player-sleep-owner-unbound"),
-            "startmistersandman" => (0, 1, "sandman-kill-animation-owner-unbound"),
             "setpccanusepowerarmor" => (1, 1, "power-armor-training-owner-unbound"),
             "addtagskills" => (1, 1, "level-up-tag-selection-owner-unbound"),
             "addspecialpoints" => (1, 1, "level-up-special-selection-owner-unbound"),
