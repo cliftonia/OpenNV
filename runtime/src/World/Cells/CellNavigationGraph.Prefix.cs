@@ -57,9 +57,15 @@ internal sealed partial class CellNavigationGraph
                     reached = [start];
                     unfilteredPending = new(); unfilteredPending.Enqueue(start);
                 }
-                while (!reached.Contains(target) && unfilteredPending!.TryDequeue(out var current))
+                if (reached.Contains(target)) return true;
+                // A closed traversal containing this start bounds everything it
+                // reaches, so a target outside that closure is unreachable
+                // without walking the whole worldspace graph again.
+                if (unfilteredPending!.Count != 0 && ProvenUnreachable(start, target)) return false;
+                while (!reached.Contains(target) && unfilteredPending.TryDequeue(out var current))
                     foreach (var next in Neighbors(current))
                         if (reached.Add(next)) unfilteredPending.Enqueue(next);
+                if (unfilteredPending.Count == 0 && !reached.Contains(target)) RetainClosedReachability(reached);
                 return reached.Contains(target);
             }
             if (reached is null)
@@ -92,5 +98,28 @@ internal sealed partial class CellNavigationGraph
         return new Vector2(point.X - projected.X, point.Y - projected.Y).LengthSquared() <= horizontalTolerance * horizontalTolerance &&
             (actorHeightProjection ? NativeActorNavigationHeight.Admits(point.Z, projected.Z) :
                 MathF.Abs(point.Z - projected.Z) < heightTolerance);
+    }
+
+    // Completed unfiltered traversals. Reachability is transitive: when a
+    // start lies inside a closed set C, everything it reaches lies in C too,
+    // so a target outside C is proven unreachable without another traversal.
+    // Retention is bounded; a retained set is never mutated again.
+    private readonly List<HashSet<NavigationNode>> _closedReachability = [];
+    private const int ClosedReachabilityLimit = 2;
+
+    private bool ProvenUnreachable(NavigationNode start, NavigationNode target)
+    {
+        lock (_closedReachability)
+            return _closedReachability.Any(closed => closed.Contains(start) && !closed.Contains(target));
+    }
+
+    private void RetainClosedReachability(HashSet<NavigationNode> closed)
+    {
+        lock (_closedReachability)
+        {
+            if (_closedReachability.Any(retained => ReferenceEquals(retained, closed))) return;
+            if (_closedReachability.Count == ClosedReachabilityLimit) _closedReachability.RemoveAt(0);
+            _closedReachability.Add(closed);
+        }
     }
 }

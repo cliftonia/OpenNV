@@ -1489,6 +1489,25 @@ public partial class RuntimeCoordinator
         _nativeWalkableGrid.Clear();
         foreach (var resident in residentCells) _nativeWalkableGrid.Add(resident.Coordinates!.Value);
         BindNativeReferenceEvents(root, cell);
+        PrewarmNativeTravelNavigation(cell);
+    }
+
+    // The travel graph is otherwise built by the first actor that wanders,
+    // stalling that gameplay frame. Build it while the activation is still
+    // behind loading; a region that cannot build keeps failing at its consumer.
+    private void PrewarmNativeTravelNavigation(FalloutCellScene cell)
+    {
+        if (_nativeReferences is not { } references) return;
+        references.PrewarmTravelPortals();
+        var started = Stopwatch.GetTimestamp();
+        try { _ = references.TravelNavigation(cell.Cell.FormKey); }
+        catch (Exception error) when (error is NotSupportedException or InvalidDataException or InvalidOperationException)
+        {
+            GD.Print($"OPENNV_NATIVE_TRAVEL_PREWARM cell={cell.Cell.FormKey} deferred={error.GetType().Name}");
+            return;
+        }
+        var elapsed = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+        if (elapsed >= 1) GD.Print($"OPENNV_NATIVE_TRAVEL_PREWARM cell={cell.Cell.FormKey} elapsedMs={elapsed:F1}");
     }
 
     private void AddNativeReferenceEmittance(Node3D instance, FalloutPlacedReference reference)

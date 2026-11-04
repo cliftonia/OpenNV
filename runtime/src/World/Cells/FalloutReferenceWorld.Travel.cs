@@ -6,6 +6,19 @@ namespace OpenNV.Runtime.World.Cells;
 internal sealed partial class FalloutReferenceWorld
 {
     private FalloutCampaignPortalGraph? _travelPortals;
+    private Task<FalloutCampaignPortalGraph>? _travelPortalsBuild;
+
+    // The whole-game door graph reads every CELL. Build it from the read-only
+    // record stack off the main thread so the first cross-region package does
+    // not stall gameplay; a consumer arriving early waits for the same result.
+    internal void PrewarmTravelPortals()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_travelPortals is null) _travelPortalsBuild ??= Task.Run(() => new FalloutCampaignPortalGraph(records));
+    }
+
+    private FalloutCampaignPortalGraph TravelPortals() =>
+        _travelPortals ??= _travelPortalsBuild?.GetAwaiter().GetResult() ?? new FalloutCampaignPortalGraph(records);
     private readonly Dictionary<FalloutFormKey, CellNavigationGraph> _travelNavigation = [];
 
     private readonly Dictionary<FalloutFormKey, FalloutFormKey> _travelRegions = [];
@@ -35,7 +48,7 @@ internal sealed partial class FalloutReferenceWorld
     {
         var origin = Placement(actor).Cell;
         if (TravelRegion(origin) == TravelRegion(destination)) return null;
-        var route = (_travelPortals ??= new(records)).Find(origin, destination,
+        var route = TravelPortals().Find(origin, destination,
             door => CanUseTravelPortal(actor, door), TravelRegion);
         return route.Count == 0 ? null : route[0];
     }
@@ -97,6 +110,6 @@ internal sealed partial class FalloutReferenceWorld
         if (TravelRegion(origin) == TravelRegion(destination)) return;
         // Locks can change after the preceding event. Persistence validates
         // topology; the next resident approach rechecks current admission.
-        _ = (_travelPortals ??= new(records)).Find(origin, destination, _ => true, TravelRegion);
+        _ = TravelPortals().Find(origin, destination, _ => true, TravelRegion);
     }
 }
