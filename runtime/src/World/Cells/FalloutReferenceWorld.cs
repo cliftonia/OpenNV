@@ -1021,7 +1021,8 @@ internal sealed partial class FalloutReferenceWorld(FalloutPluginStack records,
                 if (instance.Script is null) throw new InvalidDataException("Saved stopped frame has no source script.");
                 var fields = instance.Script.Record.ReadSubrecords().Where(field => field.Signature == "SCTX").ToArray();
                 if (fields.Length != 1) throw new InvalidDataException("Saved stopped frame has no unique source program.");
-                var blocks = FalloutGameModeProgram.ReadEvents(FalloutDialogueTopic.ScriptText(fields[0].Data.Span));
+                var blocks = FalloutGameModeProgram.ReadEvents(FalloutDialogueTopic.ScriptText(fields[0].Data.Span),
+                    FalloutGameModeProgram.CompiledBody(instance.Script.Record.ReadSubrecords()));
                 snapshot.ScriptStoppedFrame?.Validate(instance.ScriptError, instance.Script.Sha256, blocks);
                 snapshot.CompletedScriptContinuation?.Validate(snapshot.CompletedScriptContinuation.Error, instance.Script.Sha256, blocks);
                 foreach (var retained in new[] { snapshot.ScriptStoppedFrame, snapshot.CompletedScriptContinuation }.OfType<FalloutReferenceScriptStoppedFrame>())

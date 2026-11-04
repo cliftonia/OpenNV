@@ -48,7 +48,7 @@ internal static partial class QuestGraphAudit
         var accountedFieldIdentities = new HashSet<string>(StringComparer.Ordinal);
         var compiledPrograms = 0; var compiledOnlyPrograms = 0;
         var references = 0; var resolvedReferences = 0;
-        var localReferences = 0; var parsedSourceFailures = 0;
+        var localReferences = 0; var parsedSourceFailures = 0; var compiledBranchBodies = 0;
         var conditions = 0; var parsedConditions = 0;
         var stageCount = 0; var objectiveCount = 0;
         var statements = 0; var predicates = 0; var expressionStatements = 0;
@@ -237,9 +237,10 @@ internal static partial class QuestGraphAudit
                         try
                         {
                             var text = FalloutDialogueTopic.ScriptText(source.Field.Data.Span);
-                            var events = signature == "SCPT" ? FalloutGameModeProgram.ReadEvents(text) :
+                            var events = signature == "SCPT" ? FalloutGameModeProgram.ReadEvents(text, FalloutGameModeProgram.CompiledBody(compiled)) :
                                 [new FalloutScriptEventProgram("Result", null, FalloutGameModeProgram.Read("begin GameMode\n" + text + "\nend"))];
                             bodyParsed = true; ++parsedBodies; ++parsedSourceBodies;
+                            if (events.Any(value => value.Program.UsesCompiledBranches)) ++compiledBranchBodies;
                             foreach (var command in events.SelectMany(value => value.Program.CommandNames).Distinct())
                             {
                                 commands.Add(command);
@@ -289,7 +290,8 @@ internal static partial class QuestGraphAudit
                             foreach (var line in text.Split('\n'))
                             {
                                 var uncommented = FalloutGameModeProgram.StripComment(line).Trim();
-                                if (uncommented.Length == 0) continue;
+                                // Only SetStage lines carry edges; other statements own their own parse lane.
+                                if (!uncommented.StartsWith("setstage", StringComparison.OrdinalIgnoreCase)) continue;
                                 string[] tokens;
                                 try { tokens = FalloutGameModeProgram.Tokens(uncommented); }
                                 catch (Exception error) { Failure("transition-token-inspection", record, sourceIdentity, error); continue; }
@@ -350,7 +352,7 @@ internal static partial class QuestGraphAudit
                 originalProgramDenominatorKnown = unreadRecords == 0 },
             plugins = records.Plugins.Select(value => new { name = value.Plugin.Name, value.Sha256 }), records = counts,
             stageCount, objectiveCount, programs, sourcePrograms, parsedPrograms, compiledPrograms, compiledOnlyPrograms,
-            sourceBodies, parsedSourceBodies, parsedSourceFailures, inspectionFailureBodies,
+            sourceBodies, parsedSourceBodies, parsedSourceFailures, compiledBranchBodies, inspectionFailureBodies,
             compiledProgramRows, emptyCompiledRows, orphanPrograms, deletedProgramRows,
             compiledExecutionOwners = (int?)null, compiledExecutionEvidence = "unknown-not-probed-no-runtime-owner-count-claim",
             references, resolvedFormReferences = resolvedReferences, localReferences,

@@ -251,7 +251,8 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
         {
             var sources = script.ReadSubrecords().Where(field => field.Signature == "SCTX").ToArray();
             if (sources.Length != 1) throw new NotSupportedException("Object script needs one available source program.");
-            events = FalloutGameModeProgram.ReadEvents(FalloutDialogueTopic.ScriptText(sources[0].Data.Span));
+            events = FalloutGameModeProgram.ReadEvents(FalloutDialogueTopic.ScriptText(sources[0].Data.Span),
+                FalloutGameModeProgram.CompiledBody(script.ReadSubrecords()));
             _definitions.Add(script.FormKey, events);
         }
         program = new(Bindings(records.GetEffective(instance.Reference), script, script.ReadSubrecords()), events);
@@ -287,7 +288,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
             inspectFunctions: functions => safe = program.CanRetryInitialPlayerDeathRead(functions));
         if (!safe) return false;
         var source = FalloutDialogueTopic.ScriptText(script.ReadSubrecords().Single(field => field.Signature == "SCTX").Data.Span);
-        foreach (var block in FalloutGameModeProgram.ReadEvents(source).Where(block =>
+        foreach (var block in FalloutGameModeProgram.ReadEvents(source, FalloutGameModeProgram.CompiledBody(script.ReadSubrecords())).Where(block =>
             block.Event.Equals("MenuMode", StringComparison.OrdinalIgnoreCase) && block.Program.HasStatements))
         {
             _ = Steps(owner.FormKey, Bindings(owner, script, script.ReadSubrecords()), block.Program, null, 0,
