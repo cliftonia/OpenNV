@@ -346,7 +346,25 @@ internal sealed partial class RuntimeNativeActorRagdoll : Node3D
             if (DescendsFrom(body.Bone, root)) { body.Node.LinearVelocity += _lastSeparationVelocity; body.Node.Sleeping = false; }
     }
 
-    public override void _Process(double delta) { if (_active) Publish(); }
+    // Jolt can keep jointed bodies on a slope micro-jittering without ever
+    // sleeping, which would leave a corpse unsettled (unlootable, unsaveable)
+    // forever. A ragdoll that has stayed effectively at rest is put to sleep.
+    private const float RestingLinearMetresPerSecond = .08f, RestingRadiansPerSecond = .25f;
+    private const double RestingSecondsBeforeSleep = 1.5;
+    private double _restingSeconds;
+
+    public override void _Process(double delta)
+    {
+        if (!_active) return;
+        Publish();
+        if (Settled) { _restingSeconds = 0; return; }
+        var resting = _bodies.All(body => body.Node.LinearVelocity.Length() < RestingLinearMetresPerSecond &&
+            body.Node.AngularVelocity.Length() < RestingRadiansPerSecond);
+        _restingSeconds = resting ? _restingSeconds + delta : 0;
+        if (_restingSeconds < RestingSecondsBeforeSleep) return;
+        foreach (var body in _bodies) body.Node.Sleeping = true;
+        _restingSeconds = 0;
+    }
     internal void PublishCurrentPose() { if (_active) Publish(); }
 
     private void Publish()

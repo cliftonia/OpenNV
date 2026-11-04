@@ -20,6 +20,21 @@ internal partial class RuntimeNativeNpc
         GD.Print($"OPENNV_NATIVE_FIND_FURNITURE_READY reference={Appearance.Reference} package={package.FormKey} location={_findFurniture.Location} radius={_findFurniture.Radius}");
     }
 
+    // A corpse no longer occupies or searches for a seat. Releasing the
+    // reservation also retires the furniture capture blocker, so the corpse
+    // can be looted and saved like any other dead actor.
+    private void InterruptDeadFurniture()
+    {
+        if (Combat?.Dead != true || !FurnitureProcedureActive || _furnitureSandboxActivity ||
+            _sleepPackage is not null || _eatPackage is not null) return;
+        _furniturePendingSelection = null;
+        ClearFurniture();
+        _findFurniture = null;
+        if (_aiReferenceState?.ProcedureCaptureBlocker == FindFurnitureCaptureBlocker)
+            _aiReferenceState.ProcedureCaptureBlocker = null;
+        GD.Print($"OPENNV_NATIVE_FURNITURE_RELEASED_ON_DEATH reference={Appearance.Reference}");
+    }
+
     private void AdvanceFindFurniture(double delta)
     {
         if (_findFurniture is null || _seat is not null || _aiError is not null || Combat is null ||

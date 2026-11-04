@@ -24,7 +24,10 @@ internal sealed partial class RuntimeNativeActorCombat
             _state.CaptureCorpseEquipment != CaptureCorpseEquipment || _state.StoppedRetirement is not null ||
             _ragdoll?.Settled != true || _world.HitEvents.SnapshotPending(_state.Reference).Count != 0 ||
             !CorpseEquipmentCaptureReady(false) || !StoppedAiPoseCaptureReady)
-            throw new NotSupportedException("Corpse transfer requires its settled current native equipment, audio, hit and physical owners.");
+            throw new NotSupportedException("Corpse transfer requires its settled current native equipment, audio, hit and physical owners " +
+                $"(ragdollSettled={_ragdoll?.Settled == true} pendingHits={_world.HitEvents.SnapshotPending(_state.Reference).Count} " +
+                $"equipment={CorpseEquipmentCaptureReady(false)} stoppedPose={StoppedAiPoseCaptureReady} " +
+                $"retiring={_state.StoppedRetirement is not null}).");
         // This retains the ordinary independent procedure/head/audio gates.
         // A stopped source fault is captured, not cleared by looting.
         var captured = _state.Capture();
