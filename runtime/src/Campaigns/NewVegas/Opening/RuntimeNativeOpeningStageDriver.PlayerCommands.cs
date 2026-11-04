@@ -46,7 +46,8 @@ internal partial class RuntimeNativeOpeningStageDriver
                 _scripts.MiscStatistics.Modify(FalloutMiscStatisticNames.Index(content, Unquote(arguments[0])), amount);
                 return true;
             default:
-                return TryDeferPlayerScriptCommand(operation, arguments);
+                return TryApplyRestCommand(target, parts, operation, arguments) ||
+                    TryDeferPlayerScriptCommand(operation, arguments);
         }
     }
 
@@ -64,9 +65,6 @@ internal partial class RuntimeNativeOpeningStageDriver
             "showblackjackmenuparams" => (1, 4, "blackjack-menu-presentation-unbound"),
             "showslotmachinemenuparams" => (1, 4, "slot-machine-menu-presentation-unbound"),
             "showtutorialmenu" => (1, 1, "tutorial-menu-presentation-unbound"),
-            "showsleepwaitmenu" => (0, 2, "sleep-wait-menu-presentation-unbound"),
-            "setpcsleephours" => (1, 1, "player-sleep-owner-unbound"),
-            "wakeuppc" => (0, 0, "player-sleep-owner-unbound"),
             "startmistersandman" => (0, 1, "sandman-kill-animation-owner-unbound"),
             "setpccanusepowerarmor" => (1, 1, "power-armor-training-owner-unbound"),
             "addtagskills" => (1, 1, "level-up-tag-selection-owner-unbound"),

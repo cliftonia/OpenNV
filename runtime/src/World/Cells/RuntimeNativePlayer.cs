@@ -127,6 +127,10 @@ internal partial class RuntimeNativePlayer : CharacterBody3D
     internal Action? NoActivationFeedback { get; set; }
     internal Action? SaveGame { get; set; }
     internal Action? LoadGame { get; set; }
+    // Source control 15 (Rest/Wait) and player bed activation open the
+    // shared Sleep/Wait owner; the player only routes the request.
+    internal Action? OpenWaitMenu { get; set; }
+    internal Action<FalloutFormKey>? ActivateBed { get; set; }
 
     internal void ApplySourceCamera(Transform3D transformFromFeet)
     {
@@ -393,6 +397,13 @@ internal partial class RuntimeNativePlayer : CharacterBody3D
             inputEvent.IsActionPressed(RuntimeNativeInputControls.Action(26), allowEcho: false))
         {
             LoadGame?.Invoke();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+        if (_inputControls is not null && !_modalInput && _movementEnabled && _furniturePhase == 0 && OpenWaitMenu is not null &&
+            inputEvent.IsActionPressed(RuntimeNativeInputControls.Action(15), allowEcho: false))
+        {
+            OpenWaitMenu();
             GetViewport().SetInputAsHandled();
             return;
         }

@@ -65,8 +65,16 @@ internal partial class RuntimeNativePlayer
         var content = RuntimeLiveContentSource.Current ?? throw new InvalidOperationException("Owned furniture source is absent.");
         var furniture = records.GetEffective(reference.Base);
         var path = "meshes/" + FalloutDialogueTopic.Text(furniture.ReadSubrecords().Single(field => field.Signature == "MODL").Data.Span).Replace('\\', '/');
-        var seat = FalloutFurnitureSource.Read(records, furniture, Read(path));
-        if (seat.Sleeping) throw new NotSupportedException("Player bed activation requires its rest-menu owner.");
+        var model = Read(path);
+        if (FalloutFurnitureSource.ReadSeats(records, furniture, model).All(candidate => candidate.Sleeping))
+        {
+            // Player beds open the Sleep menu; the player does not occupy the
+            // bed marker while the engine advances the clock.
+            (ActivateBed ?? throw new NotSupportedException("Player bed activation requires its rest-menu owner."))(reference.FormKey);
+            return;
+        }
+        var seat = FalloutFurnitureSource.Read(records, furniture, model);
+        if (seat.Sleeping) throw new NotSupportedException("Mixed bed and seat furniture requires marker selection.");
         var body = CreateFurnitureBody?.Invoke() ?? throw new NotSupportedException("Player furniture requires the current owned player body.");
         try
         {
