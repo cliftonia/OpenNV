@@ -5,6 +5,11 @@ using OpenNV.Runtime.Content;
 using OpenNV.Runtime.Gameplay.State;
 using OpenNV.Runtime.World.Cells;
 
+if (args is ["--script-actor-commands"])
+{
+    ScriptActorCommandContracts.Run();
+    return;
+}
 if (args is ["--owned-opening-conversation", var openingConversationRoot, var openingConversationSave])
 {
     OwnedDialogueVoiceProbe.OpeningConversation(openingConversationRoot, openingConversationSave);
@@ -1897,6 +1902,7 @@ ConversationSpeakerAdmissionContracts.Run();
 SharedConditionContracts.Run();
 ActorSourceContracts.Run();
 FactionRelationContracts.Run();
+ScriptActorCommandContracts.Run();
 ReputationContracts.Run();
 ReputationConditionContracts.Run();
 ReputationConditionContracts.RunPercentage();

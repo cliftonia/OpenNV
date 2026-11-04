@@ -711,6 +711,13 @@ internal sealed partial class FalloutQuestScripts
                 () => References ?? throw new NotSupportedException("Actor flags have no shared world owner."),
                 () => caller?.FormKey(_records) ?? (parts.Length == 2 ? QueryReference(parts[0]) : instance.Quest.FormKey)) is { } actorFlags)
                 return actorFlags;
+            if (parts.Length <= 2 && FalloutScriptActorCommands.Function(operation, _records,
+                () => References ?? throw new NotSupportedException("Actor commands have no shared world owner."),
+                () => caller?.FormKey(_records) ?? (parts.Length == 2 ? QueryReference(parts[0]) : instance.Quest.FormKey),
+                (from, to) => (float)(conditionRuntime.ScriptFunction("getdistance", instance.Script, () => from, name => Form(name).FormKey,
+                    Variable, true) ?? throw new InvalidOperationException("GetDistance has no condition owner."))
+                    .Invoke([new(FalloutScriptValue.Form(_records.RuntimeFormId(to)))])) is { } actorCommand)
+                return actorCommand;
             if (parts.Length <= 2 && conditionRuntime.ScriptFunction(operation, instance.Script,
                 () => caller?.FormKey(_records) ?? (parts.Length == 2 ? QueryReference(parts[0]) : instance.Quest.FormKey),
                 name => Form(name).FormKey, Variable, parts.Length == 2 || caller is not null) is { } shared) return shared;
@@ -932,7 +939,8 @@ internal sealed partial class FalloutQuestScripts
                 parts.Length == 1 && FalloutScriptFormLists.Supports(operation) ||
                 parts.Length == 1 && FalloutScriptLeveledItems.Supports(operation) ||
                 parts.Length <= 2 && FalloutScriptPosition.Supports(operation) ||
-                parts.Length <= 2 && FalloutScriptActorFlags.Supports(operation, parts.Length == 2))
+                parts.Length <= 2 && FalloutScriptActorFlags.Supports(operation, parts.Length == 2) ||
+                parts.Length <= 2 && FalloutScriptActorCommands.Supports(operation))
             {
                 _ = FalloutNvseNumericExpression.EvaluateValue([command, .. rawArguments], values, Function);
                 return;

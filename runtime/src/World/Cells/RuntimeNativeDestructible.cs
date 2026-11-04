@@ -39,8 +39,21 @@ internal sealed partial class RuntimeNativeDestructible : Node
         return null;
     }
 
-    public override void _EnterTree() => _root.SetMeta(OwnerMeta, this);
-    public override void _ExitTree() => _root.RemoveMeta(OwnerMeta);
+    public override void _EnterTree()
+    {
+        _root.SetMeta(OwnerMeta, this);
+        _state.ScriptObjectDamage = ScriptDamage;
+    }
+
+    public override void _ExitTree()
+    {
+        _root.RemoveMeta(OwnerMeta);
+        if (_state.ScriptObjectDamage == ScriptDamage) _state.ScriptObjectDamage = null;
+    }
+
+    // DamageObject uses the resident stage owner so entered stages publish their
+    // model, explosion and disable effects exactly like a weapon contact.
+    private void ScriptDamage(float amount) => Apply(amount, null, false);
 
     internal static RuntimeNativeDestructible? Attach(Node3D root, FalloutReferenceInstance state,
         FalloutPluginStack records, RuntimeLiveContentSource content, float units, uint mask, NativeActorCombatContext context)

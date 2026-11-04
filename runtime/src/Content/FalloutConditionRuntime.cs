@@ -86,9 +86,8 @@ internal sealed partial class FalloutConditionRuntime(FalloutPluginStack records
             case Function.GetPCEnemyofFaction:
                 SecondUnused(condition);
                 var faction = records.GetEffective(Form(condition, "FACT"));
-                var factionFlags = faction.ReadSubrecords().Single(field => field.Signature == "DATA").Data.Span;
-                if (factionFlags.Length is not (1 or 4)) throw new InvalidDataException("Faction flags require one or four source bytes.");
-                return (factionFlags[0] & 0x10) != 0 ? 1 : 0;
+                // SetPCEnemyOfFaction/ClearFactionPlayerEnemyFlag override the source flag.
+                return (world?.IsPlayerEnemyOfFaction(faction.FormKey) ?? FalloutReferenceWorld.SourcePlayerEnemy(faction)) ? 1 : 0;
             case Function.GetGlobalValue: return Globals is { } globals ? globals.Get(Form(condition, "GLOB")) : GlobalValue(condition);
             case Function.GetScriptVariable:
                 return world is not null ? (float)world.ReadVariable(quests, condition.FormArgument1, condition.Argument2) :

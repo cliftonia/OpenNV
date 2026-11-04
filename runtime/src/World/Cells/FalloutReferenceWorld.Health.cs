@@ -110,6 +110,9 @@ internal sealed partial class FalloutReferenceWorld
         var actor = Actor(reference);
         var health = Health(reference);
         var injury = actor.Injury!;
+        // SetGhost actors are not hit at all: no health, limb or death change.
+        if (IsGhost(reference))
+            return new(reference, partType, health.Current, health.Current, 0, 0, false, injury.Dead, source.ImpactMaterial);
         var healthDamage = source.Invulnerable || injury.Dead ? 0 : damage * (healthOnly ? 1 : part.DamageMultiplier);
         var limbDamage = source.Invulnerable || healthOnly ? 0 : damage * limbMultiplier;
         var changed = health with { Damage = health.Damage - healthDamage };

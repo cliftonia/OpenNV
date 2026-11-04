@@ -49,8 +49,11 @@ internal sealed partial class FalloutReferenceWorld
             if (snapshot.Alerted is not null) RequireAlertActor(snapshot.Target);
             if (snapshot.TeammatePerks is { Count: > 0 } && snapshot.Target != records.RuntimeFormKey(0x14))
                 throw new InvalidDataException("Shared teammate perks must be retained on the player.");
+            if (snapshot.PlayerEnemyFactions is { Count: > 0 } enemies && (snapshot.Target != records.RuntimeFormKey(0x14) ||
+                enemies.Any(item => item is null || item.Value is not (0 or 1))))
+                throw new InvalidDataException("Player-enemy faction flags must be boolean and retained on the player.");
             foreach (var (items, signature) in new[] { (snapshot.Perks, "PERK"), (snapshot.Factions, "FACT"),
-                (snapshot.TeammatePerks ?? [], "PERK") })
+                (snapshot.TeammatePerks ?? [], "PERK"), (snapshot.PlayerEnemyFactions ?? [], "FACT") })
             {
                 var seen = new HashSet<FalloutFormKey>();
                 foreach (var item in items)
@@ -176,7 +179,7 @@ internal sealed partial class FalloutReferenceWorld
         return result;
     }
 
-    internal uint ActorRelation(FalloutFormKey actor, FalloutFormKey target) =>
+    internal uint ActorRelation(FalloutFormKey actor, FalloutFormKey target) => PlayerEnemyRelation(actor, target) ??
         FalloutActorThreat.Relation(records, ActorFactions(actor), ActorFactions(target), FactionCombatReaction);
 
     internal void SetActorFlag(FalloutFormKey reference, bool value, bool friendlyHits)
