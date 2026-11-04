@@ -34,6 +34,7 @@ public partial class RuntimeCoordinator
     private FalloutCellScene? _nativeInitialCell;
     private FalloutCellScene? _nativeActiveCell;
     private Node3D? _nativeCurrentCellRoot;
+    private readonly Dictionary<FalloutFormKey, FalloutSpeedTree> _nativeSpeedTrees = [];
     private readonly Dictionary<string, RuntimeNativeNifPrototype> _nativeNifPrototypes =
         new(StringComparer.OrdinalIgnoreCase);
     private Node3D? _nativePrewarmedInitialCellRoot;
@@ -180,6 +181,7 @@ public partial class RuntimeCoordinator
             cell = _nativeActiveCell?.Cell.FormKey.ToString(),
             exteriorLod = cellNodes.OfType<RuntimeNativeExteriorLod>().SingleOrDefault()?.State,
             exteriorGrass = !detailed ? null : cellNodes.OfType<RuntimeNativeGrassOwner>().SingleOrDefault()?.State,
+            exteriorSpeedTrees = !detailed ? null : cellNodes.OfType<RuntimeNativeSpeedTreeOwner>().SingleOrDefault()?.State,
             imposters = _nativeReferencePresentation?.ImposterState,
             exteriorStreaming = CaptureNativeStreamingState(cellNodes),
             resourceCache = RuntimeLiveContentSource.Current?.CacheState,
@@ -926,10 +928,11 @@ public partial class RuntimeCoordinator
                 if (_nativeSessionTransitioning || _retiringNativeSession)
                     throw new OperationCanceledException("CELL construction session retired.");
                 var baseObject = cell.BaseObjects.GetValueOrDefault(reference.Base);
-                if (baseObject?.ModelPath is { } modelPath && modelPath.EndsWith(".spt", StringComparison.OrdinalIgnoreCase))
+                if (baseObject?.ModelPath is { } modelPath && modelPath.EndsWith(".spt", StringComparison.OrdinalIgnoreCase) &&
+                    cell.Cell.Worldspace is null)
                 {
                     _nativeReferenceDivergences[reference.FormKey.ToString()] =
-                        $"Owned SpeedTree model {modelPath} procedural geometry decoder is unbound.";
+                        $"Owned SpeedTree model {modelPath} has no interior billboard owner.";
                     continue;
                 }
                 referenceWatch.Restart();
@@ -1233,6 +1236,25 @@ public partial class RuntimeCoordinator
         }
         if (baseObject.ModelPath is null)
             return;
+        if (cell.Cell.Worldspace is not null && baseObject.Signature == "TREE" &&
+            baseObject.ModelPath.EndsWith(".spt", StringComparison.OrdinalIgnoreCase))
+        {
+            if (!_nativeSpeedTrees.TryGetValue(baseObject.FormKey, out var tree))
+                _nativeSpeedTrees.Add(baseObject.FormKey, tree = FalloutSpeedTree.Read(
+                    _nativePluginStack!.GetEffective(baseObject.FormKey), _configuration.ContentCompiler.SpeedTree.BillboardDirectory));
+            var marker = new RuntimeNativeSpeedTreeReference
+            {
+                Name = $"Reference_{reference.FormKey}",
+                Definition = tree,
+                Transform = ReferenceTransform(reference),
+            };
+            marker.SetMeta("opennv_reference_form_key", reference.FormKey.ToString());
+            marker.SetMeta("opennv_source_model", baseObject.ModelPath);
+            marker.SetMeta("opennv_source_form", baseObject.FormKey.ToString());
+            root.AddChild(marker);
+            Observe("speedtree-billboard");
+            return;
+        }
         if (baseObject.Light is not null)
             _ = FalloutPlacedLightResolver.Resolve(reference, baseObject, _nativePluginStack,
                 region => (_nativeSkyLighting ?? throw new InvalidOperationException("Sky lighting state is absent."))

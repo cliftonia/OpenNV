@@ -274,7 +274,7 @@ internal static partial class CellGraphAudit
                             var part = FalloutNpcAppearanceResolver.ReadModel(records, record, "authored-alternative", item.Signature, alternate, flags, 0, null, adjacent);
                             if (part.ModelPath is { } modelPath)
                                 AddResource(row, record.Signature == "TREE" ? FalloutCellSceneReader.NormalizeModelPath(FalloutDialogueTopic.Text(item.Data.Span), "TREE") : modelPath,
-                                    modelPath.EndsWith(".spt", StringComparison.OrdinalIgnoreCase) ? "speedtree-unbound" : "model");
+                                    modelPath.EndsWith(".spt", StringComparison.OrdinalIgnoreCase) ? "speedtree-billboard" : "model");
                             foreach (var texture in part.AlternateTextures)
                             {
                                 Visit(texture.TextureSet, row, alternate, index, ["TXST"]);
