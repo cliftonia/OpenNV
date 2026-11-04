@@ -47,6 +47,7 @@ internal partial class RuntimeNativeOpeningStageDriver
                 return true;
             default:
                 return TryApplyRestCommand(target, parts, operation, arguments) ||
+                    TryApplyProgressionCommand(parts, operation, arguments) ||
                     TryDeferPlayerScriptCommand(operation, arguments);
         }
     }
@@ -59,19 +60,12 @@ internal partial class RuntimeNativeOpeningStageDriver
         (int Minimum, int Maximum, string Reason)? deferred = operation switch
         {
             "showrepairmenu" => (0, 0, "repair-menu-presentation-unbound"),
-            "showbarbermenu" => (0, 0, "barber-menu-presentation-unbound"),
-            "showplasticsurgeonmenu" => (0, 0, "plastic-surgeon-menu-presentation-unbound"),
             "showroulettemenuparams" => (1, 4, "roulette-menu-presentation-unbound"),
             "showblackjackmenuparams" => (1, 4, "blackjack-menu-presentation-unbound"),
             "showslotmachinemenuparams" => (1, 4, "slot-machine-menu-presentation-unbound"),
             "showtutorialmenu" => (1, 1, "tutorial-menu-presentation-unbound"),
             "startmistersandman" => (0, 1, "sandman-kill-animation-owner-unbound"),
             "setpccanusepowerarmor" => (1, 1, "power-armor-training-owner-unbound"),
-            "addtagskills" => (1, 1, "level-up-tag-selection-owner-unbound"),
-            "addspecialpoints" => (1, 1, "level-up-special-selection-owner-unbound"),
-            "setspecialpoints" => (1, 1, "special-allocation-menu-owner-unbound"),
-            "resetxp" => (0, 0, "experience-reset-owner-unbound"),
-            "enableloadingmenu" => (1, 1, "loading-menu-presentation-unbound"),
             "exitgame" => (0, 0, "session-exit-is-player-owned"),
             _ => null,
         };

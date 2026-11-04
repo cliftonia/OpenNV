@@ -18,7 +18,7 @@ internal static class RewardXpContracts
         Console.WriteLine("OPENNV_REWARD_XP_CONTRACT_PASS playerOwner=true sourceCap=true cappedTotal=true " +
             "signedDecrease=true float32=true noHeal=true object=true questSharedAndFallback=true " +
             "globalFunction=true consumedPrefix=true cold=true activeXpPerkApplied=true " +
-            "levelUpGapVisible=true xpPresentation=unverified");
+            "levelUpGapVisible=true resetXp=true xpPresentation=unverified");
     }
 
     private static void OwnerArithmetic()
@@ -49,6 +49,15 @@ internal static class RewardXpContracts
         foreach (var amount in new[] { double.NaN, double.PositiveInfinity, .5, 2147483648d, -2147483649d })
             Reject(() => fixture.Experience.Reward(amount));
         Require(fixture.Vitals.State == before, "Invalid XP operand partially mutated player vitals.");
+        fixture.Experience.Reward(200);
+        var reset = new List<(int, int)>();
+        void ObserveReset(int previous, int current) => reset.Add((previous, current));
+        fixture.Experience.ExperienceChanged += ObserveReset;
+        var beforeReset = fixture.Vitals.State;
+        fixture.Experience.Reset(); fixture.Experience.Reset();
+        fixture.Experience.ExperienceChanged -= ObserveReset;
+        Require(fixture.Vitals.State == (beforeReset with { ExperiencePoints = 0 }) && reset.SequenceEqual([(beforeReset.ExperiencePoints, 0)]),
+            "ResetXP changed more than earned XP or notified an unchanged reset.");
         fixture.Experience.Reward(200);
         var beforeOverflow = fixture.Vitals.State;
         Reject(() => fixture.Experience.Reward(2147483520));

@@ -140,7 +140,8 @@ internal partial class RuntimeNativeOpeningStageDriver
                 SynchronizeNameEntry(sourceRequested: true);
                 if (_nameEntry is null) throw new NotSupportedException("Name input has no active menu owner.");
                 break;
-            case "showracemenu" or "ttw_showgeneprojector" when parts.Length == 1 && arguments.Count == 0:
+            case "showracemenu" or "ttw_showgeneprojector" or "showbarbermenu" or "showplasticsurgeonmenu"
+                when parts.Length == 1 && arguments.Count == 0:
                 SynchronizeRaceSexEntry(sourceRequested: true, sourceCommand: operation);
                 if (_raceSexEntry is null) throw new NotSupportedException("Race input has no active menu owner.");
                 break;

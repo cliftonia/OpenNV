@@ -568,8 +568,17 @@ internal partial class RuntimeNativeOpeningStageDriver : Node
         CompleteBlocker("getplayername");
     }
 
+    private static RaceSexMenuScope RaceMenuScope(string command) => command switch
+    {
+        "showbarbermenu" => RaceSexMenuScope.Barber,
+        "showplasticsurgeonmenu" => RaceSexMenuScope.PlasticSurgeon,
+        _ => RaceSexMenuScope.Full,
+    };
+
     private string RaceMenuModel(string command)
     {
+        // Barber and plastic-surgeon requests present the ordinary RaceSexMenu.
+        if (RaceMenuScope(command) != RaceSexMenuScope.Full) command = "showracemenu";
         if (!_raceMenuDevicesRead)
         {
             var source = RuntimeLiveContentSource.Current ?? throw new InvalidOperationException("Race menu has no owned source.");
@@ -590,7 +599,9 @@ internal partial class RuntimeNativeOpeningStageDriver : Node
         var pending = sourceRequested || pendingCommand is not null;
         if (!pending)
         {
-            if (_raceSexEntry is not null)
+            // A script-requested barber/surgeon menu is not a stage blocker;
+            // only its own acceptance or failure retires it.
+            if (_raceSexEntry is not null && RaceMenuScope(_raceMenuCommand) == RaceSexMenuScope.Full)
             {
                 _player.SetModalInput(false);
                 _raceSexEntry.QueueFree();
@@ -620,7 +631,8 @@ internal partial class RuntimeNativeOpeningStageDriver : Node
         };
         try
         {
-            entry.Configure(_raceSexContract, _character, _pluginStack, _imageSpacePresenter(), modelPath);
+            entry.Configure(_raceSexContract, _character, _pluginStack, _imageSpacePresenter(), modelPath,
+                RaceMenuScope(_raceMenuCommand));
             _raceSexEntry = entry;
         }
         catch

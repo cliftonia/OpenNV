@@ -7,8 +7,15 @@ using OpenNV.Runtime.Presentation.CharacterCreation;
 
 namespace OpenNV.Runtime.Campaigns.NewVegas.Opening;
 
+// ShowBarberMenu and ShowPlasticSurgeonMenu open the same RaceSexMenu rooted
+// at its hair or face page; race and sex stay out of reach.
+internal enum RaceSexMenuScope { Full, Barber, PlasticSurgeon }
+
 internal partial class RuntimeNativeRaceSexEntry : CanvasLayer
 {
+    private RaceSexMenuScope _scope;
+    private int RootPage => _scope switch { RaceSexMenuScope.Barber => 3, RaceSexMenuScope.PlasticSurgeon => 2, _ => 0 };
+    private int LastPage => _scope == RaceSexMenuScope.Full ? 3 : RootPage;
     private FalloutPluginStack _records = null!;
     private FalloutNativeCharacterCreation _creation = null!;
     private FalloutInstallationSettings _settings = null!;
@@ -86,9 +93,10 @@ internal partial class RuntimeNativeRaceSexEntry : CanvasLayer
     };
 
     internal void Configure(FalloutNativeRaceSexContract contract, FalloutNativeRaceSexSelection current, FalloutPluginStack records,
-        RuntimeNativeImageSpace? imageSpace = null, string? modelPath = null)
+        RuntimeNativeImageSpace? imageSpace = null, string? modelPath = null, RaceSexMenuScope scope = RaceSexMenuScope.Full)
     {
         Name = "NativeRaceSexEntry"; Layer = 120; ProcessMode = ProcessModeEnum.Always;
+        _scope = scope; _page = RootPage;
         _records = records;
         var source = RuntimeLiveContentSource.Current ?? throw new InvalidOperationException("Creation has no owned content source.");
         _settings = FalloutInstallationSettings.Read(source);
@@ -138,7 +146,7 @@ internal partial class RuntimeNativeRaceSexEntry : CanvasLayer
             >= 10 and <= 19 => ControlRows(),
             _ => throw new NotSupportedException("Creation page has no native owner."),
         };
-        _screen.Menu.SetPage(_page, _creation.Header(_page), rows, _page == 3);
+        _screen.Menu.SetPage(_page, _creation.Header(_page), rows, _page == LastPage);
     }
     private IReadOnlyList<NativeRaceSexChoice> FaceRows()
     {
@@ -181,8 +189,20 @@ internal partial class RuntimeNativeRaceSexEntry : CanvasLayer
     private void Navigate(int direction)
     {
         if (_confirmation is not null) return;
-        if (direction > 0 && _page == 3) { Confirm("sRSMConfirmDone", () => Accepted?.Invoke(_creation.Selection)); return; }
-        if (direction > 0) _page++;
+        if (direction > 0 && _page == LastPage) { Confirm("sRSMConfirmDone", () => Accepted?.Invoke(_creation.Selection)); return; }
+        if (_scope != RaceSexMenuScope.Full)
+        {
+            // Scoped menus are a tree under their root: Back climbs to the
+            // parent page, Forward returns to the root, and the root Back
+            // has no earlier page to reach.
+            if (_page == RootPage && direction <= 0) return;
+            _page = direction > 0 ? RootPage : _page switch
+            {
+                5 or 6 or 7 => 3, 4 => 2, 8 or 9 or 19 => 4, >= 10 and <= 18 => 9,
+                _ => throw new NotSupportedException("Scoped creation page has no parent."),
+            };
+        }
+        else if (direction > 0) _page++;
         else _page = _page switch { <= 3 => Math.Max(0, _page - 1), 4 => 2, 5 or 6 or 7 => 3, 8 or 9 or 19 => 4, >= 10 and <= 18 => 9, _ => throw new NotSupportedException() };
         ShowPage();
     }

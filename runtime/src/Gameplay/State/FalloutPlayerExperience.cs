@@ -17,6 +17,15 @@ internal sealed class FalloutPlayerExperience(FalloutPluginStack records, Fallou
         _perkConditions = evaluate;
     }
 
+    // ResetXP clears earned XP without changing the player's level.
+    internal void Reset()
+    {
+        var before = vitals.State;
+        if (before.ExperiencePoints == 0) return;
+        vitals.Publish(before with { ExperiencePoints = 0 });
+        ExperienceChanged?.Invoke(before.ExperiencePoints, 0);
+    }
+
     internal int Reward(double operand)
     {
         if (!double.IsFinite(operand) || operand != Math.Truncate(operand) || operand < int.MinValue || operand > int.MaxValue)
