@@ -81,6 +81,11 @@ internal sealed partial class FalloutConditionRuntime
             { ReadOnly = true },
             "getinsamecell" => Form(Function.GetInSameCell),
             "getincell" => Form(Function.GetInCell),
+            "getinworldspace" => Form(Function.GetInWorldspace),
+            "getiscreature" => None(Function.GetIsCreature),
+            "getiscreaturetype" => new([FalloutScriptArgumentKind.Number], arguments =>
+                Call(Function.GetIsCreatureType, number: Index(arguments[0].Number)))
+            { ReadOnly = true },
             "getinzone" => Form(Function.GetInZone),
             "getissex" => Sex(Function.GetIsSex, true),
             "getpcissex" => Sex(Function.GetPCIsSex, false),

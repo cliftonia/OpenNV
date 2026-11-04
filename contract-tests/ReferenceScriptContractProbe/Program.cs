@@ -1922,6 +1922,7 @@ FollowPackageContracts.Run();
 DialoguePackageContracts.Run();
 DialogueSpatialContracts.Run();
 HeadingQueryContracts.Run();
+WorldspaceQueryContracts.Run();
 WeatherCommandContracts.Run();
 ScriptEffectCommandContracts.Run();
 MovementSpeedContracts.Run();
