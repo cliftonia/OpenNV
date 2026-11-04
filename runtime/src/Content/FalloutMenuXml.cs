@@ -71,7 +71,7 @@ internal static class FalloutMenuXml
                 throw new InvalidDataException("Texture trait index is not a finite integer.");
             key += index.ToString(CultureInfo.InvariantCulture);
         }
-        return text(source.Value, key);
+        return text(SourceName(source.Value), key);
     }
 
     internal static XElement Parse(ReadOnlySpan<byte> bytes)
@@ -102,10 +102,14 @@ internal static class FalloutMenuXml
     internal static float Number(XElement property, Func<string, string, float> reference)
         => Number(property, reference, 0);
 
-    // Retail menus also accept the bare screen source used by authored
-    // overrides such as YUP's globals.xml line-thickness expression.
-    private static string SourceName(string source)
-        => string.Equals(source.Trim(), "screen", StringComparison.OrdinalIgnoreCase) ? "screen()" : source;
+    // Retail menus also accept bare relative sources (screen, me, parent,
+    // sibling...) used by authored overrides such as YUP's globals.xml and
+    // recipe_menu.xml expressions.
+    internal static string SourceName(string source) => source.Trim().ToLowerInvariant() switch
+    {
+        "screen" or "me" or "parent" or "grandparent" or "child" or "sibling" or "io" or "globals" => source.Trim().ToLowerInvariant() + "()",
+        _ => source,
+    };
 
     private static float Number(XElement property, Func<string, string, float> reference, float accumulator)
     {

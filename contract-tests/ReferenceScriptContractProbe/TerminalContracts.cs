@@ -31,6 +31,14 @@ internal static partial class TerminalContracts
                 "<add><copy>7</copy><onlyifnot>entity_highdef</onlyifnot></add></value>");
             Require(FalloutMenuXml.Number(brightness, (_, _) => throw new InvalidOperationException()) == 11,
                 "The case-insensitive desktop highdef shortcut selected the wrong source brightness arm.");
+            // YUP's recipe menu uses bare relative sources such as src="me".
+            var bare = System.Xml.Linq.XElement.Parse("<y><copy src=\"sibling(Line)\" trait=\"y\" /><sub src=\"me\" trait=\"height\" /></y>");
+            Require(FalloutMenuXml.Number(bare, (source, trait) => (source, trait) switch
+            {
+                ("sibling(Line)", "y") => 500,
+                ("me()", "height") => 40,
+                _ => throw new InvalidDataException($"Unexpected menu source {source}/{trait}."),
+            }) == 460, "A bare relative menu source did not resolve to its tile function.");
             Console.WriteLine("OPENNV_TERMINAL_CONTRACT_PASS orderedSourceEntries=true emptyResults=true noteMembershipFixture=true nativeNoteFeedback=unverified " +
                 "declaringMasterScope=true actualCaller=true sourceEffects=true conditionScope=true " +
                 "prefixFailureNoReplay=true coldSettledEffects=true textNote=true " +

@@ -249,7 +249,7 @@ internal sealed class NativeOwnedMenuTree
         finally { _evaluatingText.Remove((tile, trait)); }
     }
 
-    private XElement Owner(XElement tile, string source) => source switch
+    private XElement Owner(XElement tile, string source) => FalloutMenuXml.SourceName(source) switch
     {
         "me()" => tile,
         "parent()" => tile.Parent!,
