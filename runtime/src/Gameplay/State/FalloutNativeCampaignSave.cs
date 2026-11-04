@@ -71,7 +71,8 @@ internal sealed record FalloutNativeCampaignState(
     IReadOnlyList<FalloutInventoryScriptInitialization>? PlayerInventoryScriptInitializations = null,
     FalloutPlayerFatigueKnockout? PlayerFatigueKnockout = null,
     FalloutRuntimeReferencesSnapshot? RuntimeReferences = null, IReadOnlyList<FalloutDynamicMineSnapshot>? DynamicMines = null,
-    FalloutDeliveredEffectsSnapshot? DeliveredEffects = null, FalloutCellOwnershipSnapshot? CellOwnership = null);
+    FalloutDeliveredEffectsSnapshot? DeliveredEffects = null, FalloutCellOwnershipSnapshot? CellOwnership = null,
+    FalloutActorNamesSnapshot? ActorNames = null);
 
 internal sealed record FalloutNativeCampaignRestore(
     FalloutNativeCampaignState State,
@@ -428,6 +429,7 @@ internal static class FalloutNativeCampaignSave
             if (state.LeveledItems is { } leveledItems) references.LeveledItems.Restore(leveledItems);
             if (state.ActorBaseFlags is { } baseFlags) references.ActorBaseFlags.Restore(baseFlags);
             references.RestoreCellOwnership(state.CellOwnership);
+            references.RestoreActorNames(state.ActorNames);
             references.RuntimeReferences.Restore(state.RuntimeReferences, state.TransientExplosions);
             references.TransientExplosions.Restore(state.TransientExplosions);
             references.RestoreDynamicMines(state.DynamicMines);

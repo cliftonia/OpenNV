@@ -32,11 +32,12 @@ internal static class WorldCommandContracts
                 Record("FACT", 0x700, Field("EDID", Text("Owners"))),
                 Record("CHAL", 0x300, Field("EDID", Text("Chal")), Field("FULL", Text("Chal")), Field("DESC", Text("Desc")), Field("DATA", challenge)),
                 Record("QUST", 0x601, Field("EDID", Text("ResetMe")), Field("DATA", new byte[8])),
+                Record("MESG", 0x320, Field("EDID", Text("RenameMsg")), Field("DESC", Text("Renamed"))),
                 Record("NPC_", 0x110, Field("ACBS", new byte[24])), Record("CONT", 0x112), Record("ACTI", 0x111),
                 Record("CELL", 0x800, Field("EDID", Text("TestCell")), Field("DATA", [1])), Group(0x800,
                     Join(Reference("ACHR", 0x900, 0x110, "ActorRef"), Reference("REFR", 0x901, 0x112, "ChestRef"),
                         Reference("REFR", 0x903, 0x111, "BoxRef"))),
-                Record("QUST", 0x600, [Field("EDID", Text("WorldQuest")), .. new uint[] { 0x14, 1, 2, 5, 6, 0x710, 0x700, 0x300, 0x601, 0x800, 0x900, 0x901, 0x903 }
+                Record("QUST", 0x600, [Field("EDID", Text("WorldQuest")), .. new uint[] { 0x14, 1, 2, 5, 6, 0x710, 0x700, 0x300, 0x601, 0x800, 0x900, 0x901, 0x903, 0x320 }
                     .Select(id => Field("SCRO", BitConverter.GetBytes(id)))])));
             using var records = FalloutPluginStack.Load(directory.FullName, ["World.esm"]);
             using var world = new FalloutReferenceWorld(records);
@@ -56,7 +57,7 @@ internal static class WorldCommandContracts
                 "ActorRef.RemoveAllTypedItems ChestRef 0 1 24 KeptList",
                 "SetCellOwnership TestCell Owners", "ResetQuest ResetMe", "RemoveRecurringFromChallenge Chal",
                 "PurgeCellBuffers", "SetSceneIsComplex 1", "BoxRef.EnterTrigger player", "BoxRef.TrapUpdate",
-                "ActorRef.SetAngle Z 90"));
+                "ActorRef.SetAngle Z 90", "ActorRef.SetActorFullName RenameMsg"));
             var actor = world.Inventory(Key(0x900), 1).Contents;
             var chest = world.Inventory(Key(0x901), 1).Contents;
             Require(actor.Item(Key(1))?.Variants?.Single().Condition == .35f && actor.Item(Key(2)) is { Count: 2, Variants: null or [{ Condition: null }] },
@@ -73,14 +74,17 @@ internal static class WorldCommandContracts
             Require(Math.Abs(world.Placement(Key(0x900)).RotationRadians[2] - MathF.PI / 2) < 1e-5, "SetAngle did not rotate the reference.");
             using var cold = new FalloutReferenceWorld(records);
             cold.RestoreCellOwnership(JsonSerializer.Deserialize<FalloutCellOwnershipSnapshot>(JsonSerializer.Serialize(world.CaptureCellOwnership())));
+            cold.RestoreActorNames(JsonSerializer.Deserialize<FalloutActorNamesSnapshot>(JsonSerializer.Serialize(world.CaptureActorNames())));
             cold.Restore(world.Capture());
             cold.LoadCell(FalloutCellSceneReader.Read(records, Key(0x800)));
             Require(cold.Ownership(Key(0x901)).Owner == Key(0x700), "CELL ownership did not survive save restoration.");
+            Require(world.ActorDisplayName(Key(0x900)) == "Renamed" && cold.ActorDisplayName(Key(0x900)) == "Renamed",
+                "SetActorFullName did not rename the actor or did not survive save restoration.");
             var restoredChallenges = new FalloutChallenges(records, new());
             restoredChallenges.Restore(challenges.Capture());
             Require(restoredChallenges.State(Key(0x300)).RecurringRemoved, "Challenge recurrence removal did not survive restoration.");
             Reject(() => executor.ExecuteStage(quest, quest.ReadSubrecords().ToArray(), "ActorRef.RemoveAllTypedItems 0 1"));
-            Console.WriteLine("OPENNV_WORLD_COMMAND_CONTRACT_PASS item-condition typed-removal cell-ownership quest-reset challenge-recurrence trigger-enter set-angle cold");
+            Console.WriteLine("OPENNV_WORLD_COMMAND_CONTRACT_PASS item-condition typed-removal cell-ownership quest-reset challenge-recurrence trigger-enter set-angle actor-name cold");
         }
         finally { directory.Delete(true); }
     }

@@ -300,6 +300,7 @@ internal partial class RuntimeNativeOpeningStageDriver
             PlayerRegions = _scripts.References.CapturePlayerRegions(),
             ActorBaseFlags = _scripts.References.ActorBaseFlags.Capture(),
             CellOwnership = _scripts.References.CaptureCellOwnership(),
+            ActorNames = _scripts.References.CaptureActorNames(),
             PlayerNotes = _scripts.References.PlayerNotes.Capture(),
             PlayerCaravanCards = _scripts.References.PlayerCaravanCards.Capture(),
             DroppedItems = _scripts.References.CaptureDroppedItems(),
