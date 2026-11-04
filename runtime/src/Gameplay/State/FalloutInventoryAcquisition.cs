@@ -207,7 +207,7 @@ internal sealed class FalloutInventoryAcquisition(FalloutPluginStack records, Fa
                         var dropped = _world.PrepareInventoryInstanceDrop(inventory, recipient, item.FormKey, state.Identity);
                         inventory.RemoveInventoryScriptInstance(item.FormKey, state.Identity);
                         _leases.Add(_world.PrepareDroppedPublication(dropped));
-                    });
+                    }, value => inventory.SetInventoryScriptInstanceValue(item.FormKey, state.Identity, value));
                 FalloutInventoryScriptEvents.Dispatch(_records, item, "OnAdd", recipient, execution);
                 inventory.StoreInventoryScriptState(item.FormKey, state with { Locals = locals.Capture() });
             }
@@ -228,7 +228,7 @@ internal sealed class FalloutInventoryAcquisition(FalloutPluginStack records, Fa
 
         private FalloutInventoryScriptExecution Execution(FalloutPluginRecord owner, FalloutPluginRecord script,
             FalloutScriptBindings bindings, FalloutScriptEffectLocals? locals, FalloutFormKey recipient, Action? removeMe,
-            Action? dropMe = null)
+            Action? dropMe = null, Action<int>? setValue = null)
         {
             bool IsForm(string name) => FalloutScriptBindings.IsPlayer(name) ? bindings.HasPlayerReference : locals?.Contains(name) == true ? locals.Kind(name) == FalloutScriptLocalKind.Form :
                 bindings.TryForm(name) is not null;
@@ -298,6 +298,10 @@ internal sealed class FalloutInventoryAcquisition(FalloutPluginStack records, Fa
                         if (arguments.Count != 0 || parts.Length != 1 || dropMe is null)
                             throw new NotSupportedException("DropMe has no actual incoming item owner.");
                         dropMe(); return;
+                    case "setitemvalue":
+                        if (arguments.Count != 1 || parts.Length != 1 || setValue is null)
+                            throw new NotSupportedException("SetItemValue has no actual incoming item owner.");
+                        setValue(Integer(arguments[0])); return;
                     case "addcardtoplayer":
                     case "addcard":
                         if (parts.Length != 1 || arguments.Count != 0) throw new NotSupportedException("Card addition arguments are unbound.");

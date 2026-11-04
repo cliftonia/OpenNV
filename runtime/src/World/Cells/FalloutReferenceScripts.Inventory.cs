@@ -4,7 +4,7 @@ using OpenNV.Runtime.Gameplay.State;
 namespace OpenNV.Runtime.World.Cells;
 
 internal sealed record FalloutInventoryScriptContext(FalloutFormKey? Container, Action Remove, bool ElapsedTimeOwned,
-    FalloutScriptInventoryCaller Caller, Action? Drop = null);
+    FalloutScriptInventoryCaller Caller, Action? Drop = null, Action<int>? SetValue = null);
 internal sealed record FalloutInventoryScriptResult(FalloutFormKey Item, Guid Identity, int Blocks, string? Error);
 
 internal sealed partial class FalloutReferenceScripts
@@ -161,7 +161,7 @@ internal sealed partial class FalloutReferenceScripts
                             inventory.RemoveInventoryScriptInstance(form, identity);
                             publication.Commit(); publication.Complete();
                             world.InventoryChanged(container);
-                        });
+                        }, value => inventory.SetInventoryScriptInstanceValue(form, identity, value));
                     foreach (var _ in Steps(form, program.Bindings, block.Program, null, initialization is null ? seconds : 0,
                         budget: budget, effectLocals: locals, inventoryContext: context)) { }
                     ++executed;

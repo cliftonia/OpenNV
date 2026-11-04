@@ -7,8 +7,10 @@ internal sealed record FalloutItemMagazine(FalloutFormKey Ammunition, int Loaded
     bool Generated = false, double RechargeSeconds = 0);
 internal sealed record FalloutItemVariant(int Count, float? Condition = null, FalloutFormKey? Owner = null,
     FalloutFormKey? Global = null, int? FactionRank = null, byte WeaponMods = 0, byte? Hotkey = null,
-    Guid? Instance = null, FalloutItemMagazine? Magazine = null, FalloutInventoryScriptState? ScriptState = null)
+    Guid? Instance = null, FalloutItemMagazine? Magazine = null, FalloutInventoryScriptState? ScriptState = null,
+    int? ValueOverride = null)
 {
+    // ValueOverride is a SetItemValue replacement of this instance's trade value.
     // A shortcut assigns an inventory entry; it does not change the physical
     // item's condition, ownership or installed weapon modifications.
     internal bool SameItem(FalloutItemVariant other) =>

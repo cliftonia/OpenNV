@@ -157,6 +157,19 @@ internal sealed partial class FalloutPlayerInventory
         ++Revision;
     }
 
+    // SetItemValue on an inventory event-list instance replaces its own value.
+    internal void SetInventoryScriptInstanceValue(FalloutFormKey form, Guid identity, int value)
+    {
+        if (value < 0) throw new InvalidDataException("SetItemValue value must be nonnegative.");
+        var item = Item(form) ?? throw new InvalidOperationException("SetItemValue item is absent.");
+        var variants = item.Variants ?? [new FalloutItemVariant(item.Count)];
+        var indices = Enumerable.Range(0, variants.Count)
+            .Where(index => variants[index].ScriptState?.Identity == identity).ToArray();
+        if (indices.Length != 1 || variants[indices[0]].Count != 1)
+            throw new InvalidDataException("SetItemValue has no unique actual inventory event-list instance.");
+        ReplaceInstances(form, [(indices[0], 1)], [variants[indices[0]] with { ValueOverride = value }]);
+    }
+
     internal void RemoveInventoryScriptInstance(FalloutFormKey form, Guid identity)
     {
         var item = Item(form) ?? throw new InvalidOperationException("RemoveMe incoming item is absent.");

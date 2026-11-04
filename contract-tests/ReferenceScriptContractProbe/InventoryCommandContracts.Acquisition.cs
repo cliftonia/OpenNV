@@ -29,6 +29,7 @@ internal static partial class InventoryCommandContracts
                 Script(0x200, "scn Convert\nbegin OnAdd player\nplayer.AddItem Product 1 1\nRemoveMe\nend"),
                 Script(0x201, "scn Guard\nshort Visits\nbegin OnAdd player\nif Visits == 0\nplayer.AddItem Product 1 1\nset Visits to 1\nendif\nend", true),
                 Script(0x202, "scn Refuse\nbegin OnAdd player\nplayer.AddItem Product 1 1\nUnknownReachedEffect\nend"),
+                Scripted(10, 0x204), Script(0x204, "scn Receipt\nbegin OnAdd player\nSetItemValue 0\nend"),
                 Scripted(9, 0x203), Record("SCPT", 0x203, Field("SCHR", new byte[20]), Field("SCDA", []),
                     Field("SCTX", Text("scn Restricted\nbegin OnAdd CompanionRef\nDropMe\nend")),
                     Field("SCRO", BitConverter.GetBytes(0x901u))),
@@ -81,6 +82,11 @@ internal static partial class InventoryCommandContracts
             world.TakeDroppedItem(world.DroppedItems[0].Identity, player, 1, null, new(() => { }, () => { }));
             Require(player.Item(Key(9))?.Count == 1 && world.DroppedItems.Count == 0, "Dropped DropMe instance could not be picked up again.");
             player.Remove(Key(9), 1, true);
+
+            owner.Add(Key(10), 1, true);
+            Require(player.Item(Key(10))?.Variants is [{ ValueOverride: 0, ScriptState: not null }],
+                "SetItemValue did not replace its received instance's trade value.");
+            player.Remove(Key(10), 1, true);
 
             // Crafted products are acquired like AddItem: each scripted output
             // instance runs its own OnAdd after the ingredients were consumed.

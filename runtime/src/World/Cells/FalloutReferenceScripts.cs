@@ -998,6 +998,14 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                 }
                 return;
             }
+            if (operation == "setitemvalue" && parts.Length == 1 && arguments.Count == 1 && inventoryContext?.SetValue is { } setValue)
+            {
+                var value = Number(arguments[0]);
+                if (!double.IsFinite(value) || value < 0 || value > int.MaxValue || value != Math.Truncate(value))
+                    throw new InvalidDataException("SetItemValue value must be a nonnegative integer.");
+                setValue((int)value);
+                return;
+            }
             if (TryPlayerCommand(source, bindings, parts, operation, target, arguments, Number, Reference, StringValue)) return;
             if (parts.Length == 1 && FalloutSharedScriptCommands.TryExecute(operation, arguments, quests,
                     () => host.Challenges ?? throw new NotSupportedException($"{command} has no shared challenge owner."), bindings.Form) ||
