@@ -51,6 +51,16 @@ internal sealed partial class FalloutReferenceWorld
         return (FalloutCellSceneReader.ReadDefinition(records, cell).Flags & FalloutCellSceneReader.InteriorCellFlag) != 0;
     }
 
+    // GetInWorldspace compares the current CELL's parent WRLD directly; an
+    // interior cell belongs to no worldspace.
+    internal bool IsInWorldspace(FalloutFormKey reference, FalloutFormKey worldspace, FalloutFormKey? playerCell = null)
+    {
+        var cell = reference == records.RuntimeFormKey(0x14)
+            ? playerCell ?? throw new NotSupportedException("Player worldspace query has no live cell owner.")
+            : Placement(reference).Cell;
+        return FalloutCellSceneReader.ReadDefinition(records, cell).Worldspace == worldspace;
+    }
+
     internal bool IsInCell(FalloutFormKey reference, FalloutFormKey requested) => IsInCell(reference, requested, null);
 
     internal bool IsInCell(FalloutFormKey reference, FalloutFormKey requested, FalloutFormKey? playerCell)

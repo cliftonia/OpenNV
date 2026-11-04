@@ -10,6 +10,10 @@ internal partial class RuntimeNativeOpeningStageDriver
     // owns the container menu, input capture and pause policy.
     internal Action<FalloutFormKey>? OpenActorContainer { get; set; }
 
+    // Ends the play session (the ending slideshow's final command). The scene
+    // host owns the credits roll and the return to the main menu.
+    internal Action? ExitGame { get; set; }
+
     private bool TryApplyPlayerScriptCommand(FalloutFormKey source, FalloutFormKey target, string[] parts, string operation,
         IReadOnlyList<string> arguments)
     {
@@ -32,6 +36,11 @@ internal partial class RuntimeNativeOpeningStageDriver
                 if (_pluginStack.RuntimeFormId(target) == 0x14 || _pluginStack.GetEffective(target).Signature is not ("ACHR" or "ACRE"))
                     throw new InvalidDataException("OpenTeammateContainer caller is not a placed actor.");
                 (OpenActorContainer ?? throw new NotSupportedException("OpenTeammateContainer has no container menu owner."))(target);
+                return true;
+            case "exitgame" when parts.Length == 1:
+                if (arguments.Count != 0) throw new InvalidDataException("ExitGame takes no arguments.");
+                GD.Print($"OPENNV_SCRIPT_EXITGAME source={source}");
+                (ExitGame ?? throw new NotSupportedException("ExitGame has no session owner."))();
                 return true;
             case "systemsave" when parts.Length == 1:
                 if (arguments.Count != 0) throw new InvalidDataException("SystemSave takes no arguments.");
@@ -71,7 +80,6 @@ internal partial class RuntimeNativeOpeningStageDriver
             "setspecialpoints" => (1, 1, "special-allocation-menu-owner-unbound"),
             "resetxp" => (0, 0, "experience-reset-owner-unbound"),
             "enableloadingmenu" => (1, 1, "loading-menu-presentation-unbound"),
-            "exitgame" => (0, 0, "session-exit-is-player-owned"),
             _ => null,
         };
         if (deferred is not { } rule) return false;

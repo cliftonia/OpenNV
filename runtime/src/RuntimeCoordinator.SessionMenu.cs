@@ -34,6 +34,7 @@ public partial class RuntimeCoordinator
     private Input.MouseModeEnum _sessionMouseMode;
     private Control? _sessionPreviousMenu;
     private bool _nativeDeathPresented;
+    private CanvasLayer? _nativeEndCreditsLayer;
 
     private FalloutScriptEvents NativeScriptEvents()
     {
@@ -59,6 +60,24 @@ public partial class RuntimeCoordinator
         _nativePlayer.SetModalInput(true);
         OpenNativeSessionMenu(showSaves: false);
         GD.Print("OPENNV_NATIVE_PLAYER_DEFEATED health=0 owner=shared-vitals recovery=save-browser");
+    }
+
+    // Script ExitGame ends the campaign (FadeToCreditsTimer after the ending
+    // slideshow). The owned credits roll over the faded world, then the same
+    // retirement path as the session menu returns to the main menu.
+    private void EndNativeGame()
+    {
+        if (_nativeEndCreditsLayer is not null || _nativeSessionTransitioning || _retiringNativeSession) return;
+        CancelNativeManualSave("The game ended before the pending manual save could commit.");
+        if (_nativeSessionLayer is not null) CloseNativeSessionMenu();
+        if (_nativeXr?.PointAtPipBoy is not null) FocusNativeXrPipBoy(false);
+        _nativePlayer?.SetModalInput(true);
+        _nativeEndCreditsLayer = new CanvasLayer { Name = "NativeEndCreditsLayer", Layer = 150, ProcessMode = ProcessModeEnum.Always };
+        _nativeEndCreditsLayer.AddChild(new NativeGamebryoCredits(FalloutInstallationSettings.Read(RuntimeLiveContentSource.Current!),
+            () => RestartNativeSession(false)));
+        AddChild(_nativeEndCreditsLayer);
+        GetTree().Paused = true;
+        GD.Print("OPENNV_NATIVE_GAME_ENDED credits=owned next=main-menu");
     }
 
     private RuntimeSaveSlotCatalog NativeSaveSlots()
@@ -179,7 +198,7 @@ public partial class RuntimeCoordinator
     private void ToggleNativeSessionMenu()
     {
         if (_nativeManualSaves.Pending) { CancelNativeManualSaveFromInput(); return; }
-        if (_nativeSessionTransitioning) return;
+        if (_nativeSessionTransitioning || _nativeEndCreditsLayer is not null) return;
         if (_nativeSessionMenu is not null) { _nativeSessionMenu.Back(); return; }
         if (_nativePlayer is null || _nativeDoorLoading || _nativeOpeningStageDriver is null) return;
         if (_nativeXr?.PointAtPipBoy is not null) { FocusNativeXrPipBoy(false); return; }

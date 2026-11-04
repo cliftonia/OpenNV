@@ -285,8 +285,34 @@ internal sealed partial class FalloutConditionRuntime(FalloutPluginStack records
                 // other subject before consulting the player's action process.
                 return subject == records.RuntimeFormKey(0x14) ? NativeValue(subject, condition) : 0;
             case Function.GetMapMarkerVisible: NoArguments(condition); return Required(world, "map marker state").MapMarkerVisibility(subject);
+            case Function.GetInWorldspace:
+                SecondUnused(condition); Form(condition, "WRLD");
+                if (subject == records.RuntimeFormKey(0x14) && PlayerPlacement?.Invoke() is null) return NativeValue(subject, condition);
+                return Required(world, "spatial state").IsInWorldspace(subject, condition.FormArgument1, PlayerPlacement?.Invoke()?.Cell) ? 1 : 0;
+            case Function.GetInCellParam:
+                // The caller is unused; the second operand names the located reference.
+                Form(condition, "CELL");
+                var located = condition.FormArgument2(records);
+                RequireReference(located);
+                if (located == records.RuntimeFormKey(0x14) && PlayerPlacement?.Invoke() is null) return NativeValue(located, condition);
+                return Required(world, "spatial state").IsInCell(located, condition.FormArgument1, PlayerPlacement?.Invoke()?.Cell) ? 1 : 0;
+            case Function.GetIsCreature:
+                NoArguments(condition);
+                return subject != records.RuntimeFormKey(0x14) && records.GetEffective(Base(subject)).Signature == "CREA" ? 1 : 0;
+            case Function.GetIsCreatureType:
+                SecondUnused(condition);
+                if (subject == records.RuntimeFormKey(0x14) || records.GetEffective(Base(subject)).Signature != "CREA") return 0;
+                return CreatureType(Traits(subject)) == condition.Argument1 ? 1 : 0;
             default: return NativeValue(subject, condition);
         }
+    }
+
+    private static uint CreatureType(FalloutPluginRecord creature)
+    {
+        var data = creature.ReadSubrecords().Where(field => field.Signature == "DATA").ToArray();
+        if (creature.Signature != "CREA" || data.Length != 1 || data[0].Data.IsEmpty)
+            throw new InvalidDataException("Creature type condition has no single CREA DATA.");
+        return data[0].Data.Span[0];
     }
 
     private static T Required<T>(T? owner, string name) where T : class => owner ??
