@@ -16,7 +16,8 @@ internal sealed partial class FalloutGameModeProgram
         var failure = Regex.Match(error,
             @"^Reached (?:native script|object-script) command (?<command>\S+) \((?<arguments>\d+) arguments\) has no owner\.$",
             RegexOptions.CultureInvariant);
-        if (!failure.Success) return null;
+        // Compiled branch extents have no source-nesting reconstruction.
+        if (!failure.Success || _jumps is not null) return null;
         var command = failure.Groups["command"].Value;
         var arguments = int.Parse(failure.Groups["arguments"].Value, CultureInfo.InvariantCulture);
         var sites = Enumerable.Range(0, _lines.Count).Where(index =>

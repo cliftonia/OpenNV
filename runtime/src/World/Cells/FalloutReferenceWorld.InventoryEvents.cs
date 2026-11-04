@@ -21,7 +21,8 @@ internal sealed partial class FalloutReferenceWorld
         if (source.Length != 1) throw new NotSupportedException("Item event requires an unambiguous source program.");
         var recipient = records.RuntimeFormKey(0x14);
         var bindings = new FalloutScriptBindings(records, item, script, fields);
-        var events = FalloutGameModeProgram.ReadEvents(FalloutDialogueTopic.ScriptText(source[0].Data.Span));
+        var events = FalloutGameModeProgram.ReadEvents(FalloutDialogueTopic.ScriptText(source[0].Data.Span),
+            FalloutGameModeProgram.CompiledBody(fields));
         if (!events.Any(block => block.Event.Equals("OnAdd", StringComparison.OrdinalIgnoreCase) &&
             (block.Filter is null || bindings.Reference(block.Filter) == recipient))) return false;
         if (InventoryAcquisition is { } acquisition)

@@ -163,7 +163,7 @@ internal sealed class FalloutPlayerAbilityScripts : IFalloutAbilityScriptLifetim
         if (headers.Length != 1 || headers[0].Data.Length != 20 || compiled.Length != 1 ||
             FalloutScriptHeader.Read(headers[0].Data.Span).CompiledBytes != compiled[0].Data.Length || sources.Length != 1)
             throw new NotSupportedException("Active-effect execution requires complete compiled identity and the shipped source-program owner.");
-        var blocks = FalloutGameModeProgram.ReadEvents(FalloutDialogueTopic.ScriptText(sources[0].Data.Span));
+        var blocks = FalloutGameModeProgram.ReadEvents(FalloutDialogueTopic.ScriptText(sources[0].Data.Span), compiled[0].Data.Span);
         if (blocks.Any(block => !block.Event.Equals("ScriptEffectStart", StringComparison.OrdinalIgnoreCase) ||
                 block.Filter is not null || block.Parameters is not null))
             throw new NotSupportedException($"Active effect {definition.Spell}/{definition.EffectOrdinal} requires its non-Start event/timeline owner.");

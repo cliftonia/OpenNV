@@ -209,7 +209,7 @@ internal sealed class FalloutDeliveredEffects
         var source = fields.Single(field => field.Signature == "SCTX").Data;
         if (header.Length != 20 || FalloutScriptHeader.Read(header.Span).CompiledBytes != compiled.Length)
             throw new InvalidDataException("Delivered effect script source lacks complete compiled identity.");
-        var events = FalloutGameModeProgram.ReadEvents(FalloutDialogueTopic.ScriptText(source.Span));
+        var events = FalloutGameModeProgram.ReadEvents(FalloutDialogueTopic.ScriptText(source.Span), compiled.Span);
         var blocks = new Dictionary<string, FalloutGameModeProgram>(StringComparer.OrdinalIgnoreCase);
         foreach (var block in events)
         {

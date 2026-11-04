@@ -58,7 +58,8 @@ internal sealed partial class FalloutReferenceWorld
         var source = script.ReadSubrecords().Where(field => field.Signature == "SCTX").ToArray();
         if (source.Length != 1)
             throw new NotSupportedException($"Item {item.FormKey} script {script.FormKey} has no unambiguous source event program.");
-        var events = FalloutGameModeProgram.ReadEvents(FalloutDialogueTopic.ScriptText(source[0].Data.Span));
+        var events = FalloutGameModeProgram.ReadEvents(FalloutDialogueTopic.ScriptText(source[0].Data.Span),
+            FalloutGameModeProgram.CompiledBody(script.ReadSubrecords()));
         FalloutScriptBindings? bindings = null;
         foreach (var block in events.Where(block => block.Event.Equals("OnAdd", StringComparison.OrdinalIgnoreCase)))
         {

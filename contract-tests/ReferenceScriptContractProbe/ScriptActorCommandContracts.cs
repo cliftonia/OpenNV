@@ -16,13 +16,13 @@ internal static class ScriptActorCommandContracts
                 Faction(0x10, "EnemyFaction"), Faction(0x11, "OtherFaction"),
                 Actor(7, 0x11), Actor(0x20, 0x10), Actor(0x21, 0x11),
                 Record("GMST", 0x30, Field("EDID", Text("fSneakMaxDistance")), Field("DATA", BitConverter.GetBytes(2500f))),
-                Record("SCPT", 0x50, Field("SCHR", new byte[20]), Field("SCRO", U32(0x14)), Field("SCRO", U32(0x10)),
+                Record("SCPT", 0x50, Field("SCHR", new byte[20]), Field("SCRO", U32(0x14)), Field("SCRO", U32(0x10)), Field("SCRO", U32(0x93)),
                     Field("SCTX", Text("begin GameMode\nend"))),
                 Record("QUST", 0x60, Field("DATA", [1, 0]), Field("SCRI", U32(0x51))),
                 Record("SCPT", 0x51, Field("SCHR", QuestHeader()), Field("SCRO", U32(0x91)), Field("SCRO", U32(0x10)),
                     Field("SCTX", Text("begin GameMode\nActorRef.SetGhost 0\nSetPCEnemyOfFaction EnemyFaction 1\nend"))),
                 Record("CELL", 0x80, Field("DATA", [1])), Group(0x80,
-                    Reference("ACHR", 0x91, 0x20, "ActorRef"), Reference("ACHR", 0x92, 0x21), Reference("ACHR", 0x93, 0x20))));
+                    Reference("ACHR", 0x91, 0x20, "ActorRef"), Reference("ACHR", 0x92, 0x21), Reference("ACHR", 0x93, 0x20, "ThirdRef"))));
             using var records = FalloutPluginStack.Load(directory.FullName, ["ScriptActors.esm"]);
             var player = records.RuntimeFormKey(0x14);
             using var world = new FalloutReferenceWorld(records);
@@ -65,6 +65,22 @@ internal static class ScriptActorCommandContracts
             Require(world.DetectsTarget(Key(0x91), player, null) && !world.DetectsTarget(Key(0x93), Key(0x92), null) &&
                 world.DetectsTarget(Key(0x93), Key(0x92), (_, _) => 1), "GetDetected ignored engagement or detection distance.");
 
+            Execute(0x91, "PushActorAway ThirdRef 5");
+            var pushes = new List<(System.Numerics.Vector3? Origin, float Force)>();
+            world.Get(Key(0x93)).ScriptPushAway = (origin, force) => pushes.Add((origin, force));
+            Execute(0x91, "PushActorAway ThirdRef -2.5");
+            Execute(0x91, "PushActorAway Player 5");
+            Reject(() => Execute(0x91, "PushActorAway ThirdRef"));
+            Require(pushes is [{ Origin: { } origin, Force: -2.5f }] && origin == System.Numerics.Vector3.Zero,
+                "PushActorAway lost its resident target, caller origin or signed force.");
+
+            Execute(0x92, "ForceFlee");
+            var fled = world.Get(Key(0x92)).Engagement!;
+            fled.Validate();
+            Require(fled is { Action: "flee", ForcedFlee: true } && fled.Target == player && fled.ForConfidence(4).Action == "flee" &&
+                world.Get(Key(0x91)).Engagement?.ForcedFlee != true, "ForceFlee did not hold its caller's flee procedure.");
+            Reject(() => (fled with { Action = "pursue" }).Validate());
+
             var quests = new FalloutQuestState(records);
             var questScripts = new FalloutQuestScripts(records, quests, new HashSet<FalloutFormKey>(), new(),
                 defaultProcessingDelay: 0, references: world);
@@ -72,7 +88,7 @@ internal static class ScriptActorCommandContracts
             Require(questScripts.Capture().Instances.Single().Error is null && !world.IsGhost(Key(0x91)) &&
                 world.IsPlayerEnemyOfFaction(Key(0x10)), "Quest-scoped actor commands lost their explicit or global owner.");
             Console.WriteLine("OPENNV_SCRIPT_ACTOR_COMMANDS_CONTRACT_PASS ghost=true playerEnemyFaction=true assaultAlarm=true " +
-                "removeFromAllFactions=true cold=true invalidRestoreRefused=true detected=true quest=true");
+                "removeFromAllFactions=true cold=true invalidRestoreRefused=true detected=true pushActorAway=true forceFlee=true quest=true");
         }
         finally { directory.Delete(true); }
     }

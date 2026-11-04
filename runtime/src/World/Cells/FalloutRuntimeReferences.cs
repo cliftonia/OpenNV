@@ -46,7 +46,10 @@ internal sealed class FalloutRuntimeReferences(FalloutPluginStack records)
         _references[id] = reference with { Retired = true };
     }
 
-    internal FalloutRuntimeReferencesSnapshot Capture() => new(_lastId, _references.Values.OrderBy(reference => reference.Id).ToArray());
+    // Explosions are transient: an active one is saved as finished, matching
+    // the transient explosion owner's capture. Projectiles keep their state.
+    internal FalloutRuntimeReferencesSnapshot Capture() => new(_lastId, _references.Values.OrderBy(reference => reference.Id)
+        .Select(reference => reference.Kind == FalloutRuntimeReferenceKind.Explosion ? reference with { Retired = true } : reference).ToArray());
 
     internal void Restore(FalloutRuntimeReferencesSnapshot? snapshot, FalloutTransientExplosionsSnapshot? legacyExplosions = null)
     {

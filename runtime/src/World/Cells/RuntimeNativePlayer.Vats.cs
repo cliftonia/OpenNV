@@ -62,8 +62,9 @@ internal partial class RuntimeNativePlayer
         impacts = _vats?.Impacts,
         availableAP = _vatsVitals?.State.ExactActionPoints,
         baseAP = _vatsVitals?.BaseActionPoints,
-        source = "source-control16;source-WEAP-GMST;BPTD-BPNT-current-pose;shared-weapon-ammo-projectile-events",
-        unverified = "matched-fragment-query;native-package-autoHit;process-wobble-mutation-producer;cinematic-camera;multi-projectile-melee-grenade-special-targets;physical-XR"
+        source = "source-control16;source-WEAP-GMST;BPTD-BPNT-current-pose;shared-weapon-ammo-projectile-events;melee-whole-actor-GMST",
+        unverified = "matched-fragment-query;native-package-autoHit;process-wobble-mutation-producer;cinematic-camera;" +
+            "multi-projectile-grenade-special-targets;melee-special-attacks;melee-chance-arm-weighting;melee-approach-presentation;physical-XR"
     };
 
     internal void ConfigureVats(FalloutPlayerVitals vitals, Func<FalloutFormKey, FalloutCondition, float> targetCondition,
@@ -153,12 +154,12 @@ internal partial class RuntimeNativePlayer
 
     private FalloutWeaponPresentation RequireVatsWeapon()
     {
-        var weapon = _firstPerson?.Weapon ?? throw new NotSupportedException("Unarmed VATS requires its native unarmed attack owner.");
-        if (weapon.WeaponAnimationType is < 3 or > 9 || weapon.IsMine || weapon.IsThrownWeapon)
-            throw new NotSupportedException("This VATS weapon requires its separate melee, grenade or special-attack owner.");
+        // Empty hands present the engine's default unarmed WEAP.
+        var weapon = _firstPerson?.Weapon ?? throw new NotSupportedException("VATS has no presented weapon or empty-hands fallback.");
+        if (weapon.IsMeleeWeapon ? weapon.WeaponAnimationType > 2 : weapon.WeaponAnimationType is < 3 or > 9 || weapon.IsMine || weapon.IsThrownWeapon)
+            throw new NotSupportedException("This VATS weapon requires its separate grenade or special-attack owner.");
         if (_weaponHandling is null || !_weaponHandling.Drawn) throw new InvalidOperationException("Draw your equipped weapon before entering VATS.");
-        if (_presentationInventory!.SelectedWeapon(weapon.Form).Extra.Instance is not { } instance || instance == Guid.Empty)
-            throw new InvalidOperationException("VATS equipped weapon has no selected physical instance.");
+        _ = VatsWeaponInstance(weapon);
         return weapon;
     }
 
@@ -170,15 +171,16 @@ internal partial class RuntimeNativePlayer
             throw new InvalidOperationException("That VATS target is no longer available.");
         var always = _presentationRecords!.IniSettings.Get("bVatsAlwaysHit:Combat");
         if (always is not (0 or 1)) throw new NotSupportedException("VATS always-hit setting is unbound.");
-        _vats!.Add(weapon.Form, _presentationInventory!.SelectedWeapon(weapon.Form).Extra.Instance!.Value, current,
-            _weaponHandling!.NextShotRandomUInt32, always == 1, FalloutVatsActions.OrdinaryRanged(weapon.WeaponAnimationType));
+        _vats!.Add(weapon.Form, VatsWeaponInstance(weapon), current, _weaponHandling!.NextShotRandomUInt32, always == 1,
+            weapon.IsMeleeWeapon ? FalloutVatsActions.OrdinaryMelee(weapon.WeaponAnimationType)
+                : FalloutVatsActions.OrdinaryRanged(weapon.WeaponAnimationType));
     }
 
     private void BeginVatsExecution()
     {
         if (_vats?.CurrentPhase != FalloutVatsSession.Phase.Selecting || _vatsPreparing) throw new InvalidOperationException("VATS targets are not ready.");
         var weapon = RequireVatsWeapon();
-        var instance = _presentationInventory!.SelectedWeapon(weapon.Form).Extra.Instance;
+        var instance = VatsWeaponInstance(weapon);
         if (_vats.Queue.Any(attack => attack.Weapon != weapon.Form || attack.WeaponInstance != instance))
             throw new InvalidOperationException("The selected weapon instance changed after queueing.");
         _vats.Execute(); RestoreVatsSelectionView();
@@ -236,7 +238,7 @@ internal partial class RuntimeNativePlayer
             }
             if (_vats?.CurrentAttack is not { } attack) { RetireVats("queue-complete"); return; }
             var weapon = RequireVatsWeapon();
-            if (weapon.Form != attack.Weapon || _presentationInventory!.SelectedWeapon(weapon.Form).Extra.Instance != attack.WeaponInstance)
+            if (weapon.Form != attack.Weapon || VatsWeaponInstance(weapon) != attack.WeaponInstance)
             { RetireVats("weapon-instance-changed"); return; }
             if (!TryVatsAimPoint(attack.Target.Reference, attack.Target.Part, out var targetPoint))
             {
@@ -246,8 +248,9 @@ internal partial class RuntimeNativePlayer
                 else _vatsMenu?.Refresh();
                 return;
             }
-            if (!_weaponHandling!.CanFire(weapon) || _vatsVitals.State.ExactActionPoints < attack.Target.ActionPointCost)
+            if (!CanContinueAutomaticFire(weapon) || _vatsVitals.State.ExactActionPoints < attack.Target.ActionPointCost)
             { RetireVats("ammo-or-AP-unavailable"); return; }
+            if (weapon.IsMeleeWeapon) ApproachVatsMeleeTarget(weapon, attack.Target.Reference);
             if (_xr is null)
             {
                 var direction = (targetPoint - _camera.GlobalPosition).Normalized();

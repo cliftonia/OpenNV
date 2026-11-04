@@ -129,7 +129,8 @@ internal partial class RuntimeNativeOpeningStageDriver
         if (allowLevel && condition.Function == 80) return;
         if (condition.Function == 74 && _globals is not null &&
             _pluginStack.GetEffective(condition.FormArgument1).Signature == "GLOB") return;
-        if (condition.Function == 14 && condition.Argument1 <= int.MaxValue)
+        // GetActorValue, GetBaseActorValue and GetPermanentActorValue read the same player pools.
+        if (condition.Function is 14 or 277 or 495 && condition.Argument1 <= int.MaxValue)
         {
             var value = (int)condition.Argument1;
             if (FalloutPlayerActorValues.HasPool(value) || _playerSkills.SkillOrder.Contains(value) || value is 13 or 20 or 46) return;

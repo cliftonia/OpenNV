@@ -148,7 +148,8 @@ internal sealed partial class FalloutReferenceWorld
         if (script is null) return;
         var source = script.ReadSubrecords().Where(field => field.Signature == "SCTX").ToArray();
         if (source.Length != 1) throw new NotSupportedException("Dropped item script has no unambiguous event source.");
-        if (FalloutGameModeProgram.ReadEvents(FalloutDialogueTopic.ScriptText(source[0].Data.Span))
+        if (FalloutGameModeProgram.ReadEvents(FalloutDialogueTopic.ScriptText(source[0].Data.Span),
+            FalloutGameModeProgram.CompiledBody(script.ReadSubrecords()))
             .Any(block => block.Event.Equals(eventName, StringComparison.OrdinalIgnoreCase)))
             throw new NotSupportedException($"Dynamic item {eventName} needs its script-instance execution owner.");
     }

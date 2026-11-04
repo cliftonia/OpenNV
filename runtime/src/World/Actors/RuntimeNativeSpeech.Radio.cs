@@ -1,4 +1,3 @@
-using System.Buffers.Binary;
 using Godot;
 using OpenNV.Runtime.Content;
 
@@ -7,7 +6,6 @@ namespace OpenNV.Runtime.World.Actors;
 internal partial class RuntimeNativeSpeech
 {
     private readonly Dictionary<FalloutFormKey, FalloutRadioConversation> _radioConversations = [];
-    private Dictionary<FalloutFormKey, List<FalloutFormKey>>? _radioReceivers;
 
     internal void StartRadioConversation(FalloutFormKey station, FalloutFormKey? topic)
     {
@@ -37,7 +35,7 @@ internal partial class RuntimeNativeSpeech
         itemCount: _itemCount, referenceDistance: _referenceDistance, referenceInZone: _referenceInZone,
         sitting: _sitting, deadCount: _deadCount, isDead: _isDead,
         sleeping: reference => (_references ?? throw new NotSupportedException("Radio has no shared sleeping owner.")).GetSleeping(reference),
-        world: _references, randomPercent: _dialogueRandom is null ? null : () => _dialogueRandom(100)).Evaluate(condition);
+        world: _references, randomPercent: _dialogueRandom is null ? null : () => _dialogueRandom(100), voiceReference: station).Evaluate(condition);
 
     private void BindRadioSpeaker(Voice voice, FalloutPluginRecord station, Node3D? presentation, FalloutRadioConversation radio)
     {
@@ -50,41 +48,15 @@ internal partial class RuntimeNativeSpeech
         UpdateRadioListener(voice);
     }
 
-    private IReadOnlyList<FalloutFormKey> PhysicalRadioListeners(FalloutFormKey stationBase)
-    {
-        if (_radioReceivers is null)
-        {
-            _radioReceivers = [];
-            var receivers = new Dictionary<FalloutFormKey, FalloutFormKey>();
-            foreach (var record in _stack.EffectiveRecords("ACTI"))
-            {
-                var fields = record.ReadSubrecords().Where(field => field.Signature == "RNAM").ToArray();
-                if (fields.Length == 0) continue;
-                if (fields.Length != 1 || fields[0].Data.Length != 4)
-                    throw new InvalidDataException($"Radio receiver {record.FormKey} has invalid station identity.");
-                var source = record.Plugin.AdjustOptionalFormId(BinaryPrimitives.ReadUInt32LittleEndian(fields[0].Data.Span));
-                if (source is { } form) receivers.Add(record.FormKey, form);
-            }
-            foreach (var reference in _stack.EffectiveRecords("REFR"))
-                if (receivers.TryGetValue(FalloutDialogueTopic.RequiredForm(reference, "NAME"), out var source))
-                {
-                    if (!_radioReceivers.TryGetValue(source, out var list)) _radioReceivers.Add(source, list = []);
-                    list.Add(reference.FormKey);
-                }
-        }
-        return (_radioReceivers.GetValueOrDefault(stationBase) ?? []).Where(reference =>
-            _presentation?.Invoke(reference) is { } node && node.IsVisibleInTree() && _references!.IsEnabled(reference)).ToArray();
-    }
-
     private void UpdateRadioListener(Voice voice)
     {
         var station = voice.Radio!.Station!;
-        // The transmitter clock continues without a receiver; only the Pip-Boy
-        // receiver is audible. Resident ACTI radios have no distance
-        // attenuation owner yet, so they must not mix in at full volume.
+        // The transmitter clock continues without a receiver. The Pip-Boy is
+        // the non-positional receiver; placed and NPC receivers mirror the same
+        // clock positionally, so a station heard on both stays in step.
         var audible = _references!.PipBoyRadio.CurrentStation == station.Reference;
-        voice.Player.VolumeDb = audible ? 0 : -80;
-        _unbound.Add("radio-physical-receivers-and-attenuation");
+        voice.Player.VolumeDb = audible ? RadioDialogueDuckDb() : -80;
+        UpdateRadioReceivers(voice, station);
     }
 
     private object RadioState => _radioConversations.Select(pair => new
@@ -94,14 +66,15 @@ internal partial class RuntimeNativeSpeech
         info = pair.Value.Info?.Record.FormKey.ToString(),
         pair.Value.Active,
         pair.Value.CompletedLines,
-        physicalListeners = pair.Value.Station is { } source ?
-            PhysicalRadioListeners(source.Base).Select(form => form.ToString()).ToArray() : [],
+        physicalListeners = ActiveRadioReceivers(pair.Key).Select(receiver => receiver.Reference.ToString()).ToArray(),
+        audibleReceivers = _channels.TryGetValue(pair.Key, out var playing) ? playing.Receivers.Keys.Select(form => form.ToString()).ToArray() : [],
         continuousGeneration = "unbound",
         interruption = "unbound",
         activeSave = _channels.TryGetValue(pair.Key, out var voice) && CanCaptureRadioVoice(voice) ? "source-pcm-response" : "unbound"
     }).ToArray();
 
-    // Broadcast scheduler: a broadcasting station the player is tuned to is a
+    // Broadcast scheduler: a broadcasting station that any receiver (the
+    // Pip-Boy, a switched-on placed radio or an NPC radio) listens to is a
     // continuous transmitter. Whenever it has no active line it begins a new
     // RadioHello request; its links then chain songs, news and DJ lines. A
     // station with no eligible line or a failing line backs off and retries.
@@ -115,7 +88,8 @@ internal partial class RuntimeNativeSpeech
         _radioRetryAt.Remove(station.Reference);
         return new RadioTuning(() =>
         {
-            StopRadioStation(station.Reference);
+            // A placed receiver on the same station keeps the transmitter.
+            if (ActiveRadioReceivers(station.Reference).Length == 0) StopRadioStation(station.Reference);
             GD.Print($"OPENNV_NATIVE_RADIO_UNTUNE station={station.Reference}");
         });
     }
@@ -129,9 +103,22 @@ internal partial class RuntimeNativeSpeech
     private void AdvanceRadioBroadcasts(double delta)
     {
         _radioClock += delta;
-        if (_references?.PipBoyRadio.CurrentStation is not { } station) return;
+        if (_references is null) return;
+        var listened = ListenedRadioStations();
+        // A broadcast segment nobody receives ends; it restarts when heard again.
+        foreach (var voice in _channels.Values.Where(IsBroadcastVoice).ToArray())
+            if (!listened.Contains(voice.Reference))
+            {
+                StopRadioStation(voice.Reference);
+                GD.Print($"OPENNV_NATIVE_RADIO_IDLE station={voice.Reference} owner=radio-broadcast-scheduler");
+            }
+        foreach (var station in listened) AdvanceRadioBroadcast(station);
+    }
+
+    private void AdvanceRadioBroadcast(FalloutFormKey station)
+    {
         if (_radioRetryAt.TryGetValue(station, out var retry) && retry > _radioClock) return;
-        if (!_references.IsEnabled(station) || !_references.GetBroadcastState(station) || IsDialogueBusy(station) ||
+        if (!_references!.IsEnabled(station) || !_references.GetBroadcastState(station) || IsDialogueBusy(station) ||
             _radioConversations.TryGetValue(station, out var current) && current.Active) return;
         try
         {

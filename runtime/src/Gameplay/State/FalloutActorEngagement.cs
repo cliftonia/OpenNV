@@ -6,7 +6,7 @@ internal sealed record FalloutActorEngagement(FalloutFormKey Target, string Acti
     bool StartPending = true, string? Animation = null, string? AnimationHash = null,
     IReadOnlyList<float>? Position = null, IReadOnlyList<float>? Rotation = null,
     FalloutWeaponHandlingSnapshot? WeaponHandling = null, ulong? AttackRandomState = null,
-    FalloutActorPathTurn? PathTurn = null)
+    FalloutActorPathTurn? PathTurn = null, bool ForcedFlee = false)
 {
     internal static bool IsActorAttacker(FalloutPluginStack records, FalloutFormKey reference) =>
         // PlayerRef is an engine bootstrap reference, absent from the ESM.
@@ -25,13 +25,15 @@ internal sealed record FalloutActorEngagement(FalloutFormKey Target, string Acti
             Rotation is not null && (Rotation.Count != 4 || Rotation.Any(value => !float.IsFinite(value)) ||
                 MathF.Abs(Rotation.Sum(value => value * value) - 1) > .001f))
             throw new InvalidDataException("Saved actor engagement is invalid.");
+        if (ForcedFlee && Action != "flee") throw new InvalidDataException("Saved forced flee has no flee action.");
         if (WeaponHandling is { } handling) FalloutWeaponHandling.Validate(handling);
     }
 
     internal FalloutActorEngagement Transition(string action) => this with
     { Action = action, Seconds = 0, StartPending = true, Animation = null, AnimationHash = null, PathTurn = null };
 
-    internal FalloutActorEngagement ForConfidence(byte confidence) => confidence == 0
+    // ForceFlee holds the flee procedure until the engagement ends.
+    internal FalloutActorEngagement ForConfidence(byte confidence) => confidence == 0 || ForcedFlee
         ? Action == "flee" ? this : Transition("flee")
         : Action == "flee" ? Transition("pursue") : this;
 }

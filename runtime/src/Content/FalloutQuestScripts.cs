@@ -393,7 +393,8 @@ internal sealed partial class FalloutQuestScripts
         var newlyParsed = _instances.Where(instance => !states.ContainsKey(instance.Quest.FormKey)).ToArray();
         if (states.Keys.Any(key => !owners.Contains(key)) || newlyParsed.Any(instance =>
             !FalloutGameModeProgram.WasRejectedByParser(FalloutDialogueTopic.ScriptText(
-                instance.Script.ReadSubrecords().Single(field => field.Signature == "SCTX").Data.Span), snapshot.ParserVersion)))
+                instance.Script.ReadSubrecords().Single(field => field.Signature == "SCTX").Data.Span), snapshot.ParserVersion,
+                FalloutGameModeProgram.CompiledBody(instance.Script.ReadSubrecords()))))
             throw new InvalidDataException("Saved quest script owners differ from the winning source graph.");
         foreach (var instance in _instances)
         {
@@ -492,8 +493,9 @@ internal sealed partial class FalloutQuestScripts
                 if (script.Signature != "SCPT") throw new InvalidDataException("Quest script is not SCPT.");
                 var source = script.ReadSubrecords().Where(field => field.Signature == "SCTX").ToArray();
                 if (source.Length != 1) throw new NotSupportedException("Quest script source is absent or ambiguous.");
-                var program = FalloutGameModeProgram.Read(source[0].Data.Span);
-                var menuProgram = FalloutGameModeProgram.Read(source[0].Data.Span, "MenuMode");
+                var compiled = FalloutGameModeProgram.CompiledBody(script.ReadSubrecords());
+                var program = FalloutGameModeProgram.Read(source[0].Data.Span, compiled);
+                var menuProgram = FalloutGameModeProgram.Read(source[0].Data.Span, compiled, "MenuMode");
                 if (!_initialization.Definitions.TryGetValue(script.FormKey, out var definition))
                     throw new NotSupportedException("Attached quest script has no quest-clock declaration.");
                 if (!clocks.TryGetValue(script.FormKey, out var clock))

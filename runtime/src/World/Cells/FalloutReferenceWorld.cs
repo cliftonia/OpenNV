@@ -463,6 +463,8 @@ internal sealed partial class FalloutReferenceInstance
     internal FalloutActorEngagement? Engagement { get; set; }
     internal FalloutAggroRadiusWarning? AggroWarning { get; set; }
     internal Action? StopCombat { get; set; }
+    // Bound while a resident combat owner has a ragdoll: (origin in game units, or null for the player; force).
+    internal Action<System.Numerics.Vector3?, float>? ScriptPushAway { get; set; }
     internal Func<FalloutActorEngagement?>? CaptureEngagement { get; set; }
     internal FalloutActorCorpseEquipment? CorpseEquipment { get; set; }
     internal Func<bool, bool>? CanCaptureCorpseEquipment { get; set; }
@@ -1021,7 +1023,8 @@ internal sealed partial class FalloutReferenceWorld(FalloutPluginStack records,
                 if (instance.Script is null) throw new InvalidDataException("Saved stopped frame has no source script.");
                 var fields = instance.Script.Record.ReadSubrecords().Where(field => field.Signature == "SCTX").ToArray();
                 if (fields.Length != 1) throw new InvalidDataException("Saved stopped frame has no unique source program.");
-                var blocks = FalloutGameModeProgram.ReadEvents(FalloutDialogueTopic.ScriptText(fields[0].Data.Span));
+                var blocks = FalloutGameModeProgram.ReadEvents(FalloutDialogueTopic.ScriptText(fields[0].Data.Span),
+                    FalloutGameModeProgram.CompiledBody(instance.Script.Record.ReadSubrecords()));
                 snapshot.ScriptStoppedFrame?.Validate(instance.ScriptError, instance.Script.Sha256, blocks);
                 snapshot.CompletedScriptContinuation?.Validate(snapshot.CompletedScriptContinuation.Error, instance.Script.Sha256, blocks);
                 foreach (var retained in new[] { snapshot.ScriptStoppedFrame, snapshot.CompletedScriptContinuation }.OfType<FalloutReferenceScriptStoppedFrame>())

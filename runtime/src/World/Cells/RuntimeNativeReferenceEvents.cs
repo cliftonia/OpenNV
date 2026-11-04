@@ -530,7 +530,7 @@ internal partial class RuntimeNativeReferenceEvents : Node
                     var script = _records.GetEffective(effect.Script);
                     if (FalloutScriptLocals.Read(script).Count != 0) throw new NotSupportedException("Ability script local persistence is unbound.");
                     var text = FalloutDialogueTopic.ScriptText(script.ReadSubrecords().Single(row => row.Signature == "SCTX").Data.Span);
-                    foreach (var block in FalloutGameModeProgram.ReadEvents(text).Where(block => block.Event.Equals("ScriptEffectStart", StringComparison.OrdinalIgnoreCase)))
+                    foreach (var block in FalloutGameModeProgram.ReadEvents(text, FalloutGameModeProgram.CompiledBody(script.ReadSubrecords())).Where(block => block.Event.Equals("ScriptEffectStart", StringComparison.OrdinalIgnoreCase)))
                         _scripts.ExecuteProgram(_records.GetEffective(binding.Reference.FormKey), script, block.Program, 0);
                 }
             }

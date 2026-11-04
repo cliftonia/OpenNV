@@ -37,12 +37,12 @@ internal sealed class FalloutInstantIngestibleScript
             FalloutScriptHeader.Read(headers[0].Data.Span).CompiledBytes != compiled[0].Data.Length)
             throw new NotSupportedException("Ingestible script requires its complete compiled identity and shipped source owner.");
         var sourceText = FalloutDialogueTopic.ScriptText(sources[0].Data.Span);
-        var blocks = FalloutGameModeProgram.ReadEvents(sourceText);
+        var blocks = FalloutGameModeProgram.ReadEvents(sourceText, compiled[0].Data.Span);
         if (blocks.Count == 0 || blocks.Any(block =>
             !block.Event.Equals("ScriptEffectStart", StringComparison.OrdinalIgnoreCase) ||
             block.Filter is not null || block.Parameters is not null))
             throw new NotSupportedException("Ingestible script requires its non-Start lifecycle owner.");
-        _program = FalloutGameModeProgram.Read(sourceText, "ScriptEffectStart");
+        _program = FalloutGameModeProgram.Read(sourceText, compiled[0].Data.Span, "ScriptEffectStart");
         _bindings = new(records, _script, _script, fields);
         _ = new FalloutScriptEffectLocals(_script);
         Hash = Convert.ToHexString(SHA256.HashData(_script.ReadData()));

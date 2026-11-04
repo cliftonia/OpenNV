@@ -28,6 +28,7 @@ internal sealed class FalloutTransientExplosions(FalloutPluginStack records, Fal
     {
         internal FalloutTransientExplosionReference Reference { get; } = reference;
         internal bool Retired { get; set; }
+        internal bool Unloaded { get; set; }
         internal string? Error { get; set; }
     }
     private readonly Dictionary<uint, Instance> _instances = [];
@@ -36,7 +37,11 @@ internal sealed class FalloutTransientExplosions(FalloutPluginStack records, Fal
     private int _activeCount;
     private string? _failure;
     internal Func<FalloutTransientExplosionRequest, FalloutPreparedTransientExplosion>? Prepare { get; set; }
-    internal string? SaveBlocker => _failure is not null ? "transient-explosion-failure" : _activeCount != 0 ? "transient-explosion" : null;
+    // A placed blast applies its effect when it starts; the remaining visual
+    // lifetime is not persistent state. Like retail, a save taken mid-blast
+    // records it as finished and a load never replays it. Only a failed effect
+    // owner refuses capture.
+    internal string? SaveBlocker => _failure is not null ? "transient-explosion-failure" : null;
     internal object State
     {
         get
@@ -114,7 +119,7 @@ internal sealed class FalloutTransientExplosions(FalloutPluginStack records, Fal
     private void Complete(uint id)
     {
         var instance = _instances[id];
-        if (instance.Error is not null) return;
+        if (instance.Error is not null || instance.Unloaded) return;
         if (instance.Retired)
             throw new InvalidOperationException("Transient explosion completion has no active successful lifetime.");
         instance.Retired = true;
@@ -124,14 +129,20 @@ internal sealed class FalloutTransientExplosions(FalloutPluginStack records, Fal
     private void Fail(uint id, string error)
     {
         var instance = _instances[id];
+        if (instance.Unloaded) return;
         instance.Error ??= string.IsNullOrWhiteSpace(error) ? "Transient explosion lost its effect owner." : error;
         _failure ??= instance.Error;
     }
+    // Unloading the presentation (cell change, world teardown) ends every
+    // resident blast at once, as retail unloads its temporary references.
     internal void RetirePresentation()
     {
         Prepare = null;
-        foreach (var instance in _instances.Values.Where(value => !value.Retired))
-            Fail(instance.Reference.Id, "Transient explosion presentation retired before natural completion.");
+        foreach (var instance in _instances.Values.Where(value => !value.Retired && value.Error is null).ToArray())
+        {
+            Complete(instance.Reference.Id);
+            instance.Unloaded = true;
+        }
     }
     internal void RequireCapture()
     {

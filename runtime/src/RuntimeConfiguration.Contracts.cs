@@ -781,13 +781,13 @@ internal sealed record ContentCompilerConfiguration(
 
 internal sealed record SpeedTreeCompilerConfiguration(
     ConfigurationProvenance Provenance,
-    string BillboardTexture,
+    string BillboardDirectory,
     float BillboardAlphaCutoff)
 {
     internal void Validate()
     {
-        if (string.IsNullOrWhiteSpace(BillboardTexture))
-            throw new InvalidOperationException("SpeedTree billboard texture must not be empty.");
+        if (string.IsNullOrWhiteSpace(BillboardDirectory) || BillboardDirectory.EndsWith(".dds", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("SpeedTree billboard directory must name a texture directory.");
         if (!float.IsFinite(BillboardAlphaCutoff) ||
             BillboardAlphaCutoff <= 0.0f || BillboardAlphaCutoff > 1.0f)
             throw new InvalidOperationException(

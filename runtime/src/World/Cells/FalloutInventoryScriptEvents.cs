@@ -26,7 +26,8 @@ internal static class FalloutInventoryScriptEvents
         var source = fields.Where(field => field.Signature == "SCTX").ToArray();
         if (source.Length != 1) throw new NotSupportedException("Inventory event requires an unambiguous source script.");
         var bindings = new FalloutScriptBindings(records, item, script, fields);
-        var blocks = FalloutGameModeProgram.ReadEvents(FalloutDialogueTopic.ScriptText(source[0].Data.Span));
+        var blocks = FalloutGameModeProgram.ReadEvents(FalloutDialogueTopic.ScriptText(source[0].Data.Span),
+            FalloutGameModeProgram.CompiledBody(fields));
         var budget = execution.Budget ?? new FalloutScriptExecutionBudget(); var executed = 0;
         foreach (var block in blocks)
         {

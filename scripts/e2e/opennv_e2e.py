@@ -435,6 +435,14 @@ def main(argv: list[str]) -> int:
     if unknown:
         print(f"unknown tests: {unknown}", file=sys.stderr)
         return 2
+    if "--no-build" not in argv:
+        # The runtime loads the last compiled assembly; build first so the
+        # tests never run stale code against newer config or sources.
+        build = subprocess.run(["dotnet", "build", str(REPO / "runtime" / "OpenNV.csproj"), "-v", "q", "-nologo"],
+                               capture_output=True, text=True)
+        if build.returncode != 0:
+            print(build.stdout[-2000:], file=sys.stderr)
+            return 1
     results = []
     for name in selected:
         started = time.time()

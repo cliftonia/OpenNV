@@ -116,6 +116,7 @@ internal sealed partial class RuntimeNativeActorCombat : Node
         if (_newLaunchProcess && _state.ProjectileLaunch is null)
             _state.ProjectileLaunch = FalloutActorProjectileLaunch.NewProcess();
         _state.StopCombat = StopCombat;
+        _state.ScriptPushAway = ScriptPushAway;
         _hitReactionError = _state.CurrentHitReactionError;
         _state.CaptureEngagement = CaptureEngagement;
         _state.CanCaptureCorpseEquipment = CorpseEquipmentCaptureReady;

@@ -126,7 +126,8 @@ internal sealed partial class FalloutReferenceScripts
                 var fields = script.ReadSubrecords().ToArray();
                 var source = fields.Single(field => field.Signature == "SCTX");
                 program = (new(records, records.GetEffective(form), script, fields),
-                    FalloutGameModeProgram.ReadEvents(FalloutDialogueTopic.ScriptText(source.Data.Span)));
+                    FalloutGameModeProgram.ReadEvents(FalloutDialogueTopic.ScriptText(source.Data.Span),
+                        FalloutGameModeProgram.CompiledBody(fields)));
                 _inventoryPrograms.Add(key, program);
             }
             var executed = 0;

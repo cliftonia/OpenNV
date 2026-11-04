@@ -3,6 +3,7 @@ using Godot;
 using OpenNV.Runtime.Content;
 using OpenNV.Runtime.Gameplay.State;
 using OpenNV.Runtime.World.Actors;
+using OpenNV.Runtime.Presentation.Rendering;
 using OpenNV.Runtime.World.Cells;
 
 namespace OpenNV.Runtime.Campaigns.NewVegas.Opening;
@@ -47,15 +48,31 @@ internal partial class RuntimeNativeOpeningStageDriver
                 }
                 // Residency rebuilds presentation from source; the world retains
                 // the alpha for the session. A non-resident actor has no geometry.
-                foreach (var actor in SceneGraph.NodeTraversal.SelfAndDescendants<Node3D>(GetTree().Root).Where(node =>
-                    node.IsInsideTree() && !node.IsQueuedForDeletion() && node switch
-                    {
-                        RuntimeNativeNpc npc => npc.Appearance.Reference == target,
-                        RuntimeNativeCreature creature => creature.Appearance.Reference == target,
-                        _ => false,
-                    }))
+                foreach (var actor in ResidentPresentation(target))
                     foreach (var geometry in SceneGraph.NodeTraversal.SelfAndDescendants<GeometryInstance3D>(actor))
                         geometry.Transparency = 1 - alpha;
+                return true;
+            // Membranes attach to the resident presentation only; a reference
+            // that streams in later does not replay a retained shader yet.
+            case "pms" or "playmagicshadervisuals" when arguments.Count is 1 or 2:
+                var effect = FalloutEffectShader.Read(_pluginStack, bindings.Form(arguments[0]).FormKey);
+                float? duration = arguments.Count == 2 ? float.Parse(arguments[1], NumberStyles.Float, CultureInfo.InvariantCulture) : null;
+                var content = RuntimeLiveContentSource.Current ?? throw new InvalidOperationException("Owned source is absent.");
+                var attached = 0;
+                foreach (var node in ResidentPresentation(target))
+                {
+                    if (node.GetChildren().OfType<NativeEffectShaderMembrane>().Any(existing => existing.Shader == effect.Form && !existing.Stopping))
+                        continue;
+                    if (NativeEffectShaderMembrane.Attach(node, effect, content, duration) is not null) attached++;
+                }
+                if (!effect.HasMembrane) FalloutScriptCommandDeferral.Warn("playmagicshadervisuals", "effect-shader-particles-unbound");
+                else if (attached == 0) FalloutScriptCommandDeferral.Warn("playmagicshadervisuals", player ? "player-self-visibility-owner-unbound" : "target-not-resident");
+                return true;
+            case "sms" or "stopmagicshadervisuals" when arguments.Count == 1:
+                var stopped = bindings.Form(arguments[0]).FormKey;
+                foreach (var node in ResidentPresentation(target))
+                    foreach (var membrane in node.GetChildren().OfType<NativeEffectShaderMembrane>().Where(item => item.Shader == stopped))
+                        membrane.Stop();
                 return true;
             // The sky owner commits weather without a transition clock, so the
             // ordinary transition request currently matches ForceWeather.
@@ -75,5 +92,18 @@ internal partial class RuntimeNativeOpeningStageDriver
             default:
                 return false;
         }
+    }
+
+    // Resident presentation roots of a placed actor or object reference.
+    private IEnumerable<Node3D> ResidentPresentation(FalloutFormKey reference)
+    {
+        var key = reference.ToString();
+        return SceneGraph.NodeTraversal.SelfAndDescendants<Node3D>(GetTree().Root).Where(node =>
+            node.IsInsideTree() && !node.IsQueuedForDeletion() && node switch
+            {
+                RuntimeNativeNpc npc => npc.Appearance.Reference == reference,
+                RuntimeNativeCreature creature => creature.Appearance.Reference == reference,
+                _ => node.HasMeta("opennv_reference_form_key") && node.GetMeta("opennv_reference_form_key").AsString() == key,
+            }).ToArray();
     }
 }
