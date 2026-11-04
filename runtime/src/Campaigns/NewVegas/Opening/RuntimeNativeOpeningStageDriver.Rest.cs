@@ -35,7 +35,9 @@ internal partial class RuntimeNativeOpeningStageDriver
                 global => (_globals ?? throw new NotSupportedException("Bed ownership global has no shared state owner.")).Get(global)));
         if (FalloutPlayerRest.Refusal(kind, circumstances) is { } refusal)
         {
-            var notice = new FalloutHudEvent(FalloutHudEventKind.ExecutableNotice, player, 0, Text: refusal);
+            // HUD notices resolve their source record; the engine player is
+            // the player base record, as the quicksave notice uses.
+            var notice = new FalloutHudEvent(FalloutHudEventKind.ExecutableNotice, _raceSexContract.Player, 0, Text: refusal);
             _inventory.Notifications.RequirePublish([notice]);
             _inventory.Notifications.Publish([notice]);
             GD.Print($"OPENNV_REST_REFUSED kind={kind} bed={bed?.ToString() ?? "none"} reason={refusal}");
