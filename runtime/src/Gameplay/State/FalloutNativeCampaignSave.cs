@@ -71,7 +71,8 @@ internal sealed record FalloutNativeCampaignState(
     IReadOnlyList<FalloutInventoryScriptInitialization>? PlayerInventoryScriptInitializations = null,
     FalloutPlayerFatigueKnockout? PlayerFatigueKnockout = null,
     FalloutRuntimeReferencesSnapshot? RuntimeReferences = null, IReadOnlyList<FalloutDynamicMineSnapshot>? DynamicMines = null,
-    FalloutDeliveredEffectsSnapshot? DeliveredEffects = null, FalloutCellOwnershipSnapshot? CellOwnership = null);
+    FalloutDeliveredEffectsSnapshot? DeliveredEffects = null, FalloutCellOwnershipSnapshot? CellOwnership = null,
+    FalloutCasinoWinningsSnapshot? CasinoWinnings = null);
 
 internal sealed record FalloutNativeCampaignRestore(
     FalloutNativeCampaignState State,
@@ -80,7 +81,8 @@ internal sealed record FalloutNativeCampaignRestore(
 
 internal static class FalloutNativeCampaignSave
 {
-    internal const string ExpectedSchema = "opennv-native-fnv-campaign-save/v72";
+    internal const string ExpectedSchema = "opennv-native-fnv-campaign-save/v73";
+    internal const string BeforeCasinoWinningsSchema = "opennv-native-fnv-campaign-save/v72";
     internal const string BeforeDynamicMineSchema = "opennv-native-fnv-campaign-save/v71";
     internal const string BeforeMineSchema = "opennv-native-fnv-campaign-save/v70";
     internal const string BeforeFatigueSchema = "opennv-native-fnv-campaign-save/v69";
@@ -441,6 +443,7 @@ internal static class FalloutNativeCampaignSave
             references.RestoreReputations(state.Reputations);
             references.PlayerNotes.Restore(state.PlayerNotes);
             references.PlayerCaravanCards.Restore(state.PlayerCaravanCards);
+            references.CasinoWinnings.Restore(state.CasinoWinnings);
             references.RestoreDroppedItems(state.DroppedItems);
         }
         validatedValues?.Arrays.ValidateRestoredRoots();
@@ -644,6 +647,11 @@ internal static class FalloutNativeCampaignSave
 
     internal static FalloutNativeCampaignState AdmitPreviousOwnerSchema(FalloutNativeCampaignState state)
     {
+        if (state.Schema != ExpectedSchema && state.CasinoWinnings is not null)
+            throw new InvalidDataException("Earlier campaign schemas cannot own casino winnings.");
+        if (state.CasinoWinnings is not null && state.References is null)
+            throw new InvalidDataException("Saved casino winnings have no reference world.");
+        if (state.Schema == BeforeCasinoWinningsSchema) state = state with { Schema = ExpectedSchema };
         if (state.Schema != ExpectedSchema && (state.RuntimeReferences is not null || state.DynamicMines is not null))
             throw new InvalidDataException("Earlier campaign schemas cannot own persistent runtime projectile identities.");
         if (state.Schema != ExpectedSchema && state.References?.Any(reference => reference.PackageMotion?.FindFood is not null) == true)

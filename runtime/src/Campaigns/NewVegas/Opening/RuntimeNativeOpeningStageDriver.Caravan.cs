@@ -124,5 +124,9 @@ internal partial class RuntimeNativeOpeningStageDriver
         finally { if (layer is not null && GodotObject.IsInstanceValid(layer) && !layer.IsQueuedForDeletion()) layer.QueueFree(); }
     }
 
-    public override void _ExitTree() => CloseCaravanMenu();
+    public override void _ExitTree()
+    {
+        CloseCaravanMenu();
+        CloseCasinoMenu();
+    }
 }

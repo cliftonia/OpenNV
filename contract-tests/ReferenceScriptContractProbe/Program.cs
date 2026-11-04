@@ -417,6 +417,20 @@ if (args is ["--caravan-source-contracts"])
     CaravanSourceContracts.Run();
     return;
 }
+if (args is ["--owned-casino-commands", var casinoExecutable])
+{
+    foreach (var command in new[] { "ShowBlackJackMenuParams", "ShowRouletteMenuParams", "ShowSlotMachineMenuParams" })
+    {
+        var declared = FalloutExecutableStringTable.ReadCasinoCommandParameters(casinoExecutable, command);
+        if (!declared.Select(parameter => parameter.Name).SequenceEqual(["Casino", "Min Bet", "Max Bet", "Max Winnings"]) || declared.Any(parameter => parameter.Optional))
+            throw new InvalidDataException(command + " parameters differ from the evidenced declaration.");
+    }
+    if (!FalloutExecutableStringTable.ReadCasinoCommandParameters(casinoExecutable, "GetCasinoWinningsLevel").Select(parameter => parameter.Name).SequenceEqual(["Casino"]) ||
+        !FalloutExecutableStringTable.ReadCasinoCommandParameters(casinoExecutable, "SetCasinoWinningsLevel").Select(parameter => parameter.Name).SequenceEqual(["Casino", "Winning Level"]))
+        throw new InvalidDataException("Casino winnings level declarations differ from the evidenced declaration.");
+    Console.WriteLine("OPENNV_CASINO_COMMAND_DECLARATION_PASS commands=5 parameters=casino;minBet;maxBet;maxWinnings execution=unverified");
+    return;
+}
 if (args is ["--owned-caravan-command", var caravanExecutable])
 {
     var parameters = FalloutExecutableStringTable.ReadCaravanCommandParameters(caravanExecutable);
@@ -1988,6 +2002,7 @@ AgeRaceContracts.Run();
 FaceGeometryContracts.Run();
 ScriptSoundContracts.Run();
 ScriptContinuationContracts.Run();
+CasinoContracts.Run();
 NoActivationSoundContracts.Run();
 VampireQueryContracts.Run();
 InventoryQueryContracts.Run();

@@ -703,6 +703,9 @@ internal sealed partial class FalloutQuestScripts
             if (parts.Length == 1 && FalloutScriptLeveledItems.Function(operation, _records, () =>
                 (References ?? throw new NotSupportedException("Leveled-list commands have no shared world owner.")).LeveledItems) is { } leveledFunction)
                 return leveledFunction;
+            if (parts.Length == 1 && FalloutScriptCasinoCommands.Function(operation, _records, () =>
+                (References ?? throw new NotSupportedException("Casino winnings have no shared world owner.")).CasinoWinnings) is { } casinoFunction)
+                return casinoFunction;
             if (parts.Length <= 2 && FalloutScriptPosition.Function(operation,
                 () => References ?? throw new NotSupportedException("Position commands have no shared world owner."),
                 () => caller?.FormKey(_records) ?? (parts.Length == 2 ? QueryReference(parts[0]) : instance.Quest.FormKey)) is { } positionFunction)

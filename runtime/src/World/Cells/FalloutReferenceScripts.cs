@@ -478,6 +478,8 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                 return formListFunction;
             if (parts.Length == 1 && FalloutScriptLeveledItems.Function(operation, records, () => world.LeveledItems) is { } leveledFunction)
                 return leveledFunction;
+            if (parts.Length == 1 && FalloutScriptCasinoCommands.Function(operation, records, () => world.CasinoWinnings) is { } casinoFunction)
+                return casinoFunction;
             if (parts.Length <= 2 && FalloutScriptPosition.Function(operation, () => world,
                 () => caller?.FormKey(records) ?? (parts.Length == 2 ? Reference(parts[0]) : source)) is { } positionFunction)
                 return positionFunction;
@@ -1386,6 +1388,14 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                         source, bindings, command,
                         [arguments[0], caravan.AiType.ToString(System.Globalization.CultureInfo.InvariantCulture),
                             caravan.BetPercentage.ToString("R", System.Globalization.CultureInfo.InvariantCulture)]);
+                    break;
+                case "showblackjackmenuparams" or "showroulettemenuparams" or "showslotmachinemenuparams" when arguments.Count == 4:
+                    var casino = FalloutCasinoCommandRequest.Read(records, FalloutCasinoCommandRequest.GameFor(operation),
+                        bindings.Form(arguments[0]), Number(arguments[1]), Number(arguments[2]), Number(arguments[3]));
+                    (host.Command ?? throw new NotSupportedException($"{command} has no native menu owner."))(
+                        source, bindings, command,
+                        [arguments[0], .. new[] { casino.MinimumBet, casino.MaximumBet, casino.MaxWinnings }
+                            .Select(value => value.ToString(System.Globalization.CultureInfo.InvariantCulture))]);
                     break;
                 case "addcardtoplayer" or "addcard" when arguments.Count == 0:
                     // The command's caller is a real reference whose effective
