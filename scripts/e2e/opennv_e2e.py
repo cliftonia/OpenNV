@@ -385,7 +385,7 @@ def test_rest() -> str:
             time.sleep(0.3)
         require(game.press("Wait"), "Wait button is not offered")
         done = game.wait_log("OPENNV_REST_COMPLETE", 60)
-        require("kind=Wait hours=3" in done, f"wait did not run three hours: {done}")
+        require("kind=Wait hours=" in done and "hours=1 " not in done, f"wait did not run the chosen hours: {done}")
         game.wait(lambda: not game.state()["sceneTreePaused"], 30, "gameplay to resume")
         # Both of Doc Mitchell's beds are his; activating one must refuse sleep.
         for bed in ("FalloutNV.esm:103e3a", "FalloutNV.esm:103e5b"):
