@@ -17,10 +17,14 @@ internal static class RadioContracts
             var header = new byte[12]; BinaryPrimitives.WriteSingleLittleEndian(header, 1.34f);
             var bytes = Join(Record("TES4", 0, 0, Field("HEDR", header)),
                 Record("TACT", 10, 0x40020000), Record("TACT", 11, 0x10020000), Record("DOOR", 20, 0), Record("SOUN", 500, 0),
+                Record("ACTI", 30, 0, Field("RNAM", BitConverter.GetBytes(10u))),
+                Record("ACTI", 31, 0, Field("RNAM", BitConverter.GetBytes(10u)), Field("VNAM", BitConverter.GetBytes(500u))),
+                Record("ACTI", 32, 0, Field("RNAM", BitConverter.GetBytes(20u))), Record("NPC_", 40, 0),
                 Cell(800, true), Group(800, 6, Reference(900, 10, 0, Radio(0, 100, 901)), Reference(901, 20, 0, Field("DATA", Position(50))),
                     Reference(903, 10, 0, Radio(1)), Reference(904, 10, 0, Radio(3)), Reference(905, 10, 0, Field("XRDO", new byte[15])),
                     Reference(907, 10, 0, Radio(4)), Reference(908, 11, 0, Radio(1)), Reference(909, 10, 0x800, Radio(1)),
-                    Door(910, 911), Door(912, 913)),
+                    Door(910, 911), Door(912, 913), Reference(920, 30, 0), Reference(921, 31, 0), Reference(922, 32, 0),
+                    Record("ACHR", 930, 0, Field("NAME", BitConverter.GetBytes(40u)), Field("DATA", new byte[24]))),
                 Cell(801, true), Group(801, 6, Door(911, 910)), Cell(802, true),
                 Record("QUST", 1000, 0, Field("EDID", Encoding.ASCII.GetBytes("ReceiverQuest\0"))),
                 Group(700, 1, Cell(804, false), Group(804, 6, Reference(902, 10, 0, Radio(2)),
@@ -87,6 +91,7 @@ internal static class RadioContracts
                 Reject(() => FalloutRadioStation.Read(records, records.GetEffective(Key(905))));
                 Declaration();
                 Receiver(records, world, radio);
+                PhysicalReceivers(records);
             }
             File.WriteAllBytes(Path.Combine(directory, "Patch.esp"), Join(Record("TES4", 0, 0, Field("HEDR", header), Field("MAST", Encoding.ASCII.GetBytes("Radio.esm\0")), Field("DATA", new byte[8])),
                 Group(800, 6, Reference(900, 10, 0, Radio(1)), Record("REFR", 903, 0x20))));
@@ -96,7 +101,7 @@ internal static class RadioContracts
             Require(patched.ReadRadioStationIndex().Stations[Key(900)].Range == FalloutRadioRange.Everywhere &&
                 !patched.ReadRadioStationIndex().Stations.ContainsKey(Key(903)),
                 "Shared source station index ignored the winning override or retained a deleted transmitter.");
-            Console.WriteLine("OPENNV_RADIO_CONTRACT_PASS winning-master range anchor enable non-pipboy discovery once-only cold malformed retained-portal-divergence hud-declarations receiver-source-off lease-retirement independent-voices last-station-cold active-save-refused unbound-tuning-atomic");
+            Console.WriteLine("OPENNV_RADIO_CONTRACT_PASS winning-master range anchor enable non-pipboy discovery once-only cold malformed retained-portal-divergence hud-declarations receiver-source-off lease-retirement placed-receiver-power npc-radio-cold independent-voices last-station-cold active-save-refused unbound-tuning-atomic");
         }
         finally { Directory.Delete(directory, true); }
     }
@@ -141,6 +146,42 @@ internal static class RadioContracts
         using var changed = new FalloutReferenceWorld(records);
         Reject(() => changed.PipBoyRadio.Restore(saved with { SourceSha256 = new string('0', 64) }));
         Require(changed.PipBoyRadio.LastStation is null, "Source mismatch changed the receiver before validation.");
+    }
+
+    // Placed receivers start off and the default action toggles their saved
+    // power; SetNPCRadio retains a station on a placed actor across saves.
+    private static void PhysicalReceivers(FalloutPluginStack records)
+    {
+        using var world = new FalloutReferenceWorld(records);
+        Require(!world.IsRadioReceiverOn(Key(920)), "A placed receiver without a StartOn script began switched on.");
+        world.DefaultActivateUnanimatedActivator(Key(920));
+        Require(world.IsRadioReceiverOn(Key(920)), "Default activation did not switch the placed receiver on.");
+        foreach (var refused in new uint[] { 921, 922 })
+        {
+            _ = world.Get(Key(refused));
+            var before = JsonSerializer.Serialize(world.Capture());
+            Reject(() => world.DefaultActivateUnanimatedActivator(Key(refused)));
+            Require(before == JsonSerializer.Serialize(world.Capture()), "Refused receiver activation changed its power.");
+        }
+        var actor = Key(930);
+        var command = FalloutScriptActorCommands.Function("setnpcradio", records, () => world, () => actor)!;
+        command.InvokeValue([new(1), new(FalloutScriptValue.Form(900))]);
+        Require(world.NpcRadios().SequenceEqual([(actor, Key(900))]), "SetNPCRadio did not give the actor its station.");
+        Reject(() => command.InvokeValue([new(1), new(FalloutScriptValue.Form(901))]));
+        var references = JsonSerializer.Deserialize<FalloutReferenceSnapshot[]>(JsonSerializer.Serialize(world.Capture()))!;
+        var overrides = JsonSerializer.Deserialize<FalloutActorOverrides[]>(JsonSerializer.Serialize(world.CaptureActorOverrides()))!;
+        using (var cold = new FalloutReferenceWorld(records))
+        {
+            cold.Restore(references); cold.RestoreActorOverrides(overrides);
+            Require(cold.IsRadioReceiverOn(Key(920)) && cold.NpcRadios().SequenceEqual([(actor, Key(900))]),
+                "Cold restore lost receiver power or the NPC radio station.");
+            cold.DefaultActivateUnanimatedActivator(Key(920));
+            Require(!cold.IsRadioReceiverOn(Key(920)) && world.IsRadioReceiverOn(Key(920)), "Receiver power is not owned per world.");
+        }
+        using (var tampered = new FalloutReferenceWorld(records))
+            Reject(() => tampered.RestoreActorOverrides([overrides[0] with { NpcRadio = overrides[0].NpcRadio! with { Sha256 = new string('0', 64) } }]));
+        command.InvokeValue([new(0), new(FalloutScriptValue.Form(900))]);
+        Require(!world.NpcRadios().Any(), "SetNPCRadio 0 left the actor receiving.");
     }
 
     private sealed class RadioLease(Action stop) : IDisposable

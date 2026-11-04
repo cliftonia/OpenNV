@@ -42,6 +42,7 @@ internal partial class RuntimeNativeSpeech : Node
         internal PackageEventSpeech? PackageEvent;
         internal NpcDialogueExchange? NpcExchange;
         internal FalloutRadioConversation? Radio;
+        internal readonly Dictionary<FalloutFormKey, RadioReceiverMirror> Receivers = [];
     }
 
     private readonly Dictionary<FalloutFormKey, Voice> _channels = [];
@@ -97,9 +98,9 @@ internal partial class RuntimeNativeSpeech : Node
     }
     private FalloutSpeechSubtitle[] SubtitleCandidates() => _channels.Values.Select(SubtitleFor)
         .OfType<FalloutSpeechSubtitle>().ToArray();
-    private static FalloutSpeechSubtitle? SubtitleFor(Voice voice) => voice.Info is not null && voice.Topic is { } topic ?
+    private FalloutSpeechSubtitle? SubtitleFor(Voice voice) => voice.Info is not null && voice.Topic is { } topic ?
         new(voice.Reference, voice.Info.Record.FormKey, topic, voice.Info.Responses[voice.ResponseIndex].Text,
-            voice.Command!.ForceSubtitles) : null;
+            voice.Command!.ForceSubtitles || voice.Radio is null && _references?.AlwaysShowsSubtitles(voice.Reference) == true) : null;
     internal string? Error { get; private set; }
     internal bool Active => Error is not null || _deferredRequests.Count != 0 || _npcDialogueParticipants.Count != 0 || _channels.Values.Any(voice => voice.Info is not null) || _emptyCompletions.Active;
     internal bool IsTalking(FalloutFormKey reference)
@@ -784,6 +785,7 @@ internal partial class RuntimeNativeSpeech : Node
 
     private static void RetireRadioPcm(Voice voice)
     {
+        RetireRadioReceivers(voice);
         if (voice.Pcm is not { } pcm) return;
         voice.Player.Stop();
         if (voice.Player.Stream == pcm.Stream) voice.Player.Stream = null;

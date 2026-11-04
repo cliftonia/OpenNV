@@ -37,10 +37,23 @@ internal static class TransientExplosionContracts
             var result = scripts.Dispatch(Key(0x900), "GameMode");
             Check(result.Error is null && starts == 2 && world.Get(Key(0x900)).Read(1) == 0xff000001 &&
                 world.Get(Key(0x900)).Read(2) == 1, "Script statement or typed PlaceAtMe result failed: " + result.Error);
-            Reject(() => world.Capture());
+            // Retail saves mid-blast: the active blasts are recorded as finished
+            // and their live presentation still completes naturally.
+            var midBlast = Cold(world.TransientExplosions.Capture());
+            var midReferences = world.RuntimeReferences.Capture();
+            Check(world.TransientExplosions.SaveBlocker is null && world.Capture().Count != 0 && midBlast.Retired.Count == 2 &&
+                midReferences.References.All(value => value.Retired) && !world.RuntimeReferences.Require(0xff000001).Retired,
+                "Active blast refused capture or was not saved as finished.");
+            using (var midRestored = new FalloutReferenceWorld(records))
+            {
+                midRestored.RuntimeReferences.Restore(JsonSerializer.Deserialize<FalloutRuntimeReferencesSnapshot>(JsonSerializer.Serialize(midReferences)));
+                midRestored.TransientExplosions.Restore(midBlast);
+                Check(starts == 2 && midRestored.TransientExplosions.SaveBlocker is null, "Mid-blast save replayed its blast on load.");
+            }
             completions[0xff000001]();
-            Reject(() => world.TransientExplosions.Capture());
-            completions[0xff000002]();
+            world.TransientExplosions.RetirePresentation();
+            Check(world.TransientExplosions.SaveBlocker is null && world.RuntimeReferences.Require(0xff000002).Retired,
+                "Presentation unload left an active blast as a permanent save blocker.");
             var snapshot = Cold(world.TransientExplosions.Capture());
             using var restored = new FalloutReferenceWorld(records);
             restored.TransientExplosions.Restore(snapshot);
@@ -74,7 +87,7 @@ internal static class TransientExplosionContracts
             Reject(() => failed.Function(() => Key(0x900)).InvokeValue([new(FalloutScriptValue.Form(0x800))]));
             Reject(() => failed.Capture());
             Reject(() => failed.Function(() => Key(0x900)).InvokeValue([new(FalloutScriptValue.Form(0x800))]));
-            Console.WriteLine("OPENNV_TRANSIENT_EXPLOSION_PASS typedResult=true scriptStatement=true activeSaveRefused=true retiredCold=true monotonic=true invalidAtomic=true failedRetryRefused=true");
+            Console.WriteLine("OPENNV_TRANSIENT_EXPLOSION_PASS typedResult=true scriptStatement=true activeSaveFinished=true unloadRetires=true retiredCold=true monotonic=true invalidAtomic=true failedRetryRefused=true");
         }
         finally { directory.Delete(true); }
     }

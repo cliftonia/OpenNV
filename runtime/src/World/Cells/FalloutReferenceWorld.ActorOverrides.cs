@@ -78,6 +78,13 @@ internal sealed partial class FalloutReferenceWorld
                     !FormOverride(hair.Form.Value, "HAIR", 0).Sha256.Equals(hair.Sha256, StringComparison.OrdinalIgnoreCase))))
                 throw new InvalidDataException("Saved actor hair differs from its winning source.");
             if (snapshot.FaceGeometry is { } face) ValidateFaceGeometry(snapshot, face);
+            if (snapshot.NpcRadio is { } radio)
+            {
+                if (radio.Value != 1 || records.GetEffective(snapshot.Target).Signature is not ("ACHR" or "ACRE") ||
+                    !FormOverride(radio.Form, "REFR", 1).Sha256.Equals(radio.Sha256, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("Saved NPC radio differs from its placed actor or winning station.");
+                _ = FalloutRadioStation.Read(records, records.GetEffective(radio.Form));
+            }
             admitted[snapshot.Target] = CloneFace(snapshot);
         }
         var changedAppearance = _actorOverrides.Where(item => item.Value.Race is not null || item.Value.FaceGeometry is not null || item.Value.Height is not null || item.Value.Hair is not null).Select(item => item.Key)
@@ -187,6 +194,15 @@ internal sealed partial class FalloutReferenceWorld
         var current = Overrides(reference);
         _actorOverrides[reference] = friendlyHits ? current with { IgnoreFriendlyHits = value } : current with { IgnoreCrime = value };
     }
+
+    internal void SetAlwaysShowSubtitles(FalloutFormKey reference, bool value)
+    {
+        if (records.GetEffective(reference).Signature is not ("ACHR" or "ACRE"))
+            throw new InvalidDataException("AlwaysShowActorSubtitles requires a placed actor.");
+        _actorOverrides[reference] = Overrides(reference) with { AlwaysShowSubtitles = value };
+    }
+
+    internal bool AlwaysShowsSubtitles(FalloutFormKey reference) => _actorOverrides.GetValueOrDefault(reference)?.AlwaysShowSubtitles == true;
 
     internal bool IgnoresCrime(FalloutFormKey reference) => _actorOverrides.GetValueOrDefault(reference)?.IgnoreCrime == true;
     internal bool IgnoresFriendlyHits(FalloutFormKey reference) => _actorOverrides.GetValueOrDefault(reference)?.IgnoreFriendlyHits == true;
