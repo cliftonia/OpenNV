@@ -57,6 +57,7 @@ internal static partial class CellModelPathContracts
                 catch (InvalidDataException) { continue; }
                 throw new InvalidDataException("Malformed model path entered the resource namespace.");
             }
+            RunSpeedTree(directory);
             Console.WriteLine("OPENNV_CELL_MODEL_ROOT_CONTRACT_PASS sourceRoots=true speedTree=true treesNif=true nif=true placementsRetained=true malformedRefused=true");
         }
         finally { Directory.Delete(directory, true); }

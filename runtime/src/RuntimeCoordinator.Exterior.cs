@@ -312,13 +312,6 @@ public partial class RuntimeCoordinator
         foreach (var reference in grid.Scene.References.Where(reference => !previous.Contains(reference.FormKey) &&
             _nativeReferencePresentation?.HasPrepared(reference.FormKey) != true))
         {
-            var baseObject = grid.Scene.BaseObjects.GetValueOrDefault(reference.Base);
-            if (baseObject?.ModelPath is { } modelPath && modelPath.EndsWith(".spt", StringComparison.OrdinalIgnoreCase))
-            {
-                _nativeReferenceDivergences[reference.FormKey.ToString()] =
-                    $"Owned SpeedTree model {modelPath} procedural geometry decoder is unbound.";
-                continue;
-            }
             ExteriorNpcPreparation? npc = null;
             ExteriorCreaturePreparation? creature = null;
             RuntimeNativeNifMeshBuilder.StaticAssembly? staticAssembly = null;
@@ -638,10 +631,11 @@ public partial class RuntimeCoordinator
                 node.GetMeta("opennv_reference_form_key", "").AsString() == reference.FormKey.ToString()));
         if (Find() is { } existing) return existing;
         var baseObject = cell.BaseObjects.GetValueOrDefault(reference.Base);
-        if (baseObject?.ModelPath is { } modelPath && modelPath.EndsWith(".spt", StringComparison.OrdinalIgnoreCase))
+        if (baseObject?.ModelPath is { } modelPath && modelPath.EndsWith(".spt", StringComparison.OrdinalIgnoreCase) &&
+            cell.Cell.Worldspace is null)
         {
             _nativeReferenceDivergences[reference.FormKey.ToString()] =
-                $"Owned SpeedTree model {modelPath} procedural geometry decoder is unbound.";
+                $"Owned SpeedTree model {modelPath} has no interior billboard owner.";
             return null;
         }
         var before = root.GetChildCount();
@@ -713,6 +707,10 @@ public partial class RuntimeCoordinator
             quality.GrassStartFadeScale);
         grass.Register(root.GetChildren().OfType<RuntimeNativeLandscapeTransport>());
         root.AddChild(grass);
+        var trees = new RuntimeNativeSpeedTreeOwner();
+        trees.Configure(RuntimeLiveContentSource.Current!, sky, _configuration.World.GameUnitsToMeters,
+            _configuration.ContentCompiler.SpeedTree.BillboardAlphaCutoff);
+        root.AddChild(trees);
         var wind = new RuntimeNativeWind { Name = "ExteriorWindOwner" };
         FalloutFormKey? windWeather = null;
         float windSpeed = 0;

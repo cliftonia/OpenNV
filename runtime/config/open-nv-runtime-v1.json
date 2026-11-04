@@ -746,10 +746,10 @@
       "provenance": {
         "classification": "owned-data-presentation-contract",
         "status": "explicit-billboard-adapter",
-        "source": "Owned FNV SPT dimensions with the owned runtime billboard atlas selected by versioned policy",
+        "source": "Owned FNV TREE BNAM/CNAM with the per-tree billboard sharing the SPT base name",
         "evidence": "docs/evidence/fnv-retail-material-shader-contract.md"
       },
-      "billboardTexture": "textures\\trees\\billboards\\wastelandshrub01.dds",
+      "billboardDirectory": "textures\\trees\\billboards",
       "billboardAlphaCutoff": 0.38
     },
     "retailGrass": {
