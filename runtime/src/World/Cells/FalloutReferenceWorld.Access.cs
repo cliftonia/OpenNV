@@ -310,6 +310,7 @@ internal sealed partial class FalloutReferenceWorld
         var global = OptionalAccessForm(source, "XGLB");
         if (global is { } condition && records.GetEffective(condition).Signature != "GLOB")
             throw new InvalidDataException("Reference ownership global is not a GLOB form.");
+        if (source.Record.Signature == "CELL" && CellOwnershipOverride(source.Record.FormKey) is { } cellOwner) owner = cellOwner;
         return new((_instances.TryGetValue(source.Record.FormKey, out var instance) ? instance.OwnershipOverride?.Owner : null) ?? owner,
             rank.IsEmpty ? null : BinaryPrimitives.ReadInt32LittleEndian(rank.Span), global);
     }

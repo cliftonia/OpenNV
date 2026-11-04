@@ -118,6 +118,7 @@ internal partial class RuntimeNativeReferenceEvents : Node
             var old = _bindings[key];
             if (old.Trigger is { } trigger) { GamebryoReferenceEnableRuntime.Apply(trigger, false); trigger.QueueFree(); }
             _bindings.Remove(key);
+            world.ForcedTriggers.Clear(key);
         }
         var presentation = root.GetChildren().OfType<RuntimeNativeReferencePresentation>().SingleOrDefault();
         // The presentation owner already indexes complete resident models and
@@ -449,6 +450,9 @@ internal partial class RuntimeNativeReferenceEvents : Node
                 .Select(key => key!.Value).Distinct().ToArray();
             events.AddRange(binding.Contacts.Advance(contacts));
         }
+        if (_world.ForcedTriggers.HasPending(binding.Reference.FormKey) && _world.ForcedTriggers.Take(binding.Reference.FormKey,
+                events.Any(item => item.Name.Equals("OnTriggerEnter", StringComparison.OrdinalIgnoreCase))) is { } forced)
+            events.Add(forced);
         if (hasPackageEvents) events.AddRange(packageBatch!.Events);
         if (hasHitEvents) events.AddRange(hitBatch!.Events);
         if (grabBatch?.Grab > 0) events.Add(new("OnGrab", _records.RuntimeFormKey(0x14)));

@@ -570,6 +570,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                         ? records.RuntimeFormId(container) : 0), readOnly: true);
             if (parts.Length <= 2 && operation == "placeatme")
                 return world.TransientExplosions.Function(Target);
+            if (parts.Length <= 2 && operation == "placeleveledactoratme") return PlaceLeveledActorFunction(Target);
             if (parts.Length <= 2 && operation == "playsound3d")
                 return new([FalloutScriptArgumentKind.Value], arguments =>
                 {
@@ -998,6 +999,10 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                 return;
             }
             if (TryPlayerCommand(source, bindings, parts, operation, target, arguments, Number, Reference, StringValue)) return;
+            if (parts.Length == 1 && FalloutSharedScriptCommands.TryExecute(operation, arguments, quests,
+                    () => host.Challenges ?? throw new NotSupportedException($"{command} has no shared challenge owner."), bindings.Form) ||
+                TryWorldCommand(operation, new(command, parts.Length, target, bindings, arguments, Number, Reference)))
+                return;
             switch (operation)
             {
                 case "settalkingactivatoractor" when arguments.Count <= 1:

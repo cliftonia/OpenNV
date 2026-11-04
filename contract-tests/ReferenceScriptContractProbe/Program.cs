@@ -1397,6 +1397,11 @@ if (args.Length >= 3 && args[0] == "--audit-ttw-package-activation")
     OwnedDialoguePackageQueryProbe.TtwActivation(args[1], args[2], args[3..]);
     return;
 }
+if (args is ["--world-command-contracts"])
+{
+    WorldCommandContracts.Run();
+    return;
+}
 if (args is ["--challenge-contracts"])
 {
     ChallengeContracts.Run();
@@ -1978,6 +1983,7 @@ ReferenceAccessContracts.LockpickContracts();
 NumericGameSettingContracts.Run();
 ActorAppearanceContracts.Run();
 ChallengeContracts.Run();
+WorldCommandContracts.Run();
 AgeRaceContracts.Run();
 FaceGeometryContracts.Run();
 ScriptSoundContracts.Run();

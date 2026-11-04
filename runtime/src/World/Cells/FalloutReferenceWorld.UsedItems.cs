@@ -65,7 +65,11 @@ internal sealed partial class FalloutReferenceWorld
         }
     }
 
-    private static uint UsedItemType(string signature) => signature switch
+    private static uint UsedItemType(string signature) => FormTypeCode(signature) ??
+        throw new NotSupportedException($"Used-item type for {signature} has no qualified native identity.");
+
+    // Native TESForm type codes, as GetType/GetIsUsedItemType report them.
+    internal static uint? FormTypeCode(string signature) => signature switch
     {
         "ACTI" => 21,
         "TACT" => 22,
@@ -92,6 +96,6 @@ internal sealed partial class FalloutReferenceWorld
         "ALCH" => 47,
         "IDLM" => 48,
         "NOTE" => 49,
-        _ => throw new NotSupportedException($"Used-item type for {signature} has no qualified native identity.")
+        _ => null
     };
 }

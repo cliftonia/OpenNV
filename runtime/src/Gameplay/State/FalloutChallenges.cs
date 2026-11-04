@@ -37,7 +37,7 @@ internal sealed record FalloutChallengeDefinition(FalloutPluginRecord Record, ui
 }
 
 internal sealed record FalloutChallengeSnapshot(FalloutFormKey Form, string SourceSha256, bool Unlocked,
-    int Progress, bool Completed, bool EverCompleted, string? Error = null);
+    int Progress, bool Completed, bool EverCompleted, string? Error = null, bool RecurringRemoved = false);
 internal sealed record FalloutChallengesSnapshot(IReadOnlyList<FalloutChallengeSnapshot> Entries, int ChallengesCompleted)
 {
     internal void Validate()
@@ -52,7 +52,7 @@ internal sealed record FalloutChallengesSnapshot(IReadOnlyList<FalloutChallengeS
 
 // CHAL progress is player state, shared by every script context. Completion
 // faults retain the incremented prefix and cannot silently retry reward scripts.
-internal sealed class FalloutChallenges(FalloutPluginStack records, FalloutHudNotifications notifications)
+internal sealed partial class FalloutChallenges(FalloutPluginStack records, FalloutHudNotifications notifications)
 {
     private readonly Dictionary<FalloutFormKey, FalloutChallengeDefinition> _definitions = [];
     private readonly Dictionary<FalloutFormKey, FalloutChallengeSnapshot> _state = [];
@@ -91,7 +91,7 @@ internal sealed class FalloutChallenges(FalloutPluginStack records, FalloutHudNo
         {
             var state = State(definition.Record.FormKey);
             if (state.Error is not null) throw new NotSupportedException("Statistic challenge retains its completion failure.");
-            if (Locked(definition.Record.FormKey) || state.Completed && !definition.Recurring) continue;
+            if (Locked(definition.Record.FormKey) || state.Completed && !Recurring(definition)) continue;
             if (state.Progress == int.MaxValue) throw new OverflowException("Challenge progress is exhausted.");
             if (state.Progress + 1 >= definition.Threshold)
             {
@@ -115,7 +115,8 @@ internal sealed class FalloutChallenges(FalloutPluginStack records, FalloutHudNo
         var form = definition.Record.FormKey;
         var previous = State(form);
         if (previous.Error is not null) throw new NotSupportedException($"Challenge {form} retains its completion failure: {previous.Error}");
-        if (Locked(form) || previous.Completed && !definition.Recurring) return;
+        var recurring = Recurring(definition);
+        if (Locked(form) || previous.Completed && !recurring) return;
         var next = previous with { Progress = checked(previous.Progress + 1) };
         _state[form] = next;
         try
@@ -136,8 +137,8 @@ internal sealed class FalloutChallenges(FalloutPluginStack records, FalloutHudNo
                 Publish(definition, definition.Threshold, completed: true);
                 next = next with
                 {
-                    Progress = definition.Recurring ? next.Progress - definition.Threshold : next.Progress,
-                    Completed = !definition.Recurring,
+                    Progress = recurring ? next.Progress - definition.Threshold : next.Progress,
+                    Completed = !recurring,
                     EverCompleted = true
                 };
                 _state[form] = next;
@@ -167,7 +168,8 @@ internal sealed class FalloutChallenges(FalloutPluginStack records, FalloutHudNo
         {
             var definition = Definition(entry.Form);
             if (!definition.Sha256.Equals(entry.SourceSha256, StringComparison.OrdinalIgnoreCase) ||
-                entry.Completed && definition.Recurring || entry.Completed && entry.Progress < definition.Threshold ||
+                entry.Completed && definition.Recurring && !entry.RecurringRemoved || entry.RecurringRemoved && !definition.Recurring ||
+                entry.Completed && entry.Progress < definition.Threshold ||
                 entry.Error is null && !entry.Completed && entry.Progress >= definition.Threshold ||
                 definition.StartDisabled && !entry.Unlocked && (entry.Progress != 0 || entry.EverCompleted))
                 throw new InvalidDataException("Saved challenge progress differs from its winning source definition.");

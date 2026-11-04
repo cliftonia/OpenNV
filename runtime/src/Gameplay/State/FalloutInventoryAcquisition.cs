@@ -38,7 +38,7 @@ internal sealed class FalloutInventoryAcquisition(FalloutPluginStack records, Fa
         }));
     }
 
-    internal void Add(FalloutFormKey item, int count, bool silent)
+    internal void Add(FalloutFormKey item, int count, bool silent, FalloutItemVariant? extra = null)
     {
         RequireHealthy();
         using var plan = new Plan(records, world, player, quests, scripts, stages, level, globals, error => _failure = error);
@@ -46,7 +46,7 @@ internal sealed class FalloutInventoryAcquisition(FalloutPluginStack records, Fa
         Execute(plan, () => player.ModifyWithPreparedOwner(staged =>
         {
             plan.Bind(Player, player, staged);
-            plan.Add(Player, item, count, silent);
+            plan.Add(Player, item, count, silent, extra);
             plan.PrepareEffects();
         }, lease));
     }

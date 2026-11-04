@@ -25,24 +25,25 @@ internal sealed partial class FalloutPlayerInventory
     }
 
     internal void RemoveAll(FalloutPluginStack records, bool player, FalloutPlayerInventory? destination,
-        bool retainOwnership, bool notifyDestination)
+        bool retainOwnership, bool notifyDestination, Func<FalloutCampaignItem, bool>? filter = null)
     {
         if (ReferenceEquals(this, destination)) return;
-        var events = notifyDestination ? Items.Where(item => Removable(records, records.GetEffective(item.FormKey), player))
+        var events = notifyDestination ? Items.Where(item => Removable(records, records.GetEffective(item.FormKey), player) && filter?.Invoke(item) != false)
             .Select(item => new FalloutHudEvent(FalloutHudEventKind.ItemAdded, item.FormKey, item.Count)).ToArray() : [];
         destination?.Notifications.RequirePublish(events);
         ApplyRemovalTransaction(destination, (source, target) =>
-            source.RemoveAllCore(records, player, target, retainOwnership));
+            source.RemoveAllCore(records, player, target, retainOwnership, filter));
         destination?.Notifications.Publish(events);
     }
 
-    private void RemoveAllCore(FalloutPluginStack records, bool player, FalloutPlayerInventory? destination, bool retainOwnership)
+    private void RemoveAllCore(FalloutPluginStack records, bool player, FalloutPlayerInventory? destination, bool retainOwnership,
+        Func<FalloutCampaignItem, bool>? filter = null)
     {
         if (ReferenceEquals(this, destination)) return;
         // Prepare the whole transaction before publishing either inventory.
         var source = Copy();
         var target = destination?.Copy();
-        var removed = Items.Where(item => Removable(records, records.GetEffective(item.FormKey), player))
+        var removed = Items.Where(item => Removable(records, records.GetEffective(item.FormKey), player) && filter?.Invoke(item) != false)
             .OrderBy(item => item.RecordType == "WEAP" ? 0 : 1).ToArray();
         foreach (var original in removed)
         {

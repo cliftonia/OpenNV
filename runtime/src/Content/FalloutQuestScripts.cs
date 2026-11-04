@@ -1278,6 +1278,7 @@ internal sealed partial class FalloutQuestScripts
                     FalloutDeferredScriptCommands.Warn(operation, "no-native-session-owner");
                 return;
             }
+            if (parts.Length == 1 && FalloutSharedScriptCommands.TryExecute(operation, arguments, _quests, () => Challenges, Form)) return;
             switch (command.ToLowerInvariant())
             {
                 case "pipboyradiooff" when arguments.Count == 0:

@@ -6,10 +6,11 @@ namespace OpenNV.Runtime.Gameplay.State;
 internal enum FalloutInventoryCommandKind { RemoveAll, Equip, Reset, Add, Remove, Unequip }
 internal sealed record FalloutInventoryCommand(FalloutInventoryCommandKind Kind, FalloutFormKey Target,
     FalloutFormKey? Item = null, FalloutFormKey? Destination = null, bool RetainOwnership = false,
-    bool NoUnequip = false, bool Silent = true, int Count = 1, bool NoEquip = false);
+    bool NoUnequip = false, bool Silent = true, int Count = 1, bool NoEquip = false,
+    float? Condition = null, Func<FalloutCampaignItem, bool>? Filter = null);
 
 // Shared state owner for result/object/quest commands and both player views.
-internal sealed class FalloutInventoryCommands(FalloutPluginStack records, FalloutReferenceWorld world,
+internal sealed partial class FalloutInventoryCommands(FalloutPluginStack records, FalloutReferenceWorld world,
     FalloutPlayerInventory player, Func<int> level, FalloutGlobalState? globals = null,
     Action<FalloutFormKey>? prepareActorChange = null, Func<FalloutFormKey, bool>? weaponDrawn = null,
     Action<FalloutFormKey, FalloutFormKey>? consumeIngestible = null)
@@ -102,14 +103,14 @@ internal sealed class FalloutInventoryCommands(FalloutPluginStack records, Fallo
                     }
                     if (world.InventoryAcquisition is { } acquisition)
                     {
-                        acquisition.Add(changedItem, command.Count, command.Silent); return;
+                        acquisition.Add(changedItem, command.Count, command.Silent, ConditionExtra(command)); return;
                     }
                     FalloutReferenceWorld.RequirePlayerItemAcquisition(records, source, command.Target);
                 }
                 var revision = inventory.Revision;
                 if (command.Kind == FalloutInventoryCommandKind.Add)
                     inventory.Add(records, changedItem, command.Count, level(), command.Silent || !isPlayer, globals,
-                        validateAddition: isPlayer ? selected => FalloutReferenceWorld.RequirePlayerItemAcquisition(
+                        ConditionExtra(command), validateAddition: isPlayer ? selected => FalloutReferenceWorld.RequirePlayerItemAcquisition(
                             records, records.GetEffective(selected), command.Target) : null, leveledItems: world.LeveledItems);
                 else
                 {
@@ -126,11 +127,11 @@ internal sealed class FalloutInventoryCommands(FalloutPluginStack records, Fallo
             case FalloutInventoryCommandKind.RemoveAll:
                 var destination = command.Destination is { } target ? Inventory(target) : null;
                 if (command.Destination is { } noteReceiver && IsPlayer(noteReceiver))
-                    foreach (var transferred in inventory.Items)
+                    foreach (var transferred in inventory.Items.Where(command.Filter ?? (_ => true)))
                         FalloutReferenceWorld.RequirePlayerItemAcquisition(records, records.GetEffective(transferred.FormKey), noteReceiver);
                 if (!isPlayer && world.Get(command.Target).Injury?.Dead != true) prepareActorChange?.Invoke(command.Target);
                 inventory.RemoveAll(records, isPlayer, destination, command.RetainOwnership,
-                    command.Destination is { } receiver && IsPlayer(receiver) && !command.Silent);
+                    command.Destination is { } receiver && IsPlayer(receiver) && !command.Silent, command.Filter);
                 if (!isPlayer) world.InventoryChanged(command.Target);
                 if (command.Destination is { } recipient && !IsPlayer(recipient)) world.InventoryChanged(recipient);
                 break;
