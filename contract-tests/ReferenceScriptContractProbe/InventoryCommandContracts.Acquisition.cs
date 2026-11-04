@@ -66,8 +66,23 @@ internal static partial class InventoryCommandContracts
             Require(player.Item(Key(2))?.Count == 3 && player.Item(Key(3))!.Variants!.Single().ScriptState!.Identity == state.Identity,
                 "Returning a retained script instance replayed its one-time source branch.");
 
+            // Crafted products are acquired like AddItem: each scripted output
+            // instance runs its own OnAdd after the ingredients were consumed.
+            var products = player.Item(Key(2))!.Count;
+            var convert = new FalloutRecipe(records.GetEffective(Key(0x200)), "Convert", "Convert", -1, 0, null, null, [],
+                [new(Key(2), 1)], [new(Key(1), 2)]);
+            owner.Craft(convert, 1, player.Revision);
+            Require(player.Item(Key(1)) is null && player.Item(Key(2))?.Count == products + 1,
+                "Crafted scripted outputs did not each run their source OnAdd after ingredient consumption.");
+            var refused = new FalloutRecipe(records.GetEffective(Key(0x202)), "Refuse", "Refuse", -1, 0, null, null, [],
+                [new(Key(2), 1)], [new(Key(4), 1)]);
+            var beforeCraft = JsonSerializer.Serialize(player.Capture());
+            Reject(() => owner.Craft(refused, 1, player.Revision));
+            Require(beforeCraft == JsonSerializer.Serialize(player.Capture()),
+                "Refused crafted OnAdd consumed ingredients or published its output.");
+
             container.Add(records, Key(4), 1, 1, true);
-            var before = JsonSerializer.Serialize(new { Source = container.Capture(), Player = player.Capture(), Messages = scripts.MessageResults.Capture() });
+            var before =JsonSerializer.Serialize(new { Source = container.Capture(), Player = player.Capture(), Messages = scripts.MessageResults.Capture() });
             Reject(() => owner.Transfer(container, player, Key(0x900), Key(0x14), [new(Key(4), 1)]));
             Require(before == JsonSerializer.Serialize(new { Source = container.Capture(), Player = player.Capture(), Messages = scripts.MessageResults.Capture() }),
                 "Unsupported reached OnAdd published a nested inventory prefix or result owner.");

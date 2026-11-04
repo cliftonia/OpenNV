@@ -332,7 +332,7 @@ internal partial class RuntimeNativeOpeningStageDriver
                 if (!FalloutCondition.AllPass(recipe.Conditions, EvaluateRecipeCondition, evaluateRunOn: true) ||
                     recipe.RequiredSkill != -1 && _playerSkills.Value(recipe.RequiredSkill) < recipe.RequiredLevel)
                     throw new InvalidOperationException("Crafting requirements changed before confirmation.");
-                _inventory.Craft(_pluginStack, recipe, SourcePlayerLevel, _globals, quantity, revision);
+                InventoryAcquisition.Craft(recipe, quantity, revision);
             },
             CloseRecipeMenu);
         _recipeLayer = layer;

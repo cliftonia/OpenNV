@@ -51,6 +51,21 @@ internal sealed class FalloutInventoryAcquisition(FalloutPluginStack records, Fa
         }, lease));
     }
 
+    // Crafted products are acquired like AddItem: their OnAdd events run in
+    // the same staged plan that consumed the ingredients.
+    internal void Craft(FalloutRecipe recipe, int quantity, long expectedRevision)
+    {
+        RequireHealthy();
+        using var plan = new Plan(records, world, player, quests, scripts, stages, level, globals, error => _failure = error);
+        var lease = new FalloutInventoryChangeLease(() => { plan.Commit(); plan.Accept(); }, plan.Rollback, plan.Complete);
+        Execute(plan, () => player.Craft(records, recipe, quantity, expectedRevision, lease, (staged, outputs) =>
+        {
+            plan.Bind(Player, player, staged);
+            foreach (var (form, count) in outputs) plan.Add(Player, form, count, silent: true);
+            plan.PrepareEffects();
+        }));
+    }
+
     internal void TakePlaced(FalloutFormKey reference, FalloutReferenceInstance instance, FalloutItemVariant variant)
     {
         RequireHealthy();
