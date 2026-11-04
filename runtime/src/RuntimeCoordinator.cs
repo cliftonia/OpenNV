@@ -1098,6 +1098,7 @@ public partial class RuntimeCoordinator : Node3D
             $"processor=\"{OS.GetProcessorName()}\" renderScale={scale:0.00} sunShadowSplits={profile.SunShadowSplits} " +
             $"sunShadowDistanceScale={profile.SunShadowDistanceScale:0.00} directionalShadowAtlas={profile.DirectionalShadowAtlasPixels} " +
             $"grassStartFadeScale={profile.GrassStartFadeScale:0.00}");
+        if (_frameHitches is null && OpenNV.Runtime.Diagnostics.RuntimeFrameHitches.FromEnvironment() is { } hitches) AddChild(_frameHitches = hitches);
         if (!_options.ContainsKey("show-fps") || _fpsLabel is not null) return;
         var layer = new CanvasLayer { Layer = 126 };
         _fpsLabel = new Label { Position = new Vector2(12, 8), MouseFilter = Control.MouseFilterEnum.Ignore };
@@ -1124,6 +1125,7 @@ public partial class RuntimeCoordinator : Node3D
     }
 
     private Label? _fpsLabel;
+    private OpenNV.Runtime.Diagnostics.RuntimeFrameHitches? _frameHitches;
     private RuntimePresentationQuality _quality = null!;
 
     // Platforms without a command line (iOS) read the same arguments, one per
