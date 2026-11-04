@@ -16,7 +16,8 @@ internal sealed class FalloutDialogueConditions(FalloutPluginStack records, Fall
     Func<FalloutFormKey, FalloutFormKey, float>? referenceDistance = null,
     Func<FalloutFormKey, FalloutFormKey, bool>? referenceInZone = null, Func<FalloutFormKey, int>? sitting = null,
     Func<FalloutFormKey, int>? deadCount = null, Func<FalloutFormKey, bool>? isDead = null,
-    Func<FalloutFormKey, int>? sleeping = null, FalloutReferenceWorld? world = null, Func<uint>? randomPercent = null)
+    Func<FalloutFormKey, int>? sleeping = null, FalloutReferenceWorld? world = null, Func<uint>? randomPercent = null,
+    FalloutFormKey? voiceReference = null)
 {
     internal FalloutDialogueConditions(FalloutPluginStack records, FalloutQuestState quests, FalloutFormKey speaker,
         FalloutNpcAppearance appearance, Func<FalloutCondition, float>? runtime = null)
@@ -26,6 +27,9 @@ internal sealed class FalloutDialogueConditions(FalloutPluginStack records, Fall
     private readonly FalloutConditionRuntime _runtime = new(records, quests, world)
     {
         Identity = subject => subject == speaker ? identity : subject == listener ? listenerIdentity : null,
+        // The speaker talks through an activator when its voice comes from a
+        // different placed reference (SetTalkingActivatorActor).
+        TalkingThroughActivator = subject => subject == speaker ? voiceReference is { } voice && voice != speaker : null,
         Race = actorRace,
         PlayerFemale = playerFemale,
         Factions = factions,

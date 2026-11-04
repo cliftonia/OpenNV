@@ -19,6 +19,9 @@ internal sealed partial class FalloutConditionRuntime(FalloutPluginStack records
     internal Func<bool>? PlayerFemale { get; init; }
     internal Func<FalloutFormKey, IReadOnlyDictionary<FalloutFormKey, sbyte>>? Factions { get; init; }
     internal Func<FalloutFormKey, int, float>? ActorValue { get; init; }
+    internal Func<FalloutFormKey, int, FalloutActorValueRead, float>? ActorValueRead { get; init; }
+    // Null when the subject is not the evaluating conversation's speaker.
+    internal Func<FalloutFormKey, bool?>? TalkingThroughActivator { get; init; }
     internal Func<FalloutFormKey, FalloutFormKey, double>? ItemCount { get; init; }
     internal Func<FalloutFormKey, FalloutFormKey, bool?>? Equipped { get; init; }
     internal Func<FalloutFormKey, FalloutFormKey, bool>? WeaponInList { get; init; }
@@ -106,6 +109,18 @@ internal sealed partial class FalloutConditionRuntime(FalloutPluginStack records
             case Function.GetVampire: NoArguments(condition); return (Vampire ?? Required(world, "actor query state").ActorQueries.GetVampire)();
             case Function.GetHasNote: return world?.EvaluatePlayerNoteCondition(condition.Declaration) ?? GlobalValue(condition);
             case Function.GetReputation or Function.GetReputationPct or Function.GetReputationThreshold: return world?.EvaluateReputationCondition(condition.Declaration) ?? GlobalValue(condition);
+            case Function.GetFactionCombatReaction:
+                Form(condition, "FACT");
+                var otherFaction = condition.FormArgument2(records);
+                if (records.GetEffective(otherFaction).Signature != "FACT") throw new InvalidDataException("Condition requires a FACT argument.");
+                return Required(world, "faction relations").FactionCombatReaction(condition.FormArgument1, otherFaction);
+            case Function.GetCasinoWinningStage:
+                SecondUnused(condition);
+                return Required(world, "casino winnings").CasinoWinnings.Level(Form(condition, "CSNO"));
+            case Function.GetPlayerTeammateCount: NoArguments(condition); return Required(world, "teammate state").PlayerTeammateCount();
+            case Function.Exists:
+                SecondUnused(condition);
+                return !condition.IsNullFormArgument1(records) && Required(world, "reference lifecycle").ReferenceExists(condition.FormArgument1) ? 1 : 0;
             case Function.PlayerInRegion:
                 SecondUnused(condition); Form(condition, "REGN");
                 var regionPlayer = PlayerPlacement?.Invoke();
@@ -185,6 +200,61 @@ internal sealed partial class FalloutConditionRuntime(FalloutPluginStack records
                 return ActorValue is { } value ? value(subject, checked((int)condition.Argument1)) :
                     subject == records.RuntimeFormKey(0x14) ? NativeValue(subject, condition) :
                     Required(world, "actor values").ActorValue(subject, ActorValueName(condition.Argument1));
+            case Function.GetBaseActorValue or Function.GetPermanentActorValue:
+                SecondUnused(condition);
+                var read = condition.Kind == Function.GetBaseActorValue ? FalloutActorValueRead.Base : FalloutActorValueRead.Permanent;
+                return ActorValueRead is { } valueRead ? valueRead(subject, checked((int)condition.Argument1), read) :
+                    subject == records.RuntimeFormKey(0x14) ? NativeValue(subject, condition) :
+                    Required(world, "actor values").ActorValue(subject, ActorValueName(condition.Argument1), read);
+            case Function.IsActorTalkingThroughActivator:
+                NoArguments(condition);
+                if (TalkingThroughActivator?.Invoke(subject) is { } through) return through ? 1 : 0;
+                // Only an actor speaks through a talking activator.
+                return subject != records.RuntimeFormKey(0x14) && records.GetEffective(Base(subject)).Signature is not ("NPC_" or "CREA")
+                    ? 0 : NativeValue(subject, condition);
+            case Function.GetDetected:
+                SecondUnused(condition);
+                if (condition.IsNullFormArgument1(records)) return 0;
+                RequireReference(condition.FormArgument1);
+                return Required(world, "actor perception").DetectsTarget(subject, condition.FormArgument1, Distance ??
+                    ((caller, target) => world!.Distance(caller, target, PlayerPlacement?.Invoke(), UnitsToMetres()))) ? 1 : 0;
+            case Function.IsCombatTarget:
+                SecondUnused(condition);
+                if (condition.IsNullFormArgument1(records)) return 0;
+                return subject == records.RuntimeFormKey(0x14) ? NativeValue(subject, condition) :
+                    Required(world, "combat state").IsCombatTarget(subject, condition.FormArgument1) ? 1 : 0;
+            case Function.GetFactionRankDifference:
+                Form(condition, "FACT");
+                var other = condition.FormArgument2(records);
+                RequireReference(other);
+                return ActorFactions(subject).GetValueOrDefault(condition.FormArgument1, (sbyte)-1) -
+                    ActorFactions(other).GetValueOrDefault(condition.FormArgument1, (sbyte)-1);
+            case Function.GetFactionRelation:
+                SecondUnused(condition);
+                if (condition.IsNullFormArgument1(records)) return 0;
+                RequireReference(condition.FormArgument1);
+                // The same actor relation combat uses, including player-enemy overrides.
+                return Required(world, "faction relations").ActorRelation(subject, condition.FormArgument1);
+            case Function.IsOwner:
+                SecondUnused(condition);
+                if (condition.IsNullFormArgument1(records)) return 0;
+                if (records.GetEffective(condition.FormArgument1).Signature is not ("NPC_" or "FACT"))
+                    throw new InvalidDataException("IsOwner requires an NPC_ or FACT owner.");
+                return Required(world, "reference ownership").Ownership(subject).Owner == condition.FormArgument1 ? 1 : 0;
+            case Function.GetDestroyed:
+                NoArguments(condition);
+                return subject != records.RuntimeFormKey(0x14) && Required(world, "destruction state").Get(subject).Destroyed ? 1 : 0;
+            case Function.GetDestructionStage:
+                NoArguments(condition); return Required(world, "destruction state").DestructionStage(subject);
+            case Function.GetActorFactionPlayerEnemy:
+                NoArguments(condition);
+                if (subject == records.RuntimeFormKey(0x14)) return 0;
+                // Any current membership in a faction flagged as the player's enemy.
+                return ActorFactions(subject).Any(pair => pair.Value >= 0 &&
+                    Required(world, "faction player-enemy state").IsPlayerEnemyOfFaction(pair.Key)) ? 1 : 0;
+            case Function.GetPlayerTeammate:
+                NoArguments(condition);
+                return subject != records.RuntimeFormKey(0x14) && Required(world, "teammate state").Get(subject).PlayerTeammate ? 1 : 0;
             case Function.GetDisabled: NoArguments(condition); return Required(world, "reference lifecycle").IsEnabled(subject) ? 0 : 1;
             case Function.GetDead: NoArguments(condition); return IsDead is null && subject == records.RuntimeFormKey(0x14) ? NativeValue(subject, condition) : Dead(subject) ? 1 : 0;
             case Function.GetItemCount:

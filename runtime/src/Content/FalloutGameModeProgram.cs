@@ -97,7 +97,7 @@ internal sealed class FalloutScriptExecutionBudget(int maximum = 100_000)
 // Unsupported expressions/commands stop the caller and retain its executed prefix.
 internal sealed partial class FalloutGameModeProgram
 {
-    internal const int ParserVersion = 11;
+    internal const int ParserVersion = 12;
     private readonly IReadOnlyList<string[]> _lines;
     private readonly IReadOnlyList<string>[] _expressionTokens;
     private readonly IReadOnlySet<int> _baselineEndIf;
@@ -107,7 +107,8 @@ internal sealed partial class FalloutGameModeProgram
     internal bool HasStatements => _lines.Count != 0;
     private string? _programSha256;
     internal string ProgramSha256 => _programSha256 ??= Convert.ToHexString(
-        System.Security.Cryptography.SHA256.HashData(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(_lines)))
+        System.Security.Cryptography.SHA256.HashData(_jumps is null ? System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(_lines) :
+            System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(new { Lines = _lines, Jumps = _jumps, Blocks = _blockStarts!.Order() })))
         .ToLowerInvariant();
     private readonly Dictionary<int, int> _loopEnds = [];
     private FalloutGameModeProgram(IReadOnlyList<string[]> lines, IReadOnlySet<int>? baselineEndIf = null)
@@ -148,13 +149,19 @@ internal sealed partial class FalloutGameModeProgram
         .Where(command => command is not ("if" or "elseif" or "else" or "endif" or "while" or "loop" or "break" or "continue" or "set" or "let" or "eval" or "return"))
         .Select(command => command[(command.LastIndexOf('.') + 1)..]);
 
-    internal static FalloutGameModeProgram Read(ReadOnlySpan<byte> source, string blockName = "GameMode", uint? argument = null)
+    internal static FalloutGameModeProgram Read(ReadOnlySpan<byte> source, string blockName = "GameMode", uint? argument = null) =>
+        Read(AsciiSource(source), blockName, argument);
+
+    internal static FalloutGameModeProgram Read(ReadOnlySpan<byte> source, ReadOnlySpan<byte> compiled, string blockName = "GameMode") =>
+        Read(AsciiSource(source), compiled, blockName);
+
+    internal static string AsciiSource(ReadOnlySpan<byte> source)
     {
         if (source.IndexOfAnyInRange((byte)0x80, byte.MaxValue) >= 0)
             throw new NotSupportedException("Script source encoding is not ASCII.");
         var text = Encoding.ASCII.GetString(source).TrimEnd('\0');
         if (text.Contains('\0')) throw new InvalidDataException("Script source contains an embedded null.");
-        return Read(text, blockName, argument);
+        return text;
     }
 
     internal static IReadOnlyList<FalloutScriptEventProgram> ReadEvents(string source) => ReadEventsCore(source, legacyElseIfGuard: false);
@@ -234,18 +241,38 @@ internal sealed partial class FalloutGameModeProgram
         return events;
     }
 
-    internal static FalloutGameModeProgram Read(string source, string blockName = "GameMode", uint? argument = null)
+    internal static FalloutGameModeProgram Read(string source, string blockName = "GameMode", uint? argument = null) =>
+        Combine(ReadEvents(source), blockName, argument);
+
+    private static FalloutGameModeProgram Combine(IReadOnlyList<FalloutScriptEventProgram> events, string blockName, uint? argument)
     {
-        var blocks = ReadEvents(source).Where(block => block.Event.Equals(blockName, StringComparison.OrdinalIgnoreCase)).ToArray();
+        var blocks = events.Where(block => block.Event.Equals(blockName, StringComparison.OrdinalIgnoreCase)).ToArray();
         var menuMode = blockName.Equals("MenuMode", StringComparison.OrdinalIgnoreCase);
         if (!menuMode && argument is null && blocks.Any(block => block.Filter is not null))
             throw new NotSupportedException($"{blockName} block arguments are unbound.");
         var lines = new List<string[]>();
         var baseline = new HashSet<int>();
+        var compiled = blocks.Any(block => block.Program._jumps is not null);
+        var jumps = new List<int>();
+        var blockStarts = new HashSet<int>();
         void AddBlock(FalloutGameModeProgram program)
         {
             foreach (var index in program._baselineEndIf) baseline.Add(lines.Count + index);
+            if (compiled)
+            {
+                // Each compiled block starts with a fresh branch state; its
+                // relative jumps stay inside the block they were bound to.
+                blockStarts.Add(lines.Count);
+                jumps.AddRange(program._jumps ?? throw new InvalidDataException("Compiled and source blocks cannot share one invocation."));
+            }
             lines.AddRange(program._lines);
+        }
+        void Guard(string[] condition, FalloutGameModeProgram program)
+        {
+            if (compiled) throw new NotSupportedException("A filtered compiled block has no compiled guard extent.");
+            lines.Add(condition);
+            AddBlock(program);
+            lines.Add(["endif"]);
         }
         foreach (var block in blocks)
         {
@@ -259,25 +286,21 @@ internal sealed partial class FalloutGameModeProgram
                 else
                 {
                     if (!menuMode) throw new NotSupportedException($"{blockName} filter is not a literal.");
-                    lines.Add(["if", filter, "==", "0", "||", filter, "==", expected.ToString(CultureInfo.InvariantCulture),
-                        "||", filter, "==", FalloutScriptEventProgram.MenuCategory(expected).ToString(CultureInfo.InvariantCulture)]);
-                    AddBlock(block.Program);
-                    lines.Add(["endif"]);
+                    Guard(["if", filter, "==", "0", "||", filter, "==", expected.ToString(CultureInfo.InvariantCulture),
+                        "||", filter, "==", FalloutScriptEventProgram.MenuCategory(expected).ToString(CultureInfo.InvariantCulture)], block.Program);
                     continue;
                 }
             }
             else if (menuMode && block.Filter is { } menuFilter)
             {
-                lines.Add(["if", "MenuMode", menuFilter]);
-                AddBlock(block.Program);
-                lines.Add(["endif"]);
+                Guard(["if", "MenuMode", menuFilter], block.Program);
                 continue;
             }
             AddBlock(block.Program);
         }
         // Begin/End blocks share the invocation. In particular Return stops
         // the remaining source blocks, not only the current block.
-        return new(lines, baseline);
+        return compiled ? new(lines, jumps.ToArray(), blockStarts) : new(lines, baseline);
     }
     internal void Execute(Func<string, double> variable, Action<string, double> assign,
         Action<string, IReadOnlyList<string>> call, Func<string, FalloutScriptFunction?>? function = null,
@@ -302,6 +325,7 @@ internal sealed partial class FalloutGameModeProgram
         foreach (var enteredElse in _enteredBranches) branches.Push((true, true, enteredElse));
         var loops = new Stack<(int Start, int End, int Branches)>();
         var active = true;
+        var compiledBranches = new List<bool>();
         bool Condition(string[] tokens, IReadOnlyList<string> expression) => tokens.Length > 1 && tokens[1].Equals("eval", StringComparison.OrdinalIgnoreCase)
             ? Expression(expression).Truth
             : typed ? Expression(expression, nvseLogical: false).Truth :
@@ -311,8 +335,12 @@ internal sealed partial class FalloutGameModeProgram
             budget.Spend();
             var tokens = _lines[line];
             if (active) LastStatement = line;
+            if (_jumps is not null && _blockStarts!.Contains(line)) compiledBranches.Clear();
             switch (tokens[0].ToLowerInvariant())
             {
+                case "if" or "elseif" or "else" or "endif" when _jumps is not null:
+                    line = CompiledBranch(line, compiledBranches, () => Condition(tokens, _expressionTokens[line]));
+                    break;
                 case "if":
                     var result = active && Condition(tokens, _expressionTokens[line]);
                     branches.Push((active, result, false));
@@ -537,8 +565,10 @@ internal sealed partial class FalloutGameModeProgram
     // Current owners missing from an older snapshot are allowed only when that
     // parser rejected their unchanged source. Quotes/comments cannot grant a
     // migration, and current-version saves must contain every admitted owner.
-    internal static bool WasRejectedByParser(string source, int version)
+    internal static bool WasRejectedByParser(string source, int version, ReadOnlySpan<byte> compiled = default)
     {
+        // Version 12 admits malformed source through its paired compiled stream.
+        if (version < 12 && !compiled.IsEmpty && IsCompiledRecovery(source, compiled)) return true;
         if (version < 11)
         {
             try { _ = ReadEventsCore(source, legacyElseIfGuard: version < 10, legacyBaselineEndIfGuard: true); }

@@ -792,6 +792,12 @@ if (args is ["--owned-campfire-events", var campfireEventData, var campfireEvent
     return;
 }
 
+if (args is ["--owned-compiled-branches", var compiledBranchData])
+{
+    OwnedCompiledBranchProbe.Run(compiledBranchData);
+    return;
+}
+
 if (args is ["--owned-campfire-branches", var campfireData])
 {
     OwnedCampfireBranchProbe.Run(campfireData);
@@ -1966,6 +1972,8 @@ DialoguePackageContracts.Run();
 DialogueSpatialContracts.Run();
 HeadingQueryContracts.Run();
 WorldspaceQueryContracts.Run();
+CompiledBranchContracts.Run();
+ConditionOwnerContracts.Run();
 WeatherCommandContracts.Run();
 ScriptEffectCommandContracts.Run();
 MovementSpeedContracts.Run();
