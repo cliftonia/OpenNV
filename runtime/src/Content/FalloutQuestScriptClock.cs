@@ -1,15 +1,17 @@
 namespace OpenNV.Runtime.Content;
 
-internal sealed record FalloutQuestScriptClockSnapshot(float Remaining, float Elapsed, long Invocations)
+// Interval is present only when SetQuestDelay replaced the source interval.
+internal sealed record FalloutQuestScriptClockSnapshot(float Remaining, float Elapsed, long Invocations, float? Interval = null)
 {
     internal bool HasSameBits(FalloutQuestScriptClockSnapshot other) =>
         BitConverter.SingleToInt32Bits(Remaining) == BitConverter.SingleToInt32Bits(other.Remaining) &&
         BitConverter.SingleToInt32Bits(Elapsed) == BitConverter.SingleToInt32Bits(other.Elapsed) &&
-        Invocations == other.Invocations;
+        Invocations == other.Invocations && Interval == other.Interval;
 
     internal void Validate()
     {
-        if (!float.IsFinite(Remaining) || !float.IsFinite(Elapsed) || Elapsed < 0 || Invocations < 0)
+        if (!float.IsFinite(Remaining) || !float.IsFinite(Elapsed) || Elapsed < 0 || Invocations < 0 ||
+            Interval is { } interval && (!float.IsFinite(interval) || interval <= 0))
             throw new InvalidDataException("Saved quest script clock is invalid.");
     }
 }
@@ -19,7 +21,7 @@ internal sealed record FalloutQuestScriptClockSnapshot(float Remaining, float El
 // counter from a selected subset of scripts or from a reference game's clock.
 internal sealed class FalloutQuestScriptClock
 {
-    private readonly float _defaultDelay;
+    private readonly float _defaultDelay, _sourceInterval;
     internal float Interval { get; private set; }
     internal float Remaining { get; private set; }
     internal float Elapsed { get; private set; }
@@ -31,7 +33,7 @@ internal sealed class FalloutQuestScriptClock
             !float.IsFinite(initialPhase) || initialPhase < 0)
             throw new InvalidDataException("Quest script clock input is invalid.");
         _defaultDelay = defaultDelay;
-        Interval = defaultDelay <= 0 ? 0 : authoredDelay is > 0 ? authoredDelay.Value : defaultDelay;
+        Interval = _sourceInterval = defaultDelay <= 0 ? 0 : authoredDelay is > 0 ? authoredDelay.Value : defaultDelay;
         Remaining = initialPhase;
     }
 
@@ -75,19 +77,21 @@ internal sealed class FalloutQuestScriptClock
         if (Remaining > Interval) Remaining = Interval;
     }
 
-    internal FalloutQuestScriptClockSnapshot Capture() => new(Remaining, Elapsed, Invocations);
+    internal FalloutQuestScriptClockSnapshot Capture() =>
+        new(Remaining, Elapsed, Invocations, Interval == _sourceInterval ? null : Interval);
 
     internal void Validate(FalloutQuestScriptClockSnapshot snapshot)
     {
         snapshot.Validate();
-        // A script may have lengthened the interval with SetQuestDelay before
-        // saving; Restore caps such a countdown to the source interval.
+        if (snapshot.Invocations > 0 && snapshot.Remaining > (snapshot.Interval ?? Interval))
+            throw new InvalidDataException("Saved recurrence exceeds its source interval.");
     }
 
     internal void Restore(FalloutQuestScriptClockSnapshot snapshot)
     {
         Validate(snapshot);
-        Remaining = snapshot.Invocations > 0 && snapshot.Remaining > Interval ? Interval : snapshot.Remaining;
+        if (snapshot.Interval is { } interval) Interval = interval;
+        Remaining = snapshot.Remaining;
         Elapsed = snapshot.Elapsed;
         Invocations = snapshot.Invocations;
     }

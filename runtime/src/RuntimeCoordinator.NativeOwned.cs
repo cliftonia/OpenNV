@@ -1501,7 +1501,8 @@ public partial class RuntimeCoordinator
         references.PrewarmTravelPortals();
         var started = Stopwatch.GetTimestamp();
         try { _ = references.TravelNavigation(cell.Cell.FormKey); }
-        catch (Exception error) when (error is NotSupportedException or InvalidDataException or InvalidOperationException)
+        catch (Exception error) when (error is NotSupportedException or InvalidDataException or InvalidOperationException or
+            IOException or KeyNotFoundException)
         {
             GD.Print($"OPENNV_NATIVE_TRAVEL_PREWARM cell={cell.Cell.FormKey} deferred={error.GetType().Name}");
             return;

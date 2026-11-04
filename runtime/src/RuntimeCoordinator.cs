@@ -1112,8 +1112,11 @@ public partial class RuntimeCoordinator : Node3D
         var documents = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
         var file = Path.Combine(documents, "OpenNV", "launch-args.txt");
         if (string.IsNullOrEmpty(documents) || !File.Exists(file)) return arguments;
+        // An option line may also carry its value ("--render-scale 0.6").
         return File.ReadAllLines(file).Select(line => line.Trim())
             .Where(line => line.Length != 0 && !line.StartsWith('#'))
+            .SelectMany(line => line.StartsWith("--", StringComparison.Ordinal) && line.IndexOfAny([' ', '\t']) is > 0 and var split
+                ? new[] { line[..split], line[(split + 1)..].Trim() } : [line])
             .Select(line => line.Replace("{documents}", documents, StringComparison.Ordinal)).ToArray();
     }
 
