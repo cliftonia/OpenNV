@@ -297,6 +297,17 @@ def answer_dialogue(game: Game) -> bool:
     return preferred is not None and game.press(preferred)
 
 
+def opening_target(stage: int) -> str | None:
+    """Reference Doc Mitchell's opening asks the player to walk to next."""
+    for minimum, reference in ((200, "FalloutNV.esm:103e61"),   # house door
+                               (90, "FalloutNV.esm:104c0f"),    # Doc Mitchell
+                               (80, "FalloutNV.esm:103e55"),    # couch (psych test)
+                               (55, "FalloutNV.esm:104c13")):   # Vigor Tester
+        if stage >= minimum:
+            return reference
+    return None
+
+
 def test_opening() -> str:
     """New game from the intro to standing outside Doc Mitchell's house."""
     with Game("opening", new_game=True) as game:
@@ -312,27 +323,35 @@ def test_opening() -> str:
                 break
             texts = [c.get("text") for c in game.controls()]
             stage = (gameplay.get("opening") or {}).get("stage") or 0
+
+            def label(name: str) -> str | None:
+                # Menus differ in case: OK/Ok, Done/DONE, Next/NEXT.
+                return next((t for t in texts if t and t.lower() == name.lower()), None)
+
             if "No (Recommended)" in texts:
                 game.press("No (Recommended)")
-            elif "Guns" in texts and "Done" in texts:
+            elif "Guns" in texts and label("done"):
                 for skill in ("Guns", "Speech", "Lockpick"):
                     if skill not in tagged:
                         game.press(skill); tagged.append(skill); time.sleep(0.5)
-                game.press("Done")
-            elif "Done" in texts and stage >= 100:
-                game.press("Done")  # traits
-            elif "NEXT" in texts:
-                game.press("NEXT")  # appearance (race/face) menu
-            elif ok := next((t for t in texts if t and t.lower() == "ok"), None):
-                game.press(ok)  # message boxes say OK; name entry says Ok
+                game.press(label("done"))
+            elif "P1_RT_Btn:0" in texts:
+                # Vigor Tester SPECIAL: spend any remaining point on this page,
+                # then page forward; the same button is Done on the review page.
+                if "P1_Increase_Btn:0" in texts:
+                    game.press("P1_Increase_Btn:0"); time.sleep(0.3)
+                game.press("P1_RT_Btn:0")
+            elif "AllDone_Btn:0" in texts:
+                game.press("AllDone_Btn:0")
+            elif button := label("yes") if label("no") and label("done") else None:
+                game.press(button)  # "finished with your appearance?" confirmation
+            elif button := label("next") or label("done") or label("ok"):
+                game.press(button)  # appearance pages, traits, message boxes, name entry
             elif answer_dialogue(game):
                 pass
-            elif stage >= 200 and (game.state().get("bot") or {}).get("phase") not in ("awaiting-interaction", "planning"):
-                game.command({"op": "bot", "mode": "interact", "reference": "FalloutNV.esm:103e61", "pauseAfter": False})
-            elif (game.state().get("campaignBot") or {}).get("phase") == "blocked" and stage >= 80:
+            elif (target := opening_target(stage)) and (gameplay.get("player") or {}).get("movementEnabled"):
                 bot = game.state().get("bot") or {}
                 if bot.get("phase") not in ("awaiting-interaction", "planning", "approaching"):
-                    target = "FalloutNV.esm:103e55" if stage < 90 else "FalloutNV.esm:104c0f"
                     game.command({"op": "bot", "mode": "interact", "reference": target, "pauseAfter": False})
             time.sleep(2)
         require(game.gameplay().get("cell") == "FalloutNV.esm:0daebb", "did not reach Goodsprings")
