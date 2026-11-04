@@ -75,6 +75,8 @@ internal static class WorldCommandContracts
             Require(world.ForcedTriggers.Take(Key(0x903), false) is { Name: "OnTriggerEnter" } trigger && trigger.ActionReference == Key(0x14) &&
                 !world.ForcedTriggers.HasPending(Key(0x903)), "EnterTrigger did not admit one trigger-enter event for its actor.");
             Require(Math.Abs(world.Placement(Key(0x900)).RotationRadians[2] - MathF.PI / 2) < 1e-5, "SetAngle did not rotate the reference.");
+            world.RotateAxis(Key(0x900), 2, 90, .5); world.RotateAxis(Key(0x900), 2, -360, 0);
+            Require(Math.Abs(world.Placement(Key(0x900)).RotationRadians[2] - MathF.PI * .75f) < 1e-5, "Rotate did not turn the reference by speed times frame time.");
             using var cold = new FalloutReferenceWorld(records);
             cold.RestoreCellOwnership(JsonSerializer.Deserialize<FalloutCellOwnershipSnapshot>(JsonSerializer.Serialize(world.CaptureCellOwnership())));
             cold.Restore(world.Capture());
@@ -84,7 +86,7 @@ internal static class WorldCommandContracts
             restoredChallenges.Restore(challenges.Capture());
             Require(restoredChallenges.State(Key(0x300)).RecurringRemoved, "Challenge recurrence removal did not survive restoration.");
             Reject(() => executor.ExecuteStage(quest, quest.ReadSubrecords().ToArray(), "ActorRef.RemoveAllTypedItems 0 1"));
-            Console.WriteLine("OPENNV_WORLD_COMMAND_CONTRACT_PASS item-condition typed-removal cell-ownership cell-public quest-reset challenge-recurrence trigger-enter set-angle cold");
+            Console.WriteLine("OPENNV_WORLD_COMMAND_CONTRACT_PASS item-condition typed-removal cell-ownership cell-public quest-reset challenge-recurrence trigger-enter set-angle rotate cold");
         }
         finally { directory.Delete(true); }
     }

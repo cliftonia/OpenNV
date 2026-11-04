@@ -6,6 +6,17 @@ internal sealed partial class FalloutReferenceWorld
 {
     // SetAngle is an exact source-space rotation edit in degrees. It uses the
     // same live-placement admission as SetPos and publishes a placement revision.
+    internal void RotateAxis(FalloutFormKey reference, int axis, float degreesPerSecond, double seconds)
+    {
+        if (axis is < 0 or > 2 || !float.IsFinite(degreesPerSecond) || !double.IsFinite(seconds) || seconds < 0)
+            throw new InvalidDataException("Rotate axis, speed or elapsed time is invalid.");
+        if (seconds == 0) return;
+        var state = Get(reference);
+        var current = state.QuerySpatialPlacement?.Invoke() ?? Placement(reference);
+        var degrees = current.RotationRadians[axis] * 180 / MathF.PI + degreesPerSecond * seconds;
+        SetAngleAxis(reference, axis, (float)(degrees % 360));
+    }
+
     internal void SetAngleAxis(FalloutFormKey reference, int axis, float degrees)
     {
         if (reference == records.RuntimeFormKey(0x14))

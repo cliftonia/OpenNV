@@ -479,7 +479,8 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
             if (parts.Length == 1 && FalloutScriptLeveledItems.Function(operation, records, () => world.LeveledItems) is { } leveledFunction)
                 return leveledFunction;
             if (parts.Length <= 2 && FalloutScriptPosition.Function(operation, () => world,
-                () => caller?.FormKey(records) ?? (parts.Length == 2 ? Reference(parts[0]) : source)) is { } positionFunction)
+                () => caller?.FormKey(records) ?? (parts.Length == 2 ? Reference(parts[0]) : source),
+                inventoryContext is { ElapsedTimeOwned: false } ? null : () => seconds) is { } positionFunction)
                 return positionFunction;
             FalloutFormKey? suppliedTarget = null;
             if (caller is { } value)
