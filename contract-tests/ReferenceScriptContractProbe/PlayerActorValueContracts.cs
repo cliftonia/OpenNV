@@ -94,6 +94,11 @@ internal static class PlayerActorValueContracts
         var publications = new FalloutVatsPublications();
         var instance = Guid.NewGuid();
         var target = new FalloutVatsSession.Target(Key(0x200), 1, "Actor", "Head", 95, 35, true, Key(28), 25);
+        var empty = new FalloutVatsSession(vitals);
+        empty.Add(Key(0x47), Guid.Empty, target, () => 0, true, FalloutVatsAction.Unarmed);
+        Refuse(() => empty.Add(Key(0x47), Guid.Empty, target, () => 0, true, FalloutVatsAction.OneHandMelee));
+        Refuse(() => empty.Add(Key(0x47), Guid.Empty, target, () => 0, true, FalloutVatsAction.Pistol));
+        Require(empty.Queue.Count == 1, "Only the empty-hands VATS action may omit a physical weapon instance.");
         var draws = 0;
         session.Add(Key(0x47), instance, target, () => { draws++; return 0; }, false, FalloutVatsActions.OrdinaryRanged(4));
         session.Add(Key(0x47), instance, target, () => { draws++; return uint.MaxValue; }, false, FalloutVatsActions.OrdinaryRanged(4));

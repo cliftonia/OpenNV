@@ -228,6 +228,7 @@ internal partial class RuntimeNativePlayer
                 {
                     _weaponActionError = error.Message;
                     _damageError = error.Message;
+                    FailVatsFiring(error);
                     GD.PushError("OPENNV_MELEE_STRIKE_UNBOUND " + error.Message);
                 }
             }
