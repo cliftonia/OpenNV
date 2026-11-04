@@ -48,9 +48,9 @@ internal static class ScriptEffectCommandContracts
             Check(cold.ScriptSpell(actor, spell) == false, "Script spell change did not survive a cold save.");
             Reject(() => Execute(world, "addspell", "SyntheticShader"));
 
-            _ = Execute(world, "pms", "SyntheticShader", "2");
+            Check(Execute(world, "pms", "SyntheticShader", "2") is ["SyntheticShader", "2"], "PMS lost its native membrane arguments.");
             Check(world.MagicShaders(actor).SequenceEqual([new FalloutFormKey("Effects.esm", 0x152)]), "PMS did not retain its shader request.");
-            _ = Execute(world, "sms", "SyntheticShader");
+            Check(Execute(world, "sms", "SyntheticShader") is ["SyntheticShader"], "SMS lost its native membrane argument.");
             Check(world.MagicShaders(actor).Count == 0, "SMS did not stop its shader request.");
 
             Check(Execute(world, "setweather", "SyntheticWeather", "1") is ["SyntheticWeather", "1"], "SetWeather lost its native arguments.");

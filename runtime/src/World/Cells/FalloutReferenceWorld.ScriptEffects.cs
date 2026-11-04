@@ -53,12 +53,10 @@ internal static class FalloutScriptEffectCommands
                 if (arguments.Count == 2 && !double.IsFinite(resolve.Number(arguments[1])))
                     throw new InvalidDataException("Magic shader duration is not finite.");
                 world.SetMagicShader(target, shader, true);
-                FalloutScriptCommandDeferral.Warn("playmagicshadervisuals", "effect-shader-presentation-unbound");
-                return null;
+                return arguments.Count == 1 ? [arguments[0]] : [arguments[0], Literal(resolve.Number(arguments[1]))];
             case "sms" or "stopmagicshadervisuals" when arguments.Count == 1:
                 world.SetMagicShader(target, Require(resolve.Form(arguments[0]), "EFSH"), false);
-                FalloutScriptCommandDeferral.Warn("stopmagicshadervisuals", "effect-shader-presentation-unbound");
-                return null;
+                return [arguments[0]];
             case "saa" or "setactoralpha" when arguments.Count == 1:
                 var alpha = resolve.Number(arguments[0]);
                 if (!double.IsFinite(alpha)) throw new InvalidDataException("Actor alpha is not finite.");
