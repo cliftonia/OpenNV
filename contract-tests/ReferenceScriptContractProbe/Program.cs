@@ -798,6 +798,12 @@ if (args is ["--owned-compiled-branches", var compiledBranchData])
     return;
 }
 
+if (args is ["--owned-recipes", var recipeData])
+{
+    OwnedRecipeProbe.Run(recipeData);
+    return;
+}
+
 if (args is ["--owned-campfire-branches", var campfireData])
 {
     OwnedCampfireBranchProbe.Run(campfireData);

@@ -25,7 +25,9 @@ internal sealed class FalloutBarterPricing
         if (discount is < -100 or > 100) throw new ArgumentOutOfRangeException(nameof(discount));
         if (!float.IsFinite(barterSkill) || barterSkill is < 0 or > 100)
             throw new InvalidDataException("Player Barter skill is outside runtime bounds.");
-        var value = item.Value ?? throw new NotSupportedException($"Item {item.FormKey} has no source-owned trade value.");
+        var variants = item.Variants ?? [new(item.Count)];
+        var value = item.Value ?? (variants.All(variant => variant.ValueOverride is not null) ? 0 :
+            throw new NotSupportedException($"Item {item.FormKey} has no source-owned trade value."));
         var baseFactor = vendorSells
             ? _buyBase + _buyMultiplier * (barterSkill / 100)
             : _sellBase + _sellMultiplier * (barterSkill / 100);
@@ -39,14 +41,13 @@ internal sealed class FalloutBarterPricing
         if (!float.IsFinite(factor) || factor < 0)
             throw new InvalidDataException("Winning barter settings produce a negative or non-finite price.");
 
-        var variants = item.Variants ?? [new(item.Count)];
         var remaining = count;
         var total = 0;
         foreach (var variant in variants)
         {
             if (remaining == 0) break;
             var units = Math.Min(remaining, variant.Count);
-            var currentValue = value * ConditionValueMultiplier(item.RecordType, variant.Condition);
+            var currentValue = (variant.ValueOverride ?? value) * ConditionValueMultiplier(item.RecordType, variant.Condition);
             var exact = currentValue * factor;
             if (!double.IsFinite(exact) || exact < 0 || exact > int.MaxValue)
                 throw new NotSupportedException($"Item {item.FormKey} trade value exceeds runtime storage.");

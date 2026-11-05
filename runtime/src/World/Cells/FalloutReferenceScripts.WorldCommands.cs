@@ -112,8 +112,7 @@ internal sealed partial class FalloutReferenceScripts
                 DeferPlaceLeveledActor();
                 return true;
             // Remaining names have no OpenNV consumer for their engine effect:
-            // item barter value overrides, unowned overrides, CELL public flags
-            // (no trespass owner), door path cost, navmesh travel exclusion,
+            // item barter value overrides, unowned overrides, door path cost, navmesh travel exclusion,
             // and 3D/animation reset. ("do", DamageObject's short name, is owned
             // by FalloutScriptActorCommands with DamageObject.)
             case "setitemvalue" or "setminimaluse":
@@ -129,9 +128,7 @@ internal sealed partial class FalloutReferenceScripts
                 return true;
             case "setcellpublicflag" or "setpublic" when context.PathLength == 1:
                 RequireArguments(context, 2, 2);
-                _ = FormArgument(context, arguments[0]);
-                _ = Flag(context.Number(arguments[1]), context.Command);
-                FalloutScriptCommandDeferral.Warn(operation, "cell-public-flag-has-no-trespass-owner");
+                world.SetCellPublic(FormArgument(context, arguments[0]), Flag(context.Number(arguments[1]), context.Command));
                 return true;
             case "enablenavmesh" or "disablenavmesh" when context.PathLength == 1:
                 RequireArguments(context, 1, 1);

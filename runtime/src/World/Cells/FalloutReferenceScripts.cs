@@ -482,7 +482,8 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
             if (parts.Length == 1 && FalloutScriptCasinoCommands.Function(operation, records, () => world.CasinoWinnings) is { } casinoFunction)
                 return casinoFunction;
             if (parts.Length <= 2 && FalloutScriptPosition.Function(operation, () => world,
-                () => caller?.FormKey(records) ?? (parts.Length == 2 ? Reference(parts[0]) : source)) is { } positionFunction)
+                () => caller?.FormKey(records) ?? (parts.Length == 2 ? Reference(parts[0]) : source),
+                inventoryContext is { ElapsedTimeOwned: false } ? null : () => seconds) is { } positionFunction)
                 return positionFunction;
             FalloutFormKey? suppliedTarget = null;
             if (caller is { } value)
@@ -773,7 +774,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                 parts.Length == 1 && FalloutScriptLeveledItems.Supports(operation) ||
                 parts.Length <= 2 && FalloutScriptPosition.Supports(operation) ||
                 parts.Length <= 2 && FalloutScriptActorFlags.Supports(operation, parts.Length == 2) ||
-                parts.Length <= 2 && FalloutScriptActorCommands.Supports(operation))
+                parts.Length <= 2 && FalloutScriptActorCommands.Supports(operation) && !(operation == "dropme" && inventoryContext?.Drop is not null))
             {
                 _ = FalloutNvseNumericExpression.EvaluateValue([command, .. arguments], values, Function, UserFunction);
                 return;
@@ -999,6 +1000,14 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                     if (host.Command is { } nativeCommand) nativeCommand(target, bindings, operation, native);
                     else FalloutScriptCommandDeferral.Warn(operation, "no-native-session-owner");
                 }
+                return;
+            }
+            if (operation == "setitemvalue" && parts.Length == 1 && arguments.Count == 1 && inventoryContext?.SetValue is { } setValue)
+            {
+                var value = Number(arguments[0]);
+                if (!double.IsFinite(value) || value < 0 || value > int.MaxValue || value != Math.Truncate(value))
+                    throw new InvalidDataException("SetItemValue value must be a nonnegative integer.");
+                setValue((int)value);
                 return;
             }
             if (TryPlayerCommand(source, bindings, parts, operation, target, arguments, Number, Reference, StringValue)) return;
@@ -1406,6 +1415,9 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                     break;
                 case "removeme" when parts.Length == 1 && inventoryContext is not null && arguments.Count == 0:
                     inventoryContext.Remove();
+                    break;
+                case "dropme" when parts.Length == 1 && inventoryContext?.Drop is { } drop && arguments.Count == 0:
+                    drop();
                     break;
                 case "removeme" when arguments.Count <= 1:
                     var removeMeDestination = arguments.Count == 0 || arguments[0] == "0" ? (FalloutFormKey?)null : Reference(arguments[0]);

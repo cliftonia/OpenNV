@@ -710,7 +710,8 @@ internal sealed partial class FalloutQuestScripts
                 return casinoFunction;
             if (parts.Length <= 2 && FalloutScriptPosition.Function(operation,
                 () => References ?? throw new NotSupportedException("Position commands have no shared world owner."),
-                () => caller?.FormKey(_records) ?? (parts.Length == 2 ? QueryReference(parts[0]) : instance.Quest.FormKey)) is { } positionFunction)
+                () => caller?.FormKey(_records) ?? (parts.Length == 2 ? QueryReference(parts[0]) : instance.Quest.FormKey),
+                () => instance.Clock.Elapsed) is { } positionFunction)
                 return positionFunction;
             if (parts.Length <= 2 && FalloutScriptActorFlags.Function(operation, parts.Length == 2 || caller is not null, _records,
                 () => References ?? throw new NotSupportedException("Actor flags have no shared world owner."),

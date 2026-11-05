@@ -51,6 +51,21 @@ internal sealed class FalloutInventoryAcquisition(FalloutPluginStack records, Fa
         }, lease));
     }
 
+    // Crafted products are acquired like AddItem: their OnAdd events run in
+    // the same staged plan that consumed the ingredients.
+    internal void Craft(FalloutRecipe recipe, int quantity, long expectedRevision)
+    {
+        RequireHealthy();
+        using var plan = new Plan(records, world, player, quests, scripts, stages, level, globals, error => _failure = error);
+        var lease = new FalloutInventoryChangeLease(() => { plan.Commit(); plan.Accept(); }, plan.Rollback, plan.Complete);
+        Execute(plan, () => player.Craft(records, recipe, quantity, expectedRevision, lease, (staged, outputs) =>
+        {
+            plan.Bind(Player, player, staged);
+            foreach (var (form, count) in outputs) plan.Add(Player, form, count, silent: true);
+            plan.PrepareEffects();
+        }));
+    }
+
     internal void TakePlaced(FalloutFormKey reference, FalloutReferenceInstance instance, FalloutItemVariant variant)
     {
         RequireHealthy();
@@ -186,7 +201,13 @@ internal sealed class FalloutInventoryAcquisition(FalloutPluginStack records, Fa
                 var fields = script.ReadSubrecords().ToArray();
                 var bindings = new FalloutScriptBindings(_records, item, script, fields);
                 var execution = Execution(item, script, bindings, locals, recipient,
-                    () => inventory.RemoveInventoryScriptInstance(item.FormKey, state.Identity));
+                    () => inventory.RemoveInventoryScriptInstance(item.FormKey, state.Identity), () =>
+                    {
+                        // The dynamic reference publishes with the staged plan.
+                        var dropped = _world.PrepareInventoryInstanceDrop(inventory, recipient, item.FormKey, state.Identity);
+                        inventory.RemoveInventoryScriptInstance(item.FormKey, state.Identity);
+                        _leases.Add(_world.PrepareDroppedPublication(dropped));
+                    }, value => inventory.SetInventoryScriptInstanceValue(item.FormKey, state.Identity, value));
                 FalloutInventoryScriptEvents.Dispatch(_records, item, "OnAdd", recipient, execution);
                 inventory.StoreInventoryScriptState(item.FormKey, state with { Locals = locals.Capture() });
             }
@@ -206,7 +227,8 @@ internal sealed class FalloutInventoryAcquisition(FalloutPluginStack records, Fa
         }
 
         private FalloutInventoryScriptExecution Execution(FalloutPluginRecord owner, FalloutPluginRecord script,
-            FalloutScriptBindings bindings, FalloutScriptEffectLocals? locals, FalloutFormKey recipient, Action? removeMe)
+            FalloutScriptBindings bindings, FalloutScriptEffectLocals? locals, FalloutFormKey recipient, Action? removeMe,
+            Action? dropMe = null, Action<int>? setValue = null)
         {
             bool IsForm(string name) => FalloutScriptBindings.IsPlayer(name) ? bindings.HasPlayerReference : locals?.Contains(name) == true ? locals.Kind(name) == FalloutScriptLocalKind.Form :
                 bindings.TryForm(name) is not null;
@@ -272,6 +294,14 @@ internal sealed class FalloutInventoryAcquisition(FalloutPluginStack records, Fa
                         if (arguments.Count != 0 || parts.Length != 1 || removeMe is null)
                             throw new NotSupportedException("RemoveMe has no actual incoming item owner.");
                         removeMe(); return;
+                    case "dropme":
+                        if (arguments.Count != 0 || parts.Length != 1 || dropMe is null)
+                            throw new NotSupportedException("DropMe has no actual incoming item owner.");
+                        dropMe(); return;
+                    case "setitemvalue":
+                        if (arguments.Count != 1 || parts.Length != 1 || setValue is null)
+                            throw new NotSupportedException("SetItemValue has no actual incoming item owner.");
+                        setValue(Integer(arguments[0])); return;
                     case "addcardtoplayer":
                     case "addcard":
                         if (parts.Length != 1 || arguments.Count != 0) throw new NotSupportedException("Card addition arguments are unbound.");

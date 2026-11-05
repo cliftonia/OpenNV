@@ -5,8 +5,10 @@ namespace OpenNV.Runtime.World.Cells;
 internal static class FalloutScriptPosition
 {
     internal static bool Supports(string name) => name is "setpos" or "setangle" or "rotate";
+    // Rotate turns the reference by degrees/second over the calling frame's
+    // elapsed time; authored scripts call it every GameMode frame.
     internal static FalloutScriptFunction? Function(string name, Func<FalloutReferenceWorld> world,
-        Func<FalloutFormKey> target) => !Supports(name) ? null : new(
+        Func<FalloutFormKey> target, Func<double>? elapsedSeconds = null) => !Supports(name) ? null : new(
         [FalloutScriptArgumentKind.Identifier, FalloutScriptArgumentKind.Number], arguments =>
         {
             var command = name switch { "setpos" => "SetPos", "setangle" => "SetAngle", _ => "Rotate" };
@@ -28,11 +30,13 @@ internal static class FalloutScriptPosition
                     world().SetAngleAxis(target(), axis, value);
                     break;
                 default:
-                    // Rotate spins an object continuously at degrees/second
-                    // until stopped. OpenNV has no continuous transform owner;
-                    // the authored resting transform is kept.
-                    _ = target();
-                    FalloutScriptCommandDeferral.Warn("rotate", "continuous-rotation-has-no-transform-owner");
+                    var rotated = target();
+                    if (elapsedSeconds is null)
+                    {
+                        FalloutScriptCommandDeferral.Warn("rotate", "caller-has-no-frame-elapsed-time");
+                        break;
+                    }
+                    world().RotateAxis(rotated, axis, value, elapsedSeconds());
                     break;
             }
             return 0;

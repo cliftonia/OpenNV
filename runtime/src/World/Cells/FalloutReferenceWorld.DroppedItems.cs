@@ -76,6 +76,30 @@ internal sealed partial class FalloutReferenceWorld
         return result;
     }
 
+    // DropMe moves one scripted inventory instance out of its actor container
+    // onto the ground at the container's current placement. The caller removes
+    // the instance and publishes the returned dynamic reference together.
+    internal FalloutDroppedReferenceSnapshot PrepareInventoryInstanceDrop(FalloutPlayerInventory inventory,
+        FalloutFormKey container, FalloutFormKey form, Guid identity)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (container == records.RuntimeFormKey(0x14))
+            throw new NotSupportedException("Player DropMe needs its live player placement owner.");
+        var item = inventory.Item(form) ?? throw new InvalidOperationException("DropMe item is absent from its container.");
+        var variant = (item.Variants ?? []).SingleOrDefault(value => value.ScriptState?.Identity == identity) ??
+            throw new InvalidDataException("DropMe has no unique inventory event-list instance.");
+        if (variant.Count != 1 || variant.Magazine is { Loaded: > 0, Generated: false })
+            throw new NotSupportedException("DropMe instance needs its stacked or loaded-magazine drop owner.");
+        RequireDroppedItemEventOwner(form, "OnDrop");
+        var origin = Get(container).QuerySpatialPlacement?.Invoke() ?? Placement(container);
+        // Release at the actor's waist so the dynamic body settles on the ground.
+        var placement = new FalloutReferencePlacement(origin.Cell,
+            [origin.Position[0], origin.Position[1], origin.Position[2] + 64], [.. origin.RotationRadians]);
+        var result = new FalloutDroppedReferenceSnapshot(Guid.NewGuid(), form, placement, variant with { Hotkey = null });
+        result.Validate(records);
+        return result;
+    }
+
     internal FalloutInventoryChangeLease PrepareDroppedPublication(FalloutDroppedReferenceSnapshot item)
     {
         item.Validate(records);

@@ -43,12 +43,33 @@ internal sealed partial class RuntimeNativeDestructible : Node
     {
         _root.SetMeta(OwnerMeta, this);
         _state.ScriptObjectDamage = ScriptDamage;
+        _state.ScriptClearDestruction = Reset;
     }
 
     public override void _ExitTree()
     {
         _root.RemoveMeta(OwnerMeta);
         if (_state.ScriptObjectDamage == ScriptDamage) _state.ScriptObjectDamage = null;
+        if (_state.ScriptClearDestruction == Reset) _state.ScriptClearDestruction = null;
+    }
+
+    // ClearDestruction returns the reference to full health and its stage-zero
+    // model; a replaced stage model gives way to the base record's model.
+    private void Reset()
+    {
+        var replaced = _source.Stages.Take(State.Stage + 1).Any(stage => stage.Model is not null);
+        _state.Destroyed = false;
+        _state.Destruction = FalloutDestructionState.Initial(_source);
+        if (replaced)
+        {
+            var source = _records.GetEffective(_state.Base);
+            var model = source.ReadSubrecords().SingleOrDefault(field => field.Signature == "MODL").Data;
+            if (model.IsEmpty) throw new NotSupportedException("Destruction reset has no base world model.");
+            ReplaceModel(FalloutCellSceneReader.NormalizeModelPath(FalloutDialogueTopic.Text(model.Span), source.Signature));
+        }
+        SelectModelStage(State.ModelStage);
+        SetPhysicsProcess(true);
+        Publish();
     }
 
     // DamageObject uses the resident stage owner so entered stages publish their

@@ -421,8 +421,52 @@ def test_fo3() -> str:
         return "birth scene reached stage 100"
 
 
+def inventory_counts(game: Game) -> dict:
+    return {item.get("editorId"): item.get("count") for item in game.gameplay().get("playerInventory") or []}
+
+
+def choices(game: Game, kind: str) -> list[dict]:
+    return [c for c in game.controls() if c.get("sourceChoiceKind") == kind]
+
+
+def test_craft() -> str:
+    """Walks to the Goodsprings reloading bench and breaks down one 20 ga. shell."""
+    require(SAVE.exists(), f"save to copy is missing: {SAVE}")
+    bench = "FalloutNV.esm:171b9a"
+    with Game("craft", mods=ALL_MODS, save=SAVE) as game:
+        continue_into_world(game)
+        game.settle(10)
+        deadline, sent = time.time() + 360, 0
+        while "OPENNV_NATIVE_RECIPE_MENU_OPEN" not in game.log_text():
+            require(time.time() < deadline, "the reloading bench recipe menu never opened")
+            if game.press("OK"):
+                continue
+            phases = [l for l in game.log_text().splitlines() if "OPENNV_REFERENCE_BOT phase=" in l]
+            if sent < 8 and (sent == 0 or any(p in phases[-1] for p in ("phase=paused", "phase=stopped", "phase=failed"))):
+                game.command({"op": "bot", "mode": "interact", "reference": bench, "distance": 1.2})
+                sent += 1
+            time.sleep(4)
+        row = game.wait(lambda: next((c for c in choices(game, "recipe-row") if c["text"].startswith("Breakdown 20 Ga")), None),
+                        20, "craftable 20 ga. breakdown")
+        before = inventory_counts(game)
+        game.command({"op": "button", "path": row["path"]})
+        accept = game.wait(lambda: choices(game, "recipe-accept"), 10, "recipe accept")
+        game.command({"op": "button", "path": accept[0]["path"]})
+        game.wait(lambda: choices(game, "recipe-quantity-decrease") or choices(game, "recipe-quantity-confirm"), 15, "quantity menu")
+        while not choices(game, "recipe-quantity-confirm"):
+            game.command({"op": "button", "path": choices(game, "recipe-quantity-decrease")[0]["path"]})
+            time.sleep(0.3)
+        game.command({"op": "button", "path": choices(game, "recipe-quantity-confirm")[0]["path"]})
+        after = game.wait(lambda: (lambda counts: counts if counts.get("Ammo20Ga") != before.get("Ammo20Ga") else None)(inventory_counts(game)),
+                          15, "crafted inventory")
+        require(after.get("Ammo20Ga") == before.get("Ammo20Ga", 0) - 1 and after.get("Lead", 0) > before.get("Lead", 0),
+                f"breakdown did not consume one shell and add its components: {before} -> {after}")
+        require(not game.fatal_errors(), f"fatal errors: {game.fatal_errors()[:3]}")
+        return f"20 ga. {before.get('Ammo20Ga')} -> {after.get('Ammo20Ga')}, lead {before.get('Lead', 0)} -> {after.get('Lead')}"
+
+
 TESTS = {"boot": test_boot, "continue": test_continue, "radio": test_radio, "perf": test_perf,
-         "opening": test_opening, "rest": test_rest, "fo3": test_fo3}
+         "opening": test_opening, "rest": test_rest, "fo3": test_fo3, "craft": test_craft}
 DEFAULT = ["boot", "continue", "radio", "perf", "opening", "fo3"]
 
 
