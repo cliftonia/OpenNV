@@ -490,7 +490,7 @@ public partial class RuntimeCoordinator
                             GD.Print("OPENNV_NATIVE_SOURCE_INDEX_PREPARING stage=saved-navigation source=stack-index-worker");
                         }
                         else GD.Print($"OPENNV_NATIVE_SOURCE_INDEX_READY stage=saved-navigation elapsedMs={Stopwatch.GetElapsedTime(navigationStarted).TotalMilliseconds:F1} source=stack-index-worker");
-                    });
+                    }, content.LegacySaveCompatibilityId);
                 if (_nativeOpeningRestore.State.PlayerSkillValues is null || _nativeOpeningRestore.State.PlayerAbilityScripts is null)
                     throw new InvalidDataException("Continue requires current player skill/effect authority.");
             }

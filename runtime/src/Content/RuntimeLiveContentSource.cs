@@ -37,6 +37,7 @@ internal sealed partial class RuntimeLiveContentSource : IDisposable
         string game,
         string campaign,
         string stackId,
+        string portableStackId,
         string edition,
         string engineBuild,
         string contentVersion,
@@ -54,7 +55,10 @@ internal sealed partial class RuntimeLiveContentSource : IDisposable
         Edition = edition;
         EngineBuild = engineBuild;
         ContentVersion = contentVersion;
-        SaveCompatibilityId = $"{edition}:{stackId}";
+        // Saves name the portable stack so they survive copying the install to
+        // another folder or device; the path-bound id is still admitted.
+        SaveCompatibilityId = $"{edition}:{portableStackId}";
+        LegacySaveCompatibilityId = $"{edition}:{stackId}";
         SupportedCampaigns = [campaign];
         RequiredSemanticExtensions = [];
         CleanRoomSemanticCapabilities = [];
@@ -80,6 +84,7 @@ internal sealed partial class RuntimeLiveContentSource : IDisposable
     internal string Game { get; }
     internal string StackId { get; }
     internal string SaveCompatibilityId { get; }
+    internal string LegacySaveCompatibilityId { get; }
     internal string Edition { get; }
     internal string EngineBuild { get; }
     internal string ContentVersion { get; }
@@ -213,6 +218,7 @@ internal sealed partial class RuntimeLiveContentSource : IDisposable
             campaign,
             campaign,
             identity,
+            ComputeLiveIdentity(plugins, archives, layers.Roots.Count > 1 ? layers.Roots : [], portable: true),
             edition,
             build,
             build,
@@ -558,19 +564,24 @@ internal sealed partial class RuntimeLiveContentSource : IDisposable
     private static string ComputeLiveIdentity(
         IReadOnlyList<FalloutPluginSource> plugins,
         IReadOnlyList<string> archives,
-        IReadOnlyList<string> layers)
+        IReadOnlyList<string> layers,
+        bool portable = false)
     {
+        // The portable form omits absolute paths and modification times, which
+        // change whenever the same files are copied to another device.
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         foreach (var layer in layers)
-            hash.AppendData(Encoding.UTF8.GetBytes($"L\0{layer}\n"));
+            hash.AppendData(Encoding.UTF8.GetBytes($"L\0{(portable ? Path.GetFileName(Path.TrimEndingDirectorySeparator(layer)) : layer)}\n"));
         foreach (var plugin in plugins)
-            hash.AppendData(Encoding.UTF8.GetBytes(
-                $"P\0{plugin.Name}\0{plugin.RegisteredBytes}\0{plugin.RegisteredMtimeUnixMilliseconds}\n"));
+            hash.AppendData(Encoding.UTF8.GetBytes(portable
+                ? $"P\0{plugin.Name}\0{plugin.RegisteredBytes}\n"
+                : $"P\0{plugin.Name}\0{plugin.RegisteredBytes}\0{plugin.RegisteredMtimeUnixMilliseconds}\n"));
         foreach (var path in archives)
         {
             var info = new FileInfo(path);
-            hash.AppendData(Encoding.UTF8.GetBytes(
-                $"B\0{info.Name}\0{info.Length}\0{new DateTimeOffset(info.LastWriteTimeUtc).ToUnixTimeMilliseconds()}\n"));
+            hash.AppendData(Encoding.UTF8.GetBytes(portable
+                ? $"B\0{info.Name}\0{info.Length}\n"
+                : $"B\0{info.Name}\0{info.Length}\0{new DateTimeOffset(info.LastWriteTimeUtc).ToUnixTimeMilliseconds()}\n"));
         }
         return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
     }

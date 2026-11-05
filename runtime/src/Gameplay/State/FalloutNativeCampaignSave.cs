@@ -276,7 +276,8 @@ internal static class FalloutNativeCampaignSave
         FalloutNativeTagSkillContract? tagSkillContract,
         FalloutOpeningInventoryGrant? openingGrant,
         FalloutNativeTraitFarewellContract? traitFarewellContract,
-        CancellationToken cancellation = default, Action<FalloutNativeCampaignReadPhase>? progress = null)
+        CancellationToken cancellation = default, Action<FalloutNativeCampaignReadPhase>? progress = null,
+        string? legacySaveCompatibilityId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         ArgumentNullException.ThrowIfNull(stack);
@@ -286,6 +287,8 @@ internal static class FalloutNativeCampaignSave
                 File.ReadAllText(fullPath)) ??
             throw new InvalidDataException($"Native campaign save is empty: {fullPath}");
         state = AdmitPreviousOwnerSchema(state);
+        if (legacySaveCompatibilityId is not null && state.SaveCompatibilityId == legacySaveCompatibilityId)
+            state = state with { SaveCompatibilityId = expectedSaveCompatibilityId };
         var originalAbilityAdmission = FalloutPlayerAbilitySaveAdmission.FromOriginalHeader(state);
         if (originalAbilityAdmission is not null)
         {

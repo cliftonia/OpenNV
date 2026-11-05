@@ -82,20 +82,22 @@ public partial class RuntimeCoordinator
 
     private RuntimeSaveSlotCatalog NativeSaveSlots()
     {
-        var sourceIdentity = RuntimeLiveContentSource.Current!.SaveCompatibilityId;
+        var source = RuntimeLiveContentSource.Current!;
         return new(Path.GetFullPath(RequireOption(_options, "save-path")), root =>
         {
             if (!root.TryGetProperty("Schema", out var schema) || schema.ValueKind != JsonValueKind.String ||
                 !schema.GetString()!.StartsWith("opennv-native-fnv-campaign-save/", StringComparison.Ordinal) ||
                 !root.TryGetProperty("SaveCompatibilityId", out var identity) ||
-                identity.GetString() != sourceIdentity)
+                identity.GetString() is not { } id ||
+                (id != source.SaveCompatibilityId && id != source.LegacySaveCompatibilityId))
                 throw new InvalidDataException("This save belongs to a different game or source stack.");
         });
     }
 
     private FalloutNativeCampaignRestore ReadNativeSave(string path) => FalloutNativeCampaignSave.Read(path,
         RuntimeLiveContentSource.Current!.SaveCompatibilityId, _nativePluginStack!, _nativeVigorContract!,
-        _nativeTagSkillContract!, _nativeOpeningGrant!, _nativeTraitFarewellContract!);
+        _nativeTagSkillContract!, _nativeOpeningGrant!, _nativeTraitFarewellContract!,
+        legacySaveCompatibilityId: RuntimeLiveContentSource.Current!.LegacySaveCompatibilityId);
 
     internal RuntimeSaveSlotMetadata CreateNativeCheckpoint(Guid id)
     {
