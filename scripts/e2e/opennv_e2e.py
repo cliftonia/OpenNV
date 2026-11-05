@@ -357,7 +357,7 @@ def drive_opening(game: Game, done, timeout: float = 900) -> None:
             pass
         elif (target := opening_target(stage)) and (gameplay.get("player") or {}).get("movementEnabled"):
             bot = game.state().get("bot") or {}
-            if bot.get("phase") not in ("awaiting-interaction", "planning", "approaching"):
+            if not bot.get("active"):  # never interrupt a bot that is still working
                 game.command(target)
         time.sleep(2)
     raise Failure(f"opening did not finish within {timeout:.0f}s")
