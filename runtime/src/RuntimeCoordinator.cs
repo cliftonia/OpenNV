@@ -66,6 +66,8 @@ public partial class RuntimeCoordinator : Node3D
     public override void _Ready()
     {
         AddChild(new Formats.Gamebryo.RuntimeNifApplicationClock());
+        // Phones and tablets with a notch or Dynamic Island keep menus clear of it.
+        if (OperatingSystem.IsIOS() || OperatingSystem.IsAndroid()) AddChild(new RuntimeSafeAreaLayout());
         AddChild(new InputSystem.NativeGamepadInput());
         FalloutScriptCommandDeferral.Sink = message => GD.PushWarning(message);
         BeginLoadingScreen("Starting OpenNV");

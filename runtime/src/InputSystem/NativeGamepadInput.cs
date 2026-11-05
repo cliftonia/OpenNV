@@ -62,6 +62,8 @@ internal sealed partial class NativeGamepadInput : Node
         ProcessMode = ProcessModeEnum.Always;
         ProcessPriority = -100;
         _cursorLayer = new CanvasLayer { Layer = 128, Visible = false };
+        // The cursor is drawn where its mouse events land, in raw screen space.
+        _cursorLayer.SetMeta(Presentation.Ui.RuntimeSafeAreaLayout.FullScreenMeta, true);
         _cursorMark = new ColorRect
         {
             Color = new Color(0.25f, 1f, 0.5f, 0.9f), Size = new Vector2(10, 10),
