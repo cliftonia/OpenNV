@@ -7,14 +7,15 @@ namespace OpenNV.Runtime.Content;
 // ordinary player melee selection they extend.
 internal sealed class FalloutVatsMeleeChance(FalloutPluginStack records)
 {
-    internal float Calculate(float leftArmCondition, float rightArmCondition)
+    internal float Calculate(float leftArmCondition, float rightArmCondition, float stealthMultiplier)
     {
         if (!float.IsFinite(leftArmCondition) || leftArmCondition is < 0 or > 1 ||
-            !float.IsFinite(rightArmCondition) || rightArmCondition is < 0 or > 1)
+            !float.IsFinite(rightArmCondition) || rightArmCondition is < 0 or > 1 ||
+            !float.IsFinite(stealthMultiplier) || stealthMultiplier < 0)
             throw new InvalidDataException("VATS melee arm condition is invalid.");
         var arms = Setting("fVATSMeleeArmConditionBase") +
             Setting("fVATSMeleeArmConditionMult") * ((leftArmCondition + rightArmCondition) / 2);
-        var chance = 100 * Setting("fVATSMeleeChanceMult") * Math.Min(arms, 1);
+        var chance = 100 * Setting("fVATSMeleeChanceMult") * Math.Min(arms, 1) * stealthMultiplier;
         return Math.Clamp(Math.Min(chance, Setting("fVATSMaxChance")), 0, 100);
     }
 

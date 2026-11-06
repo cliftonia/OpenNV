@@ -11,5 +11,10 @@
     <ProjectReference Include="../../runtime/OpenNV.csproj" />
     <Compile Include="../../tools/OpenNV.DevelopmentLab/CellReview.cs" Link="CellReview.cs" />
     <Compile Include="../../tools/OpenNV.DevelopmentLab/DevelopmentLabSource.cs" Link="DevelopmentLabSource.cs" />
+    <Compile Include="../../tools/OpenNV.DevelopmentLab/CompletenessReport*.cs" LinkBase="CompletenessReport" />
+    <Compile Include="../../tools/OpenNV.DevelopmentLab/QuestGraphAudit.ProgramScopes.cs" Link="QuestGraphAudit.ProgramScopes.cs" />
+    <Compile Include="../../tools/OpenNV.DevelopmentLab/RuntimeDispatchIndex.cs" Link="RuntimeDispatchIndex.cs" />
+    <Reference Include="Microsoft.CodeAnalysis" HintPath="$(MSBuildToolsPath)/Roslyn/bincore/Microsoft.CodeAnalysis.dll" Private="true" />
+    <Reference Include="Microsoft.CodeAnalysis.CSharp" HintPath="$(MSBuildToolsPath)/Roslyn/bincore/Microsoft.CodeAnalysis.CSharp.dll" Private="true" />
   </ItemGroup>
 </Project>

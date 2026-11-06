@@ -11,7 +11,7 @@ internal sealed partial class FalloutConditionRuntime
     // CTDA parameter takes the run-on's other reference.
     internal static readonly IReadOnlySet<Function> ReferenceParameterFunctions = new HashSet<Function>
     {
-        Function.GetDistance, Function.GetInSameCell, Function.GetDetected, Function.GetShouldAttack, Function.GetDisposition,
+        Function.GetDistance, Function.GetLineOfSight, Function.GetInSameCell, Function.GetDetected, Function.GetShouldAttack, Function.GetDisposition,
         Function.GetHeadingAngle, Function.GetIsReference, Function.IsCurrentFurnitureRef, Function.Exists,
         Function.GetFactionRelation, Function.IsPlayerGrabbedRef, Function.IsCombatTarget,
         Function.GetVATSRightAreaFree, Function.GetVATSLeftAreaFree, Function.GetVATSBackAreaFree, Function.GetVATSFrontAreaFree,

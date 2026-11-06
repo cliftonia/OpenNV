@@ -28,9 +28,7 @@ internal static partial class QuestGraphAudit
         using var conditionRows = new StreamWriter(Path.Combine(directory, "conditions.jsonl"));
         using var statementRows = new StreamWriter(Path.Combine(directory, "statements.jsonl"));
         using var world = new FalloutReferenceWorld(records);
-        var inspector = new FalloutReferenceScripts(records, world, new(records),
-            new((_, _) => throw new InvalidOperationException("Static audit queried furniture."),
-                _ => throw new InvalidOperationException("Static audit applied gameplay.")));
+        var inspector = StaticInspector(records, world);
         var failures = new List<object>();
         var commandOwners = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
         var transitions = new List<object>();
@@ -237,8 +235,7 @@ internal static partial class QuestGraphAudit
                         try
                         {
                             var text = FalloutDialogueTopic.ScriptText(source.Field.Data.Span);
-                            var events = signature == "SCPT" ? FalloutGameModeProgram.ReadEvents(text, FalloutGameModeProgram.CompiledBody(compiled)) :
-                                [new FalloutScriptEventProgram("Result", null, FalloutGameModeProgram.Read("begin GameMode\n" + text + "\nend"))];
+                            var events = SourceEvents(signature, text, compiled);
                             bodyParsed = true; ++parsedBodies; ++parsedSourceBodies;
                             if (events.Any(value => value.Program.UsesCompiledBranches)) ++compiledBranchBodies;
                             foreach (var command in events.SelectMany(value => value.Program.CommandNames).Distinct())
@@ -247,30 +244,12 @@ internal static partial class QuestGraphAudit
                                 if (!commandOwners.TryGetValue(command, out var owners)) commandOwners.Add(command, owners = []);
                                 owners.Add(sourceIdentity);
                             }
-                            var localScript = signature == "SCPT" ? record : FalloutScriptLocals.AttachedScript(records, record);
-                            var locals = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                            if (localScript is not null)
-                            {
-                                try { locals.UnionWith(FalloutScriptLocals.ReadDeclarations(localScript).Keys); }
-                                catch (Exception error)
-                                {
-                                    // Standalone declaration failures were already recorded. They
-                                    // cannot suppress inspection of the successfully parsed source.
-                                    if (signature != "SCPT") Failure("inspection-declarations", record, scopeIdentity, error);
-                                }
-                            }
-                            var declarationBindings = new FalloutScriptBindings(records, record, record, body);
-                            void InspectValue(string name)
-                            {
-                                if (name.Equals("this", StringComparison.OrdinalIgnoreCase) || locals.Contains(name) ||
-                                    FalloutScriptBindings.IsPlayer(name) && declarationBindings.HasPlayerReference ||
-                                    declarationBindings.TryForm(name) is not null || declarationBindings.HasVariable(name)) return;
-                                throw new NotSupportedException($"Operand {name} needs a declared value/function or runtime caller context.");
-                            }
+                            var inspectValue = OperandInspector(records, record, signature, body,
+                                error => Failure("inspection-declarations", record, scopeIdentity, error));
                             for (var eventIndex = 0; eventIndex < events.Count; ++eventIndex)
                             {
                                 var block = events[eventIndex];
-                                var coverage = inspector.Inspect(record, record, body, block.Program, InspectValue);
+                                var coverage = inspector.Inspect(record, record, body, block.Program, inspectValue);
                                 foreach (var statement in coverage)
                                 {
                                     ++statements;

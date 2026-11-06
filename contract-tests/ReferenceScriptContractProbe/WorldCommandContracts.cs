@@ -73,8 +73,8 @@ internal static class WorldCommandContracts
             Require(!quests.StageDone(Key(0x601), 10) && quests.Stage(Key(0x601)) == 0, "ResetQuest retained entered stages.");
             challenges.IncrementScripted(Key(0x300));
             Require(challenges.State(Key(0x300)) is { Completed: true, RecurringRemoved: true }, "Challenge stayed recurring.");
-            Require(world.ForcedTriggers.Take(Key(0x903), false) is { Name: "OnTriggerEnter" } trigger && trigger.ActionReference == Key(0x14) &&
-                !world.ForcedTriggers.HasPending(Key(0x903)), "EnterTrigger did not admit one trigger-enter event for its actor.");
+            // A trigger without a script records nothing (scripted triggers: ScriptCommandContracts).
+            Require(!world.ForcedTriggers.HasPending(Key(0x903)), "EnterTrigger recorded an event for an unscripted trigger.");
             Require(Math.Abs(world.Placement(Key(0x900)).RotationRadians[2] - MathF.PI / 2) < 1e-5, "SetAngle did not rotate the reference.");
             world.RotateAxis(Key(0x900), 2, 90, .5); world.RotateAxis(Key(0x900), 2, -360, 0);
             Require(Math.Abs(world.Placement(Key(0x900)).RotationRadians[2] - MathF.PI * .75f) < 1e-5, "Rotate did not turn the reference by speed times frame time.");

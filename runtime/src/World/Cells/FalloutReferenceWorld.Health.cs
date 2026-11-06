@@ -24,6 +24,18 @@ internal sealed partial class FalloutReferenceWorld
         return source;
     }
 
+    // Severed parts exist only on dead actors; the engine player's death ends
+    // the session, so it never reports a severed limb. The inclusive range form
+    // needs the caller's loaded 3D, otherwise only the first limb is tested.
+    internal bool IsLimbGone(FalloutFormKey reference, uint first, uint last)
+    {
+        if (reference == records.RuntimeFormKey(0x14) || records.GetEffective(reference).Signature is not ("ACHR" or "ACRE")) return false;
+        if (first > byte.MaxValue || last > byte.MaxValue) throw new InvalidDataException("IsLimbGone body part is outside the limb enumeration.");
+        if (!IsResident(reference)) last = first;
+        var severed = Actor(reference).Injury?.SeveredParts;
+        return severed is not null && severed.Any(part => part >= first && part <= last);
+    }
+
     internal FalloutBodyPartData BodyParts(FalloutFormKey reference)
     {
         var form = HealthSource(reference).BodyParts;
@@ -74,6 +86,14 @@ internal sealed partial class FalloutReferenceWorld
     internal bool PlayerInCombat() => ResidentInstances.Any(actor =>
         actor.Engagement is { } engagement && engagement.Target == _enginePlayer &&
         IsEnabled(actor.Reference) && actor.Injury?.Dead != true);
+
+    // Sleep/Wait "hostile actors nearby": a living, enabled resident actor
+    // within the limit that targets the player in combat or is hostile to it.
+    internal bool HostileActorNear(float limit, Func<FalloutFormKey, float> distanceToPlayer) => ResidentInstances.Any(actor =>
+        actor.Reference != _enginePlayer && records.GetEffective(actor.Base).Signature is "NPC_" or "CREA" &&
+        IsEnabled(actor.Reference) && actor.Injury?.Dead != true &&
+        (actor.Engagement?.Target == _enginePlayer || ActorThreat(actor.Reference).Hostile(ActorRelation(actor.Reference, _enginePlayer))) &&
+        distanceToPlayer(actor.Reference) <= limit);
 
     internal bool HasSelectedCombatTarget(FalloutFormKey reference, FalloutFormKey target)
     {

@@ -57,7 +57,7 @@ public partial class NativeActorPerformanceAudit
             var player = new RuntimeNativePlayer(); fixture.AddChild(player);
             player.Configure(configuration, new(Basis.Identity, goal)); player.SetPhysicsProcess(false); player.SetProcess(false);
             var context = new NativeActorCombatContext(() => player, () => new(1, 200, 200, 70, 70, 0, 100),
-                (_, _) => throw new InvalidDataException("Dialogue package fixture attacked its listener."),
+                (_, _, _) => throw new InvalidDataException("Dialogue package fixture attacked its listener."),
                 (from, to) => navigation.FindPath(Source(from), Source(to)).Select(World).ToArray(),
                 _ => true, () => 1, globals, .4f, 9.81f, PlayerCell: () => cell.Cell.FormKey);
             var actor = RuntimeNativeNpc.Create(records, content, placed, units,

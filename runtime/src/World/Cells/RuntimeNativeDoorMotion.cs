@@ -197,6 +197,7 @@ internal partial class RuntimeNativeDoorMotion : Node
             throw new NotSupportedException("Another animation command replaced the door's source motion.");
         if (!state.Moving || _controller.Playing) return;
         _state.DoorMotion = state with { Moving = false };
+        _state.PendingDoorEvent = state.Open ? "OnOpen" : "OnClose";
         _changed();
         GD.Print($"OPENNV_NATIVE_DOOR_MOTION reference={_state.Reference} open={_state.DoorOpen} sourceClock=complete");
     }

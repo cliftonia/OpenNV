@@ -56,7 +56,7 @@ public partial class NativeActorPerformanceAudit
             };
             wall.AddChild(new CollisionShape3D { Shape = new BoxShape3D { Size = new(100, 5, .15f) } }); fixture.AddChild(wall);
             var context = new NativeActorCombatContext(() => null, () => new(1, 200, 200, 70, 70, 0, 100),
-                (_, _) => throw new InvalidOperationException("Editor travel fixture attacked the player."),
+                (_, _, _) => throw new InvalidOperationException("Editor travel fixture attacked the player."),
                 (from, to) => navigation.FindPath(Source(from), Source(to)).Select(World).ToArray(),
                 _ => true, () => 1, globals, .4f, 9.81f);
             RuntimeNativeNpc Create()

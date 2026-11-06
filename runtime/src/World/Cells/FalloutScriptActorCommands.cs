@@ -12,30 +12,24 @@ internal static class FalloutScriptActorCommands
     // behavior without a runtime owner. They validate and then continue.
     private static readonly Dictionary<string, (Kind[] Arguments, bool Actor, string Reason)> Deferred = new()
     {
-        ["fireweapon"] = ([Kind.Value], false, "no-scripted-projectile-launch-owner"),
         ["useweapon"] = ([Kind.Value, Kind.Value, Kind.Value, Kind.Number, Kind.OptionalNumber, Kind.OptionalNumber,
             Kind.OptionalNumber], true, "no-scripted-attack-owner"),
         ["setpackduration"] = ([Kind.Number], true, "no-package-duration-override-owner"),
-        ["setvatstarget"] = ([Kind.Number], false, "no-vats-target-owner"),
-        ["setnoavoidance"] = ([Kind.Number], true, "no-actor-avoidance-owner"),
         ["setactorsai"] = ([Kind.Number], false, "no-actor-ai-enable-owner"),
         ["setforcesneak"] = ([Kind.Number], true, "no-forced-sneak-animation-owner"),
         ["setdisposition"] = ([Kind.Value, Kind.Number], true, "no-disposition-owner"),
         ["setlevel"] = ([Kind.Number, Kind.OptionalNumber, Kind.OptionalNumber, Kind.OptionalNumber], true, "no-actor-level-owner"),
         ["startcannibal"] = ([Kind.OptionalValue], true, "no-cannibal-feeding-animation-owner"),
-        ["attachashpile"] = ([Kind.OptionalValue], true, "no-ash-pile-spawner"),
+        ["attachashpile"] = ([Kind.OptionalValue], true, "no-runtime-activator-reference-owner"),
         ["pickidle"] = ([], true, "no-scripted-idle-selection-owner"),
-        ["setallvisible"] = ([Kind.Number], false, "no-global-detection-override-owner"),
-        ["setallreachable"] = ([Kind.Number], false, "no-global-pathing-override-owner"),
-        ["setcriticalstage"] = ([Kind.Identifier], true, "no-critical-effect-stage-owner"),
-        ["dropme"] = ([], false, "no-containing-inventory-instance"),
     };
 
     private static readonly HashSet<string> Owned =
     [
         "setghost", "resurrect", "resurrectactor", "sendassaultalarm", "sendtrespassalarm", "setpcenemyoffaction",
         "clearfactionplayerenemyflag", "removefromallfactions", "getdetected", "damageobject", "do", "cleardestruction",
-        "setnpcradio", "alwaysshowactorsubtitles", "pushactoraway", "forceflee",
+        "setnpcradio", "alwaysshowactorsubtitles", "pushactoraway", "forceflee", "fireweapon", "setvatstarget",
+        "setcriticalstage", "setnoavoidance", "setallvisible", "setallreachable", "dropme",
     ];
 
     internal static bool Supports(string name) => Owned.Contains(name) || Deferred.ContainsKey(name);
@@ -62,11 +56,9 @@ internal static class FalloutScriptActorCommands
         if (Deferred.TryGetValue(name, out var deferred))
             return Command(deferred.Arguments, arguments =>
             {
-                if (name != "dropme")
-                {
-                    if (deferred.Actor) world().RequireScriptActor(subject());
-                    else world().RequireScriptReference(subject());
-                }
+                // A receiver of the wrong kind makes the command a no-op.
+                if (deferred.Actor && !world().IsScriptActor(subject())) return;
+                if (!deferred.Actor) world().RequireScriptReference(subject());
                 FalloutScriptCommandDeferral.Warn(name, deferred.Reason);
             });
         return name switch
@@ -121,6 +113,7 @@ internal static class FalloutScriptActorCommands
                 world().PushActorAway(subject(), Form(arguments[0]), (float)arguments[1].Number)),
             // Optional cell/reference flee destinations are validated; the flee
             // procedure runs away from the threat rather than to a destination.
+            // The player has no flee procedure: a player caller does nothing.
             "forceflee" => Command([Kind.OptionalValue, Kind.OptionalValue], arguments =>
             {
                 var references = world();
@@ -129,9 +122,47 @@ internal static class FalloutScriptActorCommands
                     var destination = Form(argument);
                     if (records.GetEffective(destination).Signature != "CELL") references.RequireScriptReference(destination);
                 }
+                if (subject() == player) return;
                 if (arguments.Count != 0) FalloutScriptCommandDeferral.Warn("forceflee", "flee-destination-has-no-route-owner");
                 references.ForceFlee(subject());
             }),
+            // Actor.SetCriticalStage Stage: critical effect scripts record their
+            // goo/disintegration progress; a non-actor caller is unchanged.
+            "setcriticalstage" => Command([Kind.Identifier], arguments =>
+                world().SetCriticalStage(subject(), FalloutCriticalStage.Parse(arguments[0].Identifier!))),
+            // Ref.SetVATSTarget Flag overrides a destructible's VATS Targetable flag.
+            "setvatstarget" => Command([Kind.Number], arguments =>
+            {
+                var references = world();
+                references.RequireScriptReference(subject());
+                references.SetVatsTarget(subject(), Flag(arguments[0].Number));
+            }),
+            // Ref.FireWeapon WeaponForm requires a WEAP; another form only warns.
+            "fireweapon" => Command([Kind.Value], arguments =>
+            {
+                world().RequireScriptReference(subject());
+                if (records.GetEffective(Form(arguments[0])).Signature == "WEAP")
+                    FalloutScriptCommandDeferral.Warn("fireweapon", "no-scripted-projectile-launch-owner");
+                else FalloutScriptCommandDeferral.Warn("fireweapon-non-weapon", "non-weapon-parameter-does-nothing");
+            }),
+            // SetNoAvoidance is written with a receiver but changes one global
+            // flag; SetAllVisible is the global detection override. Neither is
+            // saved, and no steering or visibility owner reads them yet.
+            "setnoavoidance" => Command([Kind.Number], arguments =>
+            {
+                world().AiToggles.NoAvoidance = Flag(arguments[0].Number);
+                FalloutScriptCommandDeferral.Warn(name, "no-actor-avoidance-steering-reads-flag");
+            }),
+            "setallvisible" => Command([Kind.Number], arguments =>
+            {
+                world().AiToggles.AllVisible = Flag(arguments[0].Number);
+                FalloutScriptCommandDeferral.Warn(name, "no-detection-visibility-owner-reads-flag");
+            }),
+            // The shipping engine reads the flag and does nothing else.
+            "setallreachable" => Command([Kind.Number], arguments => _ = Flag(arguments[0].Number)),
+            // Outside an inventory item's script there is no containing item: the
+            // engine does nothing and succeeds.
+            "dropme" => Command([], _ => { }),
             "getdetected" => new([Kind.Value], arguments =>
                 world().DetectsTarget(subject(), Form(arguments[0]), distance) ? 1 : 0) { ReadOnly = true },
             _ => null,

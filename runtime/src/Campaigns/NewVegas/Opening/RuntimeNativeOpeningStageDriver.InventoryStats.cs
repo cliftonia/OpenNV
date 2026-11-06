@@ -38,5 +38,5 @@ internal partial class RuntimeNativeOpeningStageDriver
         return ReadSharedPlayerDefense();
     }
 
-    internal bool InventoryHardcore => _scripts.Session.Hardcore;
+    internal bool Hardcore => _scripts.Session.Hardcore;
 }

@@ -12,6 +12,8 @@ internal sealed record FalloutScreenBloodPresentation(IReadOnlyList<FalloutScree
 // Transient screen effects share the world/script lifetime, outside campaign
 // snapshots. Presentation preparation must succeed before committing geometry,
 // random state, or a source command's suffix.
+internal sealed record FalloutScreenSplatterOverride(float? Alpha, float? MinimumSize, float? MaximumSize);
+
 internal sealed class FalloutScreenBlood(FalloutPluginStack records, ulong? seed = null)
 {
     private sealed record Binding(bool Enabled, Func<FalloutScreenBloodRequest, FalloutScreenBloodPresentation> Prepare);
@@ -69,7 +71,9 @@ internal sealed class FalloutScreenBlood(FalloutPluginStack records, ulong? seed
         return new Scope(() => { if (_binding == binding) Clear(); });
     }
 
-    internal void Trigger(FalloutFormKey caller, uint count)
+    // TriggerScreenSplatter shares this overlay; its optional alpha and size
+    // range replace the source opacity and size settings for that request.
+    internal void Trigger(FalloutFormKey caller, uint count, FalloutScreenSplatterOverride? splatter = null)
     {
         try
         {
@@ -81,7 +85,9 @@ internal sealed class FalloutScreenBlood(FalloutPluginStack records, ulong? seed
             if (admitted == 0) { LastDisposition = "zero-or-active-capacity"; return; }
             if (admitted > ushort.MaxValue / 4) throw new NotSupportedException("Screen blood exceeds the source UInt16 quad-index extent.");
             var activeAfter = checked(ActiveDrops + (int)admitted);
-            var minimumSize = settings.Float("fBloodSplatterMinSize"); var maximumSize = settings.Float("fBloodSplatterMaxSize");
+            var minimumSize = splatter?.MinimumSize ?? settings.Float("fBloodSplatterMinSize");
+            var maximumSize = splatter?.MaximumSize ?? settings.Float("fBloodSplatterMaxSize");
+            if (minimumSize > maximumSize) throw new InvalidDataException("Screen splatter size range is inverted.");
             var minimumOpacity = settings.Float("fBloodSplatterMinOpacity"); var maximumOpacity = settings.Float("fBloodSplatterMaxOpacity");
             var minimumOpacity2 = settings.Float("fBloodSplatterMinOpacity2"); var maximumOpacity2 = settings.Float("fBloodSplatterMaxOpacity2");
             var chance = settings.Float("fBloodSplatterOpacityChance");
@@ -95,6 +101,7 @@ internal sealed class FalloutScreenBlood(FalloutPluginStack records, ulong? seed
                 var x = Between(-1, 1); var y = Between(-1, 1); var size = Between(minimumSize, maximumSize);
                 var opacity = Between(minimumOpacity, maximumOpacity); var alternate = Between(minimumOpacity2, maximumOpacity2);
                 if (random.NextUnitFloat() <= chance) opacity = alternate;
+                if (splatter?.Alpha is { } alpha) opacity = alpha;
                 drops[index] = new(x, y, size, opacity, random.NextUnitFloat() <= .5f ? .5f : 0,
                     random.NextUnitFloat() <= .5f ? .5f : 0);
                 if (!float.IsFinite(size) || !float.IsFinite(opacity)) throw new NotSupportedException("Screen blood sampled non-finite geometry or opacity.");

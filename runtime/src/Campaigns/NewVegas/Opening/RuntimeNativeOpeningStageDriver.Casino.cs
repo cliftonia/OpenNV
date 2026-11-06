@@ -38,10 +38,7 @@ internal partial class RuntimeNativeOpeningStageDriver
 
     private void OpenCasinoMenu(FalloutCasinoCommandRequest request)
     {
-        if (_casinoMenu is not null || _caravanMenu is not null || _player.FurnitureActive || _moviePlaying || _recipeMenu is not null ||
-            _barterMenu is not null || _levelUpMenu is not null || _nameEntry is not null || _raceSexEntry is not null ||
-            _vigorEntry is not null || _specialBookEntry is not null || _tagSkillEntry is not null || _traitEntry is not null ||
-            TerminalSaveBlocker is not null)
+        if (PlayerMenuOwnsInput)
             throw new InvalidOperationException("A casino game cannot open while another player interaction owns input.");
         var world = _scripts.References ?? throw new InvalidOperationException("Casino has no shared world owner.");
         var source = RuntimeLiveContentSource.Current ?? throw new InvalidOperationException("Casino owned presentation source is absent.");
@@ -60,14 +57,17 @@ internal partial class RuntimeNativeOpeningStageDriver
                     $"earnings={world.CasinoWinnings.Earnings(request.Casino.Form)} level={world.CasinoWinnings.Level(request.Casino.Form)} " +
                     "owner=shared-inventory;casino-winnings;misc-statistic payoutTable=unverified");
             });
-        var textures = new Dictionary<string, Texture2D>(StringComparer.OrdinalIgnoreCase);
+        var textures = new Dictionary<string, Texture2D?>(StringComparer.OrdinalIgnoreCase);
         Texture2D? Texture(string path)
         {
             var logical = path.Replace('\\', '/');
             if (!logical.StartsWith("textures/", StringComparison.OrdinalIgnoreCase)) logical = "textures/" + logical;
             if (textures.TryGetValue(logical, out var cached)) return cached;
-            if (!source.TryRead(logical, null, out var payload, out var identity)) return null;
-            var texture = NativeDdsTexture.LoadCached(source, payload, identity, logicalPath: logical);
+            Texture2D? texture = null;
+            // The menu draws a text stand-in for absent art; the gap stays visible.
+            if (source.TryRead(logical, null, out var payload, out var identity))
+                texture = NativeDdsTexture.LoadCached(source, payload, identity, logicalPath: logical);
+            else GD.PushWarning($"OPENNV_NATIVE_CASINO_TEXTURE_DIVERGENCE texture={logical} reason=absent");
             textures.Add(logical, texture); return texture;
         }
         void Sound(string editorId)

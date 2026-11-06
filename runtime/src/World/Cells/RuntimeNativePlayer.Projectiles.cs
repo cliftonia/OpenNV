@@ -237,7 +237,7 @@ internal partial class RuntimeNativePlayer
         // Resolve the impact's source material before advancing that stage.
         if (destructible is not null)
         {
-            try { destructible.Hit(damage.Amount, _presentationRecords!.RuntimeFormKey(0x14)); }
+            try { destructible.Hit(damage.Unmitigated, _presentationRecords!.RuntimeFormKey(0x14)); }
             catch (Exception error) { _damageError = error.Message; GD.PushError("OPENNV_OBJECT_DAMAGE_UNBOUND " + error.Message); }
         }
         if (actorHit is null && _damageError is null)
@@ -349,7 +349,7 @@ internal partial class RuntimeNativePlayer
         }
         if (destructible is not null && damage is { } objectDamage)
         {
-            try { destructible.Hit(objectDamage.Amount, attacker); trace.ObjectDamageApplied = true; }
+            try { destructible.Hit(objectDamage.Unmitigated, attacker); trace.ObjectDamageApplied = true; }
             catch (Exception error) { _damageError = error.Message; GD.PushError("OPENNV_OBJECT_DAMAGE_UNBOUND " + error.Message); }
         }
         if (actorHit is null && _damageError is null)

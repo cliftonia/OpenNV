@@ -10,6 +10,11 @@ if (args is ["--script-actor-commands"])
     ScriptActorCommandContracts.Run();
     return;
 }
+if (args is ["--combat"])
+{
+    CombatDamageContracts.Run();
+    return;
+}
 if (args is ["--owned-opening-conversation", var openingConversationRoot, var openingConversationSave])
 {
     OwnedDialogueVoiceProbe.OpeningConversation(openingConversationRoot, openingConversationSave);
@@ -955,6 +960,11 @@ if (args is ["--reference-access-contracts"])
 if (args is ["--game-time-command-contracts"])
 {
     GameTimeCommandContracts.Run();
+    return;
+}
+if (args is ["--audit-owned-hardcore", var hardcoreGame])
+{
+    HardcoreNeedsContracts.RunOwned(hardcoreGame);
     return;
 }
 if (args.Length >= 7 && args[0] == "--audit-owned-game-time")
@@ -2036,6 +2046,7 @@ PlayerSkillContracts.Run();
 PlayerTagSkillContracts.Run();
 PlayerActorValueContracts.Run();
 PerkParameterContracts.Run();
+CombatDamageContracts.Run();
 InputControlContracts.Run();
 PlayerMoveContracts.Run();
 LoadingScreenContracts.Run();
@@ -2053,7 +2064,9 @@ NumericGameSettingContracts.Run();
 ActorAppearanceContracts.Run();
 ChallengeContracts.Run();
 WorldCommandContracts.Run();
+ScriptCommandContracts.Run();
 PlayerRestContracts.Run();
+HardcoreNeedsContracts.Run();
 AgeRaceContracts.Run();
 FaceGeometryContracts.Run();
 ScriptSoundContracts.Run();
@@ -2091,7 +2104,9 @@ AttackVariantContracts.Run();
 WeaponHandlingContracts.Run();
 WeaponFiringContracts.Run();
 VatsMeleeContracts.Run();
+PortableDeviceContracts.Run();
 DestructionContracts.Run();
+CompletenessReportContracts.Run();
 var disabledControls = new FalloutPlayerControlState(false, false, false, false, false, false, false);
 Require(new FalloutPlayerControlCommand(true, []).Apply(disabledControls) == FalloutPlayerControlState.AllEnabled,
     "EnablePlayerControls without arguments did not enable all controls.");

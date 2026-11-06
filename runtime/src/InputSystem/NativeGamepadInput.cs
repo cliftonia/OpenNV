@@ -21,7 +21,6 @@ internal sealed partial class NativeGamepadInput : Node
 {
     private const float StickDeadzone = .2f, MoveThreshold = .35f, TriggerThreshold = .4f;
     private const float LookPixelsPerSecond = 1100, CursorPixelsPerSecond = 900, TouchLookScale = 1.6f;
-    private const bool InvertControllerLookY = true;
 
     private static readonly (JoyButton Button, int Control)[] GameplayButtons =
     [
@@ -135,7 +134,7 @@ internal sealed partial class NativeGamepadInput : Node
             Hold("block", FalloutControl.Block, device >= 0 && Input.GetJoyAxis(device, JoyAxis.TriggerLeft) > TriggerThreshold);
             foreach (var (button, control) in GameplayButtons) Hold("button_" + button, control, Down(button));
             // Controller look is inverted on the vertical axis (push up to look down).
-            var look = new Vector2(rightStick.X, InvertControllerLookY ? -rightStick.Y : rightStick.Y) *
+            var look = new Vector2(rightStick.X, -rightStick.Y) *
                 LookPixelsPerSecond * (float)delta;
             if (touch)
             {

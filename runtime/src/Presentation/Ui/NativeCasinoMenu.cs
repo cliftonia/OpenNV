@@ -58,7 +58,7 @@ internal sealed partial class NativeCasinoMenu : Control
             case FalloutCasinoGame.SlotMachine: _slots = new(table); break;
             default: throw new NotSupportedException("Unowned casino game.");
         }
-        _bet = Math.Max(table.Request.MinimumBet, Math.Min(table.MaximumBet, table.Request.MinimumBet));
+        _bet = table.Request.MinimumBet;
         Name = Game + "Menu"; ProcessMode = ProcessModeEnum.Always; MouseFilter = MouseFilterEnum.Stop;
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         AddChild(new ColorRect { Color = new(.03f, .05f, .03f, .98f), MouseFilter = MouseFilterEnum.Stop, AnchorRight = 1, AnchorBottom = 1 });
@@ -179,7 +179,6 @@ internal sealed partial class NativeCasinoMenu : Control
         var actions = new HFlowContainer { Name = "BlackjackActions" };
         void Action(string name, string text, Action act, bool enabled) => actions.AddChild(Button(name, text, () => Run(() =>
         {
-            var staked = game.Hands.Sum(hand => hand.Stake);
             act();
             _sound("GAMEBlackJackCardDeal");
             FinishedSound(game.Current == FalloutBlackjackGame.Phase.Finished, game.LastReturn, game.Hands.Sum(hand => hand.Stake));

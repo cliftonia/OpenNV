@@ -50,7 +50,7 @@ public partial class NativeActorCombatAudit
             throw new InvalidOperationException("Cold reaction changed its source, phase, pose or random stream.");
         // A fresh native skin and owner must resume the saved phase without
         // replaying selection or retaining the previous skin's pose/channels.
-        var context = new NativeActorCombatContext(() => null, () => new(1, 200, 200, 70, 70, 0, 100), (_, _) => { },
+        var context = new NativeActorCombatContext(() => null, () => new(1, 200, 200, 70, 70, 0, 100), (_, _, _) => { },
             (_, to) => [to], _ => true, () => 1, globals, .4f, 9.81f);
         var cell = FalloutCellSceneReader.Read(records, saved.Cell);
         var placed = cell.References.Single(value => value.FormKey == key);

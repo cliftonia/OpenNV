@@ -56,7 +56,7 @@ public partial class NativeActorPerformanceAudit
             var level = vitals.Level;
             var units = config.World.GameUnitsToMeters;
             var context = new NativeActorCombatContext(() => null, () => vitals,
-                (_, _) => throw new InvalidDataException("Attack assembly proof attempted gameplay damage."),
+                (_, _, _) => throw new InvalidDataException("Attack assembly proof attempted gameplay damage."),
                 (_, _) => throw new InvalidDataException("Attack assembly proof attempted route planning."),
                 _ => true, () => level, globals, config.Player.StepHeightMeters, config.Simulation.GravityMetersPerSecondSquared);
             RuntimeNativeNpc Assemble(FalloutReferenceWorld owner)

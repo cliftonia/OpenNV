@@ -29,14 +29,14 @@ internal sealed record FalloutDynamicMineSnapshot(uint RuntimeId, FalloutFormKey
     internal void Validate(FalloutPluginStack records, FalloutRuntimeReferences references)
     {
         var identity = FalloutSpatialReferenceId.Runtime(RuntimeId); identity.Validate();
+        Damage.Validate();
         if (references.Require(RuntimeId) is not { Kind: FalloutRuntimeReferenceKind.Projectile } runtime ||
             runtime.Base != Projectile || runtime.Retired != Taken || Item is null || Item.Count != 1 ||
             Item.Hotkey is not null || Item.ScriptState is not null || Item.Magazine is not null ||
             Item.Instance == Guid.Empty || (Item.WeaponMods & ~7) != 0 ||
             Item.Condition is { } condition && (!float.IsFinite(condition) || condition is < 0 or > 1) ||
             !FalloutEngineIdentity.IsPlayerReference(records, Creator) || !double.IsFinite(AgeSeconds) || AgeSeconds < 0 ||
-            !float.IsFinite(Damage.Amount) || Damage.Amount < 0 || !float.IsFinite(Damage.LimbMultiplier) || Damage.LimbMultiplier < 0 ||
-            !float.IsFinite(Damage.Skill) || !float.IsFinite(Damage.Condition) || Damage.AmmoEffects is { Count: > 0 } ||
+            Damage.AmmoEffects is { Count: > 0 } ||
             Sounds is null || Sounds.Reference != identity || Physics is not { Count: 1 })
             throw new InvalidDataException("Dynamic mine lost its runtime identity, source item, actor, clock, damage or physical continuation.");
         Placement.Validate();

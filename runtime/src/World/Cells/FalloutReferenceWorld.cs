@@ -55,7 +55,7 @@ internal sealed record FalloutReferenceSnapshot(FalloutFormKey Reference, Fallou
     FalloutActorLastIdleRequest? LastIdleRequest = null, bool ReferenceEssential = false, FalloutActorEssentialKnockout? EssentialKnockout = null,
     FalloutHitKnockback? HitKnockback = null, FalloutAmbientIdleSnapshot? AmbientIdle = null,
     bool RegionCellAttached = false, bool RegionImposterRole = false, FalloutSandboxRescanSnapshot? SandboxRescan = null,
-    FalloutFatigueKnockout? FatigueKnockout = null, FalloutMineState? Mine = null)
+    FalloutFatigueKnockout? FatigueKnockout = null, FalloutMineState? Mine = null, bool VatsTargetInverted = false)
 {
     internal static void Validate(IReadOnlyList<FalloutReferenceSnapshot> snapshots)
     {
@@ -319,6 +319,9 @@ internal sealed partial class FalloutReferenceInstance
     internal FalloutActorProjectileLaunch? ProjectileLaunch { get; set; }
     internal FalloutReferenceGrabEvents? GrabEvents { get; set; }
     internal FalloutDoorMotionState? DoorMotion { get; set; }
+    // OnOpen/OnClose for a finished door motion, consumed by the next native
+    // reference frame. Frame-transient like other contact admissions.
+    internal string? PendingDoorEvent { get; set; }
     private FalloutActivationRelaySnapshot? _activationRelay;
     internal FalloutActivationRelaySnapshot? ActivationRelay
     {
@@ -337,6 +340,8 @@ internal sealed partial class FalloutReferenceInstance
     internal bool Restrained { get; set; }
     internal bool PlayerTeammate { get; set; }
     internal bool ReferenceEssential { get; set; }
+    // SetVATSTarget stores a difference from the base DEST VATS Targetable flag.
+    internal bool VatsTargetInverted { get; set; }
     internal FalloutActorEssentialKnockout? EssentialKnockout { get; set; }
     internal bool TalkedToPlayer { get; set; }
     internal bool? BroadcastState { get; set; }
@@ -464,7 +469,7 @@ internal sealed partial class FalloutReferenceInstance
     internal FalloutAggroRadiusWarning? AggroWarning { get; set; }
     internal Action? StopCombat { get; set; }
     // Bound while a resident combat owner has a ragdoll: (origin in game units, or null for the player; force).
-    internal Action<System.Numerics.Vector3?, float>? ScriptPushAway { get; set; }
+    internal Action<System.Numerics.Vector3?, int>? ScriptPushAway { get; set; }
     internal Func<FalloutActorEngagement?>? CaptureEngagement { get; set; }
     internal FalloutActorCorpseEquipment? CorpseEquipment { get; set; }
     internal Func<bool, bool>? CanCaptureCorpseEquipment { get; set; }
@@ -622,7 +627,8 @@ internal sealed partial class FalloutReferenceInstance
             SandboxMarker: CaptureSandboxMarker is { } captureMarker ? captureMarker() : SandboxMarker?.Copy(),
             SandboxIdleSelection: SandboxIdleSelection, LastIdleRequest: LastIdleRequest, ReferenceEssential: ReferenceEssential, EssentialKnockout: EssentialKnockout,
             HitKnockback: HitKnockback, AmbientIdle: AmbientIdle?.Capture(),
-            RegionCellAttached: RegionCellAttached, RegionImposterRole: RegionImposterRole, FatigueKnockout: FatigueKnockout, Mine: Mine);
+            RegionCellAttached: RegionCellAttached, RegionImposterRole: RegionImposterRole, FatigueKnockout: FatigueKnockout, Mine: Mine,
+            VatsTargetInverted: VatsTargetInverted);
     }
 }
 
@@ -774,6 +780,7 @@ internal sealed partial class FalloutReferenceWorld(FalloutPluginStack records,
             var remaining = _residentReferences[instance.Reference] - 1;
             if (remaining > 0) { _residentReferences[instance.Reference] = remaining; continue; }
             _residentReferences.Remove(instance.Reference);
+            RetireTransientPresentation(instance.Reference);
             RetireOutgoingWeaponTarget(instance.Reference);
             if (instance.DeletePending) { instance.Deleted = true; instance.DeletePending = false; }
         }
@@ -1069,6 +1076,8 @@ internal sealed partial class FalloutReferenceWorld(FalloutPluginStack records,
             instance.DeletePending = snapshot.DeletePending;
             instance.Deleted = snapshot.Deleted;
             instance.Taken = snapshot.Taken;
+            if (snapshot.VatsTargetInverted) validated.RequireVatsTargetCandidate(instance);
+            instance.VatsTargetInverted = snapshot.VatsTargetInverted;
             instance.DoorOpen = snapshot.DoorOpen;
             instance.DoorMotion = snapshot.DoorMotion;
             if (snapshot.ActivationRelay is { } relay)

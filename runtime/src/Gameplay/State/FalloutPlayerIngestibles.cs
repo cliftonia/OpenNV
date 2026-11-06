@@ -24,6 +24,10 @@ internal sealed class FalloutPlayerIngestibles(FalloutPluginStack records, Fallo
         ? new(_active.ToArray(), _scriptReceipts.ToArray())
         : throw new NotSupportedException("Ingestible script invocation cannot be captured before its transaction completes.");
 
+    // An active timed effect that is detrimental and targets Health.
+    internal bool TakingHealthDamage => _active.Any(timer =>
+        Definition(timer.Item).Effects[timer.Index] is { ActorValue: 16 } effect && (effect.Flags & 4) != 0);
+
     internal void RequireFatigueKnockoutEffects()
     {
         if (_executingScript) throw new NotSupportedException("Player knockout cannot qualify an executing ingestible script.");
@@ -313,10 +317,15 @@ internal sealed class FalloutPlayerIngestibles(FalloutPluginStack records, Fallo
             if (!float.IsFinite(radiation)) throw new InvalidDataException("Ingestible radiation overflowed.");
             return state with { RadiationRads = Math.Max(0, radiation) };
         }
-        var health = Math.Clamp(state.ExactHitPoints + amount, 0, state.MaximumHitPoints);
-        var displayed = (int)MathF.Ceiling(health);
-        state = state with { HitPoints = displayed, HitPointFraction = displayed - health };
-        if (effect.Archetype != 34) return state;
+        if (FalloutIngestibleApplications.IsAccumulated(effect.ActorValue))
+            return state.WithNeed(effect.ActorValue, state.Need(effect.ActorValue) - amount);
+        if (effect.Archetype != FalloutIngestibleApplications.LimbCondition)
+        {
+            var health = Math.Clamp(state.ExactHitPoints + amount, 0, state.MaximumHitPoints);
+            var displayed = (int)MathF.Ceiling(health);
+            state = state with { HitPoints = displayed, HitPointFraction = displayed - health };
+        }
+        if (effect.Archetype is not (34 or FalloutIngestibleApplications.LimbCondition)) return state;
         var limbs = new Dictionary<byte, float>(state.LimbDamage ?? new Dictionary<byte, float>());
         foreach (var part in bodyParts.Parts.Where(part => part.ActorValue is >= 25 and <= 30 && part.HealthPercent > 0))
         {

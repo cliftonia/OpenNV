@@ -29,16 +29,19 @@ internal static class FalloutInventoryItemStatistics
         return result >= 1 ? RoundIncrement(result, 1) : result;
     }
 
+    // Condition value under the stack's fItemConditionValue* settings.
+    internal static float ConditionValue(FalloutPluginStack records, float value, float condition) => ConditionValue(value, condition,
+        records.NumericSettings.Float("fItemConditionValueBase"),
+        records.NumericSettings.Float("fItemConditionValueMult"),
+        records.NumericSettings.Float("fItemConditionValueExp"));
+
     internal static string Value(FalloutPluginStack records, FalloutCampaignItem item, FalloutItemVariant extra)
     {
         if (item.RecordType is "ALCH" or "INGR")
             throw new NotSupportedException("Magic-item value requires its effective source effect-cost owner.");
         var sourceValue = item.Value ?? throw new NotSupportedException("Item has no source value owner.");
         var condition = item.RecordType is "WEAP" or "ARMO" ? extra.Condition ?? 1 : 1;
-        var value = ConditionValue(sourceValue, condition,
-            records.NumericSettings.Float("fItemConditionValueBase"),
-            records.NumericSettings.Float("fItemConditionValueMult"),
-            records.NumericSettings.Float("fItemConditionValueExp"));
+        var value = ConditionValue(records, sourceValue, condition);
         if (extra.WeaponMods != 0)
         {
             if (item.RecordType != "WEAP" || (extra.WeaponMods & ~7) != 0)

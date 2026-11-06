@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using Godot;
 using OpenNV.Runtime.Content;
 using OpenNV.Runtime.Gameplay.State;
+using OpenNV.Runtime.World.Cells;
 
 namespace OpenNV.Runtime.World.Actors;
 
@@ -130,9 +131,14 @@ internal sealed partial class RuntimeNativeActorCombat
             if (data.Length != 17) throw new NotSupportedException("Creature attack stat extent is unbound.");
             _enemySkillValues = Enumerable.Repeat(data[1], 28).ToArray();
         }
-        _enemyDamage = new(_records, owned.Contents, value => value is >= 32 and <= 45 ?
-            _actor is RuntimeNativeNpc ? _world.ActorValue(_state.Reference, FalloutActorValue.SourceSlot(value)) : _enemySkillValues[value - 32] :
-            throw new NotSupportedException("Actor weapon skill is outside its source skill block."), () => _world.PerkEntries(_state.Reference).ToArray());
+        _enemyDamage = new(_records, owned.Contents, value => value switch
+            {
+                >= 32 and <= 45 => _actor is RuntimeNativeNpc ? _world.ActorValue(_state.Reference, FalloutActorValue.SourceSlot(value)) : _enemySkillValues[value - 32],
+                // CritChance, MeleeDamage and UnarmedDamage derive from attributes.
+                14 or 17 or 56 => _world.ActorValue(_state.Reference, FalloutActorValue.SourceSlot(value)),
+                _ => throw new NotSupportedException("Actor weapon value is outside its source skill and derived blocks."),
+            }, () => _world.PerkEntries(_state.Reference).ToArray(), new(AttackArmConditions,
+            () => _state.PlayerTeammate ? FalloutHitTarget.CompanionScale(PlayerCharisma()) : 1, () => false));
         var group = _enemyWeapon.AnimationGroup;
         var style = _world.CombatStyle(_state.Reference);
         _attackRange = Ranged ? _enemyWeapon.MaximumRange * _skeleton.UnitsToMetres * (style?.MaximumRangeMultiplier ?? 1) :

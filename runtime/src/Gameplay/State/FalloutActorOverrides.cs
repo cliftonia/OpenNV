@@ -19,4 +19,4 @@ internal sealed record FalloutActorOverrides(FalloutFormKey Target, string Sourc
     IReadOnlyList<FalloutActorFormOverride>? TeammatePerks = null,
     bool Ghost = false, IReadOnlyList<FalloutActorFormOverride>? PlayerEnemyFactions = null,
     IReadOnlyList<FalloutActorFormOverride>? Spells = null, FalloutActorFormOverride? NpcRadio = null,
-    bool AlwaysShowSubtitles = false);
+    bool AlwaysShowSubtitles = false, byte CriticalStage = 0);

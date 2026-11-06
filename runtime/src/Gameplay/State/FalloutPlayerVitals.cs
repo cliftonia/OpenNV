@@ -34,7 +34,20 @@ internal sealed partial class FalloutPlayerVitals
             throw new NotSupportedException("ResetHealth cannot substitute for the player resurrection owner.");
         Publish(current with { HitPoints = current.MaximumHitPoints, HitPointFraction = 0, LimbDamage = null });
     }
-    internal void Publish(GameplayVitals state) { state.Validate(); _state = state; }
+    internal void Publish(GameplayVitals state)
+    {
+        state.Validate();
+        var before = _state;
+        _state = state;
+        if (before is not null && (before.Dehydration != state.Dehydration || before.Hunger != state.Hunger ||
+            before.SleepDeprivation != state.SleepDeprivation))
+            NeedsChanged?.Invoke(before, state);
+    }
+    // Every change of a Hardcore need, from any source, reaches its stage owner.
+    internal event Action<GameplayVitals, GameplayVitals>? NeedsChanged;
+    // Needs never depend on derived maximums. Constant-effect selection reads
+    // them while the derivation itself evaluates actor values.
+    internal float StoredNeed(int actorValue) => _state.Need(actorValue);
     internal void RequireLevelUpOwner()
     {
         var current = State;

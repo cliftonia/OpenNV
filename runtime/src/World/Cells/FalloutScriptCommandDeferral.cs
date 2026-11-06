@@ -1,8 +1,7 @@
 namespace OpenNV.Runtime.World.Cells;
 
 // A reached command whose engine effect OpenNV only approximates completes
-// without stopping its script. A reached condition function whose state has no
-// owner evaluates false. Each name is reported once per process.
+// without stopping its script. Each name is reported once per process.
 internal static class FalloutScriptCommandDeferral
 {
     private static readonly HashSet<string> Reported = [];
@@ -12,16 +11,20 @@ internal static class FalloutScriptCommandDeferral
     // its warning channel before any session can execute source scripts.
     internal static Action<string> Sink { get; set; } = message => Console.Error.WriteLine(message);
 
-    internal static void Warn(string operation, string reason) =>
-        Report(operation, $"OPENNV_SCRIPT_COMMAND_DEFERRED name={operation} reason={reason}");
+    internal static bool WasReported(string operation)
+    {
+        lock (Gate) return Reported.Contains("SCRIPT_COMMAND:" + operation);
+    }
 
-    internal static void WarnCondition(string function, string reason) =>
-        Report("condition:" + function, $"OPENNV_CONDITION_FUNCTION_DEFERRED name={function} reason={reason}");
+    internal static void Warn(string operation, string reason) => Report("SCRIPT_COMMAND", operation, reason);
 
-    private static void Report(string key, string message)
+    // A combat rule reached in play whose consumer owner is absent.
+    internal static void WarnCombat(string rule, string reason) => Report("COMBAT", rule, reason);
+
+    private static void Report(string channel, string name, string reason)
     {
         lock (Gate)
-            if (!Reported.Add(key)) return;
-        Sink(message);
+            if (!Reported.Add(channel + ":" + name)) return;
+        Sink($"OPENNV_{channel}_DEFERRED name={name} reason={reason}");
     }
 }
