@@ -88,6 +88,13 @@ internal sealed class FalloutVatsConditionState(FalloutPluginStack records)
     private static NotSupportedException Missing(FalloutConditionQuery condition) =>
         new($"GetVATSValue selector {condition.Argument1}/{condition.Argument2} requires its current VATS action-context value owner.");
 
+    private FalloutVatsCameraSpace? _cameraSpace;
+    internal void BindCameraSpace(FalloutVatsCameraSpace? space) => _cameraSpace = space;
+
+    // Camera-path probes run in the live scene around the subject actor.
+    internal FalloutVatsCameraSpace CameraSpace => _cameraSpace ??
+        throw new NotSupportedException("VATS camera probe has no live physics-scene owner.");
+
     internal float Mode() => _contextActive?.Invoke() != true ? 0 :
         throw new NotSupportedException("Active VATS camera mode requires its native phase owner.");
 

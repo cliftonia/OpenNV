@@ -74,6 +74,9 @@ internal partial class RuntimeNativeOpeningStageDriver
         Function.GetHealthPercentage => ActorHealthPercentage(_pluginStack.RuntimeFormKey(0x14)),
         Function.HasPerk => _playerSkills.HasPerk(condition.FormArgument1) ? 1 : 0,
         Function.IsHardcore => _scripts.Session.Hardcore ? 1 : 0,
+        Function.GetScale => _scripts.Session.PlayerScale,
+        // Lingering explosion radiation is the player's live exposure source.
+        Function.GetRadiationLevel => _player.ExplosionRadiationRate,
         Function.PlayerInRegion => _scripts.References!.IsInRegion(_pluginStack.RuntimeFormKey(0x14), condition.FormArgument1,
             SharedConditions.PlayerPlacement?.Invoke(), _player.UnitsToMeters) ? 1 : 0,
         _ => throw new NotSupportedException($"Player condition {condition.Function} has no authoritative native state owner."),

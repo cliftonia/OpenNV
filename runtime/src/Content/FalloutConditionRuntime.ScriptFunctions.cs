@@ -14,8 +14,10 @@ internal sealed partial class FalloutConditionRuntime
             FalloutScriptValue? secondForm = null)
         {
             if (!scoped && explicitReceiver) RequireReference(subject());
-            return Evaluate(new FalloutConditionQuery(new(declaration, 0, 0, (ushort)function, number, second, 0, 0), argument, secondForm),
+            var result = Evaluate(new FalloutConditionQuery(new(declaration, 0, 0, (ushort)function, number, second, 0, 0), argument, secondForm),
                 new(scoped ? subject() : declaration.FormKey));
+            // A script expression has no false-for-every-operator outcome.
+            return FalloutCondition.Failed(result) ? throw new NotSupportedException($"Script function {function} reported evaluation failure.") : result;
         }
         FalloutFormKey FormValue(FalloutScriptArgument argument) => argument.Value.Kind == FalloutScriptValueKind.Number
             ? records.RuntimeFormKey(Index(argument.Number)) : argument.Value.FormKey(records);

@@ -34,6 +34,8 @@ internal sealed class FalloutPlayerIngestibles(FalloutPluginStack records, Fallo
                 throw new NotSupportedException("Player knockout ingestible requires its active paralysis/effect owner.");
         }
     }
+    internal IEnumerable<FalloutActiveEffect> ActiveEffects => _active.Select(active =>
+        new FalloutActiveEffect(active.Item, Definition(active.Item).Effects.Single(effect => effect.Index == active.Index).Form));
     private FalloutIngestible Definition(FalloutFormKey form)
     {
         if (!_definitions.TryGetValue(form, out var value))

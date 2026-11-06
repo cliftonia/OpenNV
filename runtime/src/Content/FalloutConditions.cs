@@ -20,7 +20,15 @@ internal sealed record FalloutCondition(FalloutPluginRecord Owner, byte Flags, f
 {
     internal FalloutFormKey FormArgument1 => Owner.Plugin.AdjustFormId(Argument1);
     internal FalloutConditionFunction Kind => (FalloutConditionFunction)Function;
-    internal uint SubjectRunOn => (Flags & 2) != 0 ? 1 : RunOn;
+    // Legacy type bits force Target (0x02) or Reference (0x08). Run-on values
+    // above Linked Reference have no remapping and run on the subject.
+    internal uint SubjectRunOn => (Flags & 2) != 0 ? 1 : (Flags & 8) != 0 ? 2 : RunOn > 4 ? 0 : RunOn;
+
+    // A function that reports evaluation failure, or a reference-requiring
+    // function without a subject, makes the condition false for every operator.
+    // A dedicated NaN payload keeps it distinct from a defective non-finite result.
+    internal static readonly float EvaluationFailed = BitConverter.Int32BitsToSingle(0x7fc0fa11);
+    internal static bool Failed(float result) => BitConverter.SingleToInt32Bits(result) == 0x7fc0fa11;
 
     internal static IReadOnlyList<FalloutCondition> Read(FalloutPluginRecord record) => record.ReadSubrecords()
         .Where(field => field.Signature == "CTDA").Select(field => Read(record, field.Data.Span)).ToArray();
@@ -46,10 +54,10 @@ internal sealed record FalloutCondition(FalloutPluginRecord Owner, byte Flags, f
         {
             if (!group)
             {
-                if ((condition.Flags & 0x18) != 0 || condition.SubjectRunOn != 0 && !evaluateRunOn)
+                if ((condition.Flags & 0x10) != 0 || condition.SubjectRunOn != 0 && !evaluateRunOn)
                     throw new NotSupportedException($"{condition.Owner.FormKey} CTDA needs its flags/run-on owner.");
                 var actual = evaluate(condition);
-                if (!float.IsFinite(actual)) throw new InvalidDataException("Non-finite condition result.");
+                if (!float.IsFinite(actual) && !Failed(actual)) throw new InvalidDataException("Non-finite condition result.");
                 // The comparison union contains a declaring-plugin GLOB FormID
                 // when Use Global is set. Its value uses the same bound global
                 // query owner as an authored GetGlobalValue predicate.
@@ -64,7 +72,7 @@ internal sealed record FalloutCondition(FalloutPluginRecord Owner, byte Flags, f
                     Reference = 0,
                 });
                 if (!float.IsFinite(comparison)) throw new InvalidDataException("Non-finite condition comparison.");
-                group = (condition.Flags >> 5) switch
+                group = !Failed(actual) && (condition.Flags >> 5) switch
                 {
                     0 => actual == comparison,
                     1 => actual != comparison,

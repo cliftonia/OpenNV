@@ -12,6 +12,18 @@ internal sealed record FalloutWeaponShot(FalloutFormKey Weapon, FalloutFormKey? 
     internal uint OnHitBehavior { get; init; }
     internal byte AttackAnimation { get; init; }
     internal int SkillActorValue { get; init; }
+
+    // WEAP DNAM governing skill actor value.
+    internal static int ReadSkillActorValue(FalloutPluginRecord weapon)
+    {
+        if (weapon.Signature != "WEAP") throw new InvalidDataException("Weapon skill source is not WEAP.");
+        var data = weapon.ReadSubrecords().Single(field => field.Signature == "DNAM").Data.Span;
+        if (!FalloutWeaponPresentation.IsSupportedDnamExtent(data.Length)) throw new NotSupportedException("Weapon DNAM extent is unbound.");
+        return SkillActorValueOf(data);
+    }
+
+    private static int SkillActorValueOf(ReadOnlySpan<byte> dnam) => BinaryPrimitives.ReadInt32LittleEndian(dnam[104..]);
+
     internal int StrengthRequirement { get; init; }
     internal int SkillRequirement { get; init; }
 
@@ -92,7 +104,7 @@ internal sealed record FalloutWeaponShot(FalloutFormKey Weapon, FalloutFormKey? 
             WeaponAnimationType = type,
             OnHitBehavior = BinaryPrimitives.ReadUInt32LittleEndian(data[52..]),
             AttackAnimation = attackAnimation,
-            SkillActorValue = BinaryPrimitives.ReadInt32LittleEndian(data[104..]),
+            SkillActorValue = SkillActorValueOf(data),
             StrengthRequirement = data.Length >= 172 ? checked((int)BinaryPrimitives.ReadUInt32LittleEndian(data[168..])) : 0,
             SkillRequirement = data.Length >= 204 ? checked((int)BinaryPrimitives.ReadUInt32LittleEndian(data[200..])) : 0,
         };

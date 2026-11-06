@@ -1323,6 +1323,11 @@ if (args is ["--shared-condition-contracts"])
     SharedConditionContracts.Run();
     return;
 }
+if (args is ["--condition-function-contracts"])
+{
+    ConditionFunctionContracts.Run();
+    return;
+}
 if (args is ["--audit-mutable-script-state", var mutableScriptRoot])
 {
     OwnedMutableScriptStateProbe.Run(mutableScriptRoot);
@@ -1965,6 +1970,7 @@ finally
 ConversationContracts.Run();
 ConversationSpeakerAdmissionContracts.Run();
 SharedConditionContracts.Run();
+ConditionFunctionContracts.Run();
 ActorSourceContracts.Run();
 FactionRelationContracts.Run();
 ScriptActorCommandContracts.Run();

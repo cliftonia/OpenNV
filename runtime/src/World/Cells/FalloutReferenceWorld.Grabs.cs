@@ -16,8 +16,14 @@ internal sealed record FalloutReferenceGrabEvents(FalloutFormKey Reference, long
 
 internal sealed partial class FalloutReferenceWorld
 {
+    // The reference the player is holding with the grab key. A hold is not
+    // saved: a loaded game starts with empty hands.
+    internal FalloutFormKey? PlayerGrabbedReference { get; private set; }
+
     internal void MarkPlayerGrab(FalloutFormKey reference, bool grabbed)
     {
+        if (grabbed) PlayerGrabbedReference = reference;
+        else if (PlayerGrabbedReference == reference) PlayerGrabbedReference = null;
         var instance = Get(reference);
         if (instance.Deleted || instance.DeletePending) return;
         var previous = instance.GrabEvents ?? new(reference, 0, 0, 0);

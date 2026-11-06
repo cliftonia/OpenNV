@@ -398,6 +398,7 @@ internal partial class RuntimeNativeOpeningStageDriver : Node
     internal void InitializeOwnedState()
     {
         _scripts.References!.BindPlayerConditions(EvaluatePlayerNativeCondition);
+        BindConditionOwners();
         ConfigureScriptExplosions();
         _playerPackage = new RuntimeNativePlayerPackage(_pluginStack, _player, _scripts.Session, _scripts.References!, () => _activeCell,
             _restorePlayerPackageAudio);

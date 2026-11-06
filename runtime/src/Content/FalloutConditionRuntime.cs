@@ -56,13 +56,12 @@ internal sealed partial class FalloutConditionRuntime(FalloutPluginStack records
     internal float Evaluate(FalloutConditionQuery condition, FalloutConditionScope scope)
     {
         var result = EvaluateValue(condition, scope);
-        return float.IsFinite(result) ? result : throw new InvalidDataException("Condition returned a non-finite result.");
+        return float.IsFinite(result) || FalloutCondition.Failed(result) ? result : throw new InvalidDataException("Condition returned a non-finite result.");
     }
 
     private float EvaluateValue(FalloutConditionQuery condition, FalloutConditionScope scope)
     {
-        if (condition.RunOn > 4 || condition.RunOn == 3)
-            throw new NotSupportedException($"Condition run-on {condition.RunOn} has no qualified invocation owner.");
+        condition = WithOtherReference(condition, scope);
         if (condition.Kind is Function.GetQuestRunning or Function.GetStage or Function.GetStageDone or Function.GetQuestVariable or
             Function.GetObjectiveCompleted or Function.GetObjectiveDisplayed or Function.GetQuestCompleted)
         {
@@ -72,6 +71,7 @@ internal sealed partial class FalloutConditionRuntime(FalloutPluginStack records
         }
         if (FalloutPlatformConditions.Evaluate(condition.Declaration) is { } platform)
         { NoArguments(condition); return platform; }
+        if (EvaluateSubjectless(condition) is { } subjectless) return subjectless;
         switch (condition.Kind)
         {
             case Function.GetCurrentTime: NoArguments(condition); return Hour is { } hour ? hour() : GlobalValue(condition);
@@ -128,7 +128,8 @@ internal sealed partial class FalloutConditionRuntime(FalloutPluginStack records
                 return Required(world, "region placement").IsInRegion(records.RuntimeFormKey(0x14), condition.FormArgument1,
                     regionPlayer, UnitsToMetres()) ? 1 : 0;
         }
-        var subject = scope.Resolve(condition.Declaration);
+        // A reference-requiring function without a subject is never called.
+        if (scope.Subject(condition.Declaration, CombatTarget) is not { } subject) return FalloutCondition.EvaluationFailed;
         if (condition.Kind is not (Function.GetIsReference or Function.GetHeadingAngle) &&
             (condition.RunOn != 0 || Identity?.Invoke(subject) is null)) RequireReference(subject);
         return EvaluateSubject(condition, subject, scope);
@@ -373,6 +374,14 @@ internal sealed partial class FalloutConditionRuntime(FalloutPluginStack records
                 SecondUnused(condition);
                 if (subject == records.RuntimeFormKey(0x14) || records.GetEffective(Base(subject)).Signature != "CREA") return 0;
                 return CreatureType(Traits(subject)) == condition.Argument1 ? 1 : 0;
+            case Function.GetScale or Function.IsTurning or Function.IsIdlePlaying or Function.GetAnimAction or Function.GetShouldAttack or
+                Function.IsWeaponSkillType or Function.GetTrespassWarningLevel or Function.HasMagicEffect or Function.IsSpellTarget or
+                Function.GetGroupMemberCount or Function.GetGroupTargetCount or Function.GetIsObjectType or Function.GetIsUsedItemEquipType or
+                Function.GetRadiationLevel or Function.GetMajorCrimeCount or Function.GetFriendHit or Function.HasBeenEaten or
+                Function.GetCauseofDeath or Function.GetVATSRightAreaFree or Function.GetVATSLeftAreaFree or Function.GetVATSBackAreaFree or
+                Function.GetVATSFrontAreaFree or Function.GetVATSRightTargetVisible or Function.GetVATSLeftTargetVisible or
+                Function.GetVATSFrontTargetVisible:
+                return EvaluateProcessFunction(condition, subject);
             default: return NativeValue(subject, condition);
         }
     }

@@ -19,7 +19,8 @@ internal sealed class FalloutTerminalConditions(FalloutPluginStack records, Fall
         if (records.GetEffective(terminalReference).Signature != "REFR" ||
             records.GetEffective(world.Get(terminalReference).Base).Signature != "TERM")
             throw new InvalidDataException("Terminal condition subject has no actual placed TERM owner.");
-        if (condition.SubjectRunOn is not (0 or 2 or 4))
+        // A terminal is not an actor, so run-on Combat Target resolves no subject.
+        if (condition.SubjectRunOn is not (0 or 2 or 3 or 4))
             throw new NotSupportedException($"Terminal condition run-on {condition.RunOn} has no context owner.");
         return _runtime.Evaluate(condition, new(terminalReference, LinkedReference: world.GetLinkedRef));
     }

@@ -432,6 +432,7 @@ public partial class RuntimeCoordinator
         _nativeReferences?.Dispose();
         _nativeReferences = new(_nativePluginStack, auxiliary: _nativeScriptStorage.Auxiliary,
             ini: _nativeScriptStorage.Ini, ui: _nativeUi, controls: _nativeScriptStorage.Controls);
+        BindNativeSessionConditions(_nativeReferences);
         _nativeInitialCell = content.Campaign == RuntimeLiveContentSource.Fallout3Game ? null :
             FalloutCellSceneReader.Read(_nativePluginStack, new(NativeNewVegasInitialCellPlugin, 0x103df9));
         _nativeStartingQuest = FalloutNewGameBootstrap.StartingQuest(_nativePluginStack, FalloutInstallationSettings.Read(content));
@@ -698,6 +699,7 @@ public partial class RuntimeCoordinator
             _nativeReferences?.Dispose();
             _nativeReferences = new(stack, auxiliary: _nativeScriptStorage?.Auxiliary,
                 ini: _nativeScriptStorage?.Ini, ui: _nativeUi, controls: _nativeScriptStorage?.Controls);
+            BindNativeSessionConditions(_nativeReferences);
             if (restore.State.FormLists is { } formLists) _nativeReferences.FormLists.Restore(formLists);
             if (restore.State.LeveledItems is { } leveledItems) _nativeReferences.LeveledItems.Restore(leveledItems);
             if (restore.State.ActorBaseFlags is { } baseFlags) _nativeReferences.ActorBaseFlags.Restore(baseFlags);
@@ -1365,6 +1367,11 @@ public partial class RuntimeCoordinator
     }
 
     private bool _nativeDoorLoading;
+
+    // Door loads, fast travel and MoveTo hold the door-loading flag until the
+    // destination cell is attached.
+    private void BindNativeSessionConditions(FalloutReferenceWorld references) => references.BindSessionConditions(
+        () => _nativeDoorLoading, () => (_nativeSkyLighting ?? throw new InvalidOperationException("Weather query has no sky owner.")).Transition);
     private void RequestNativeDoorTransition(FalloutPlacedReference reference)
     {
         if (_nativeDoorLoading || _nativeSessionTransitioning || _retiringNativeSession) return;

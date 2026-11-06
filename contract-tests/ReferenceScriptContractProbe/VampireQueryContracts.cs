@@ -57,7 +57,8 @@ internal static class VampireQueryContracts
                 Check(FalloutCondition.AllPass([condition], conditions.Evaluate, true) &&
                     !FalloutCondition.AllPass([condition with { Comparison = 1 }], conditions.Evaluate, true),
                     "Vampire query skipped authored comparison semantics.");
-                Reject(() => conditions.Evaluate(condition with { RunOn = 3 }));
+                // GetVampire reads the game state, so no run-on subject is resolved.
+                Check(conditions.Evaluate(condition with { RunOn = 3 }) == 0, "Vampire query resolved a run-on subject.");
                 Reject(() => Execute("set done to 6\nset result to player.GetVampire 1\nset done to 99"));
                 Check(quests.Variable(Key(0x600), 1) == 6, "Invalid query ran its script suffix or discarded the prefix.");
                 binding.Dispose();
