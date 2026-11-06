@@ -37,6 +37,26 @@ internal sealed partial class FalloutReferenceWorld
         return result ?? 0;
     }
 
+    // The source reaction modifier one faction holds toward another (XNAM),
+    // zero when absent. Runtime relationship changes rewrite only the combat
+    // reaction, so a changed pair has no qualified modifier.
+    internal int FactionReactionModifier(FalloutFormKey from, FalloutFormKey to)
+    {
+        var source = FactionSource(from);
+        _ = FactionSource(to);
+        if (_factionRelations.ContainsKey((from, to)))
+            throw new NotSupportedException("Changed faction relationship has no reaction-modifier owner.");
+        int? result = null;
+        foreach (var field in source.ReadSubrecords().Where(field => field.Signature == "XNAM"))
+        {
+            if (field.Data.Length != 12) throw new NotSupportedException("Faction relation extent is unbound.");
+            if (source.Plugin.AdjustFormId(BinaryPrimitives.ReadUInt32LittleEndian(field.Data.Span)) != to) continue;
+            if (result is not null) throw new InvalidDataException("Faction repeats a source relation.");
+            result = BinaryPrimitives.ReadInt32LittleEndian(field.Data.Span[4..]);
+        }
+        return result ?? 0;
+    }
+
     internal void SetFactionRelationship(FalloutFormKey first, FalloutFormKey second, bool allies,
         double firstFlag = 0, double secondFlag = 0)
     {

@@ -43,6 +43,9 @@ internal sealed class FalloutSkyLightingState
         ForcedWeather = overrideWeather ? weather : null;
     }
     internal void ReleaseWeatherOverride() => ForcedWeather = null;
+    // Weather changes commit at once, so the active weather is fully blended
+    // in and no outgoing weather remains.
+    internal FalloutWeatherTransition Transition => new(ActiveWeather.Form, null, 1);
 
     internal static bool ReadForceWeatherOverride(IReadOnlyList<string> arguments)
     {

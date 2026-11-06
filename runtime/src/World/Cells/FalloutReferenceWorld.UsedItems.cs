@@ -49,6 +49,8 @@ internal sealed partial class FalloutReferenceWorld
             case FalloutConditionFunction.GetIsUsedItemType:
                 return context is not null && condition.Argument1 != 0 &&
                     UsedItemType(records.GetEffective(context.Item).Signature) == condition.Argument1 ? 1 : 0;
+            case FalloutConditionFunction.GetIsUsedItemEquipType:
+                return context is not null && UsedItemEquipType(records.GetEffective(context.Item)) == unchecked((int)condition.Argument1) ? 1 : 0;
             case FalloutConditionFunction.IsWaterObject:
                 if (context is null) return 0;
                 var source = records.GetEffective(context.Item);
@@ -63,6 +65,16 @@ internal sealed partial class FalloutReferenceWorld
                 return 1;
             default: throw new InvalidDataException("Condition is not a used-item selection query.");
         }
+    }
+
+    // ETYP exists on weapons, armour and ingestibles; other items have none (-1).
+    private static int UsedItemEquipType(FalloutPluginRecord item)
+    {
+        if (item.Signature is not ("WEAP" or "ARMO" or "ALCH" or "INGR")) return -1;
+        var fields = item.ReadSubrecords().Where(field => field.Signature == "ETYP").ToArray();
+        if (fields.Length == 0) return -1;
+        if (fields.Length != 1 || fields[0].Data.Length != 4) throw new InvalidDataException($"Item {item.FormKey} has an invalid ETYP.");
+        return BinaryPrimitives.ReadInt32LittleEndian(fields[0].Data.Span);
     }
 
     private static uint UsedItemType(string signature) => FormTypeCode(signature) ??

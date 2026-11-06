@@ -129,7 +129,8 @@ internal static class DialogueSpatialContracts
                     "Explicit script-variable arguments were replaced by dialogue participants or lost source masters.");
             scriptValue = 4;
             Check(variableContext.Evaluate(scriptVariable) == 4, "Script variable query retained a stale result.");
-            Reject(() => variableContext.Evaluate(scriptVariable with { RunOn = 3 }));
+            // The script variable names its own owner, so no run-on subject is resolved.
+            Check(variableContext.Evaluate(scriptVariable with { RunOn = 3 }) == 4, "Script variable resolved a run-on subject.");
             Reject(() => own.Evaluate(scriptVariable));
 
             var talked = new Dictionary<FalloutFormKey, bool> { [Key(0x900)] = false, [Key(0x902)] = true };

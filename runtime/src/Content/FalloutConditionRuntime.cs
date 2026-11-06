@@ -56,13 +56,12 @@ internal sealed partial class FalloutConditionRuntime(FalloutPluginStack records
     internal float Evaluate(FalloutConditionQuery condition, FalloutConditionScope scope)
     {
         var result = EvaluateValue(condition, scope);
-        return float.IsFinite(result) ? result : throw new InvalidDataException("Condition returned a non-finite result.");
+        return float.IsFinite(result) || FalloutCondition.Failed(result) ? result : throw new InvalidDataException("Condition returned a non-finite result.");
     }
 
     private float EvaluateValue(FalloutConditionQuery condition, FalloutConditionScope scope)
     {
-        if (condition.RunOn > 4 || condition.RunOn == 3)
-            throw new NotSupportedException($"Condition run-on {condition.RunOn} has no qualified invocation owner.");
+        condition = WithOtherReference(condition, scope);
         if (condition.Kind is Function.GetQuestRunning or Function.GetStage or Function.GetStageDone or Function.GetQuestVariable or
             Function.GetObjectiveCompleted or Function.GetObjectiveDisplayed or Function.GetQuestCompleted)
         {
@@ -72,6 +71,7 @@ internal sealed partial class FalloutConditionRuntime(FalloutPluginStack records
         }
         if (FalloutPlatformConditions.Evaluate(condition.Declaration) is { } platform)
         { NoArguments(condition); return platform; }
+        if (EvaluateSubjectless(condition) is { } subjectless) return subjectless;
         switch (condition.Kind)
         {
             case Function.GetCurrentTime: NoArguments(condition); return Hour is { } hour ? hour() : GlobalValue(condition);
@@ -118,9 +118,6 @@ internal sealed partial class FalloutConditionRuntime(FalloutPluginStack records
                 SecondUnused(condition);
                 return Required(world, "casino winnings").CasinoWinnings.Level(Form(condition, "CSNO"));
             case Function.GetPlayerTeammateCount: NoArguments(condition); return Required(world, "teammate state").PlayerTeammateCount();
-            case Function.Exists:
-                SecondUnused(condition);
-                return !condition.IsNullFormArgument1(records) && Required(world, "reference lifecycle").ReferenceExists(condition.FormArgument1) ? 1 : 0;
             // Player-only queries: the caller is ignored.
             case Function.GetXPForNextLevel:
                 NoArguments(condition); return NativeValue(records.RuntimeFormKey(0x14), condition);
@@ -133,7 +130,8 @@ internal sealed partial class FalloutConditionRuntime(FalloutPluginStack records
                 return Required(world, "region placement").IsInRegion(records.RuntimeFormKey(0x14), condition.FormArgument1,
                     regionPlayer, UnitsToMetres()) ? 1 : 0;
         }
-        var subject = scope.Resolve(condition.Declaration);
+        // A reference-requiring function without a subject is never called.
+        if (scope.Subject(condition.Declaration, CombatTarget) is not { } subject) return FalloutCondition.EvaluationFailed;
         if (condition.Kind is not (Function.GetIsReference or Function.GetHeadingAngle) &&
             (condition.RunOn != 0 || Identity?.Invoke(subject) is null)) RequireReference(subject);
         return EvaluateSubject(condition, subject, scope);
@@ -164,9 +162,8 @@ internal sealed partial class FalloutConditionRuntime(FalloutPluginStack records
                 NoArguments(condition); return NativeValue(subject, condition);
             case Function.GetDisposition:
                 SecondUnused(condition);
-                // Native requires both actor references; a null target leaves
-                // its initialized zero, before any disposition calculation.
-                return condition.IsNullFormArgument1(records) ? 0 : NativeValue(subject, condition);
+                // A null target, even after substitution, leaves the initialized zero.
+                return condition.IsNullFormArgument1(records) ? 0 : Disposition(condition, subject, condition.FormArgument1);
             case Function.IsTrespassing:
                 NoArguments(condition);
                 return Required(world, "cell ownership").HasUnownedCell(subject, PlayerPlacement?.Invoke(), UnitsToMetres())
@@ -225,10 +222,7 @@ internal sealed partial class FalloutConditionRuntime(FalloutPluginStack records
                     Required(world, "Karma actor values").ActorValue(subject, "Karma");
                 return (uint)FalloutKarma.Alignment(records, karma) == condition.Argument1 ? 1 : 0;
             case Function.GetActorValue:
-                SecondUnused(condition);
-                return ActorValue is { } value ? value(subject, checked((int)condition.Argument1)) :
-                    subject == records.RuntimeFormKey(0x14) ? NativeValue(subject, condition) :
-                    Required(world, "actor values").ActorValue(subject, ActorValueName(condition.Argument1));
+                SecondUnused(condition); return CurrentActorValue(condition, subject, checked((int)condition.Argument1));
             case Function.GetBaseActorValue or Function.GetPermanentActorValue:
                 SecondUnused(condition);
                 var read = condition.Kind == Function.GetBaseActorValue ? FalloutActorValueRead.Base : FalloutActorValueRead.Permanent;
@@ -342,7 +336,7 @@ internal sealed partial class FalloutConditionRuntime(FalloutPluginStack records
                 NoArguments(condition); return Required(world, "actor flags").IsEssential(subject) ? 1 : 0;
             case Function.GetUnconscious: NoArguments(condition); return subject == records.RuntimeFormKey(0x14) ? NativeValue(subject, condition) : Required(world, "unconscious state").IsUnconscious(subject) ? 1 : 0;
             case Function.GetRestrained: NoArguments(condition); return Required(world, "restraint state").Get(subject).Restrained ? 1 : 0;
-            case Function.IsWeaponOut: NoArguments(condition); return WeaponOut is { } weaponOut ? weaponOut(subject) ? 1 : 0 : NativeValue(subject, condition);
+            case Function.IsWeaponOut: NoArguments(condition); return IsWeaponDrawn(condition, subject) ? 1 : 0;
             case Function.GetWeaponAnimType: NoArguments(condition); return WeaponAnimationType?.Invoke(subject) is { } weaponType ? weaponType : NativeValue(subject, condition);
             case Function.IsSneaking: NoArguments(condition); return Sneaking is { } sneaking ? sneaking(subject) ? 1 : 0 : NativeValue(subject, condition);
             case Function.IsInCombat:
@@ -399,6 +393,10 @@ internal sealed partial class FalloutConditionRuntime(FalloutPluginStack records
                 RequireReference(located);
                 if (located == records.RuntimeFormKey(0x14) && PlayerPlacement?.Invoke() is null) return NativeValue(located, condition);
                 return Required(world, "spatial state").IsInCell(located, condition.FormArgument1, PlayerPlacement?.Invoke()?.Cell) ? 1 : 0;
+            case Function.Exists:
+                // The subject exists; the result tells whether it is a different reference from the parameter.
+                SecondUnused(condition);
+                return condition.IsNullFormArgument1(records) || condition.FormArgument1 != subject ? 1 : 0;
             case Function.GetIsCreature:
                 NoArguments(condition);
                 return subject != records.RuntimeFormKey(0x14) && records.GetEffective(Base(subject)).Signature == "CREA" ? 1 : 0;
@@ -406,6 +404,14 @@ internal sealed partial class FalloutConditionRuntime(FalloutPluginStack records
                 SecondUnused(condition);
                 if (subject == records.RuntimeFormKey(0x14) || records.GetEffective(Base(subject)).Signature != "CREA") return 0;
                 return CreatureType(Traits(subject)) == condition.Argument1 ? 1 : 0;
+            case Function.GetScale or Function.IsTurning or Function.IsIdlePlaying or Function.GetAnimAction or Function.GetShouldAttack or
+                Function.IsWeaponSkillType or Function.GetTrespassWarningLevel or Function.HasMagicEffect or Function.IsSpellTarget or
+                Function.GetGroupMemberCount or Function.GetGroupTargetCount or Function.GetIsObjectType or Function.GetIsUsedItemEquipType or
+                Function.GetRadiationLevel or Function.GetMajorCrimeCount or Function.GetFriendHit or Function.HasBeenEaten or
+                Function.GetCauseofDeath or Function.GetVATSRightAreaFree or Function.GetVATSLeftAreaFree or Function.GetVATSBackAreaFree or
+                Function.GetVATSFrontAreaFree or Function.GetVATSRightTargetVisible or Function.GetVATSLeftTargetVisible or
+                Function.GetVATSFrontTargetVisible:
+                return EvaluateProcessFunction(condition, subject);
             default: return NativeValue(subject, condition);
         }
     }

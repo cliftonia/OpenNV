@@ -225,8 +225,11 @@ internal static partial class SharedConditionContracts
                 runtime.Evaluate(Query(Function.GetUsedItemLevel), scope) == -1 &&
                 runtime.Evaluate(Query(Function.GetIsUsedItem, 0x01000071), scope) == 0 &&
                 runtime.Evaluate(Query(Function.IsWaterObject), scope) == 0 &&
-                runtime.Evaluate(Query(Function.GetDisposition), scope) == 0,
+                runtime.Evaluate(Query(Function.GetDisposition), new FalloutConditionScope(Key(0x200))) == 0,
                 "Absent IDLE used-item context or null disposition target invented process values.");
+            // In the dialogue scope the empty target is the listener, so the
+            // disposition formula runs; this stack declares none of its settings.
+            Reject(() => runtime.Evaluate(Query(Function.GetDisposition), scope));
             using (world.EnterUsedItem(Key(0x71)))
             {
                 Require(runtime.Evaluate(Query(Function.GetIsUsedItem, 0x01000071), scope) == 1 &&
@@ -369,7 +372,9 @@ internal static partial class SharedConditionContracts
                 "Legacy target flag borrowed the caller.");
             quests.EnterStage(Key(0x50), 10);
             Require(runtime.Evaluate(Query(Function.GetStage, 0x01000050), scope) == 10, "Quest state bypassed its authoritative owner.");
-            Reject(() => runtime.Evaluate(Query(Function.GetIsVoiceType, 0x01000031, 3), scope));
+            // The caller is not fighting, so run-on Combat Target resolves no subject.
+            Require(FalloutCondition.Failed(runtime.Evaluate(Query(Function.GetIsVoiceType, 0x01000031, 3), scope)),
+                "Run-on Combat Target invented a subject.");
             Reject(() => runtime.Evaluate(Query(Function.GetIsVoiceType, 0x01000031, 2), scope));
             Reject(() => runtime.Evaluate(Query(Function.GetIsVoiceType, 0x01000032), scope));
             Reject(() => new FalloutConditionRuntime(records, quests, world).Evaluate(Query(Function.GetCurrentTime), scope));

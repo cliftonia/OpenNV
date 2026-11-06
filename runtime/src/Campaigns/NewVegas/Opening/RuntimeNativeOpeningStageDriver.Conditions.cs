@@ -74,6 +74,7 @@ internal partial class RuntimeNativeOpeningStageDriver
         Function.GetHealthPercentage => ActorHealthPercentage(_pluginStack.RuntimeFormKey(0x14)),
         Function.HasPerk => _playerSkills.HasPerk(condition.FormArgument1) ? 1 : 0,
         Function.IsHardcore => _scripts.Session.Hardcore ? 1 : 0,
+        Function.GetScale => _scripts.Session.PlayerScale,
         Function.IsPCSleeping => _scripts.Session.PlayerSleeping ? 1 : 0,
         Function.GetPCSleepHours => _scripts.Session.PlayerSleepHours,
         Function.PlayerInRegion => _scripts.References!.IsInRegion(_pluginStack.RuntimeFormKey(0x14), condition.FormArgument1,

@@ -64,6 +64,15 @@ internal partial class RuntimeNativePlayer
         return space;
     }
 
+    // Rads per second the player currently receives from lingering explosion radiation.
+    internal float ExplosionRadiationRate => _exposureCell is null ? 0 : _explosionExposure
+        .Select(exposure => (Exposure: exposure, Source: ExposureSource(exposure.Explosion)))
+        .Where(pair => Irradiates(pair.Exposure, pair.Source)).Sum(pair => (float)pair.Source.RadiationLevel);
+
+    private bool Irradiates(FalloutExplosionExposure exposure, FalloutExplosion source) =>
+        ExposureSpace(exposure.Cell) == ExposureSpace(_exposureCell!()) &&
+        Camera.GlobalPosition.DistanceTo(new(exposure.Position[0], exposure.Position[1], exposure.Position[2])) <= source.RadiationRadius * UnitsToMeters;
+
     private void AdvanceExplosionExposure(double delta)
     {
         for (var index = _explosionExposure.Count - 1; index >= 0; index--)
@@ -71,8 +80,7 @@ internal partial class RuntimeNativePlayer
             var exposure = _explosionExposure[index];
             var source = ExposureSource(exposure.Explosion);
             var step = Math.Min(delta, source.RadiationDissipationSeconds - exposure.ElapsedSeconds);
-            if (ExposureSpace(exposure.Cell) == ExposureSpace(_exposureCell!()) && Camera.GlobalPosition.DistanceTo(new(exposure.Position[0], exposure.Position[1], exposure.Position[2])) <= source.RadiationRadius * UnitsToMeters)
-                _applyRadiation!((float)(source.RadiationLevel * step));
+            if (Irradiates(exposure, source)) _applyRadiation!((float)(source.RadiationLevel * step));
             var elapsed = exposure.ElapsedSeconds + step;
             if (elapsed >= source.RadiationDissipationSeconds) _explosionExposure.RemoveAt(index);
             else _explosionExposure[index] = exposure with { ElapsedSeconds = elapsed };

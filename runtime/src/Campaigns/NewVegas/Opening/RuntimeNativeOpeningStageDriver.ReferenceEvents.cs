@@ -75,19 +75,7 @@ internal partial class RuntimeNativeOpeningStageDriver
     }
 
     internal float ReferenceHeadingAngle(FalloutFormKey caller, FalloutFormKey target)
-    {
-        FalloutReferencePlacement? Live(FalloutFormKey reference)
-        {
-            var node = reference == _pluginStack.RuntimeFormKey(0x14) ? _player :
-                ReferencePresentation().Nodes.GetValueOrDefault(reference);
-            if (node is null) return null;
-            var position = node.GlobalPosition / _player.UnitsToMeters;
-            var rotation = GamebryoCoordinate.ReferenceEuler(node.GlobalBasis);
-            var cell = reference == _pluginStack.RuntimeFormKey(0x14) ? _activeCell : _scripts.References!.Placement(reference).Cell;
-            return new(cell, [position.X, -position.Z, position.Y], [rotation.X, rotation.Y, rotation.Z]);
-        }
-        return _scripts.References!.HeadingAngle(caller, target, Live(_pluginStack.RuntimeFormKey(0x14)), _player.UnitsToMeters, Live);
-    }
+        => _scripts.References!.HeadingAngle(caller, target, LivePlacement(_pluginStack.RuntimeFormKey(0x14)), _player.UnitsToMeters, LivePlacement);
 
     internal bool IsInInterior(FalloutFormKey reference) => _scripts.References!.IsInInterior(reference, _activeCell);
 

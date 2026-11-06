@@ -94,7 +94,7 @@ internal static class FactionRelationContracts
                 Query(world, value with { RunOn = 2, Reference = 0x92 }) == 9,
                 "Actor-value scope did not resolve actual self, package target and explicit reference.");
             Reject(() => Query(world, value with { Argument1 = 47 }));
-            Reject(() => Query(world, value with { RunOn = 3 }));
+            Require(FalloutCondition.Failed(Query(world, value with { RunOn = 3 })), "An actor outside combat supplied a combat target.");
             var distance = value with { Function = 1, Argument1 = 0x14 };
             world.Get(Key(0x91)).QuerySpatialPlacement = () => new(Key(0x80), [3, 4, 12], [0, 0, 0]);
             Require(Query(world, distance, new(Key(0x80), [0, 0, 0], [0, 0, 0])) == 13,
@@ -121,7 +121,7 @@ internal static class FactionRelationContracts
                 "Same-cell scope ignored current moved placement, package target or explicit source reference.");
             Reject(() => Query(world, sameCell));
             Reject(() => Query(world, sameCell with { Argument2 = 1 }, playerHere));
-            Reject(() => Query(world, sameCell with { RunOn = 3 }, playerHere));
+            Require(FalloutCondition.Failed(Query(world, sameCell with { RunOn = 3 }, playerHere)), "A caller outside combat supplied a combat target.");
             Reject(() => Query(world, sameCell with { RunOn = 2, Reference = 0 }, playerHere));
             world.Get(Key(0x91)).QuerySpatialPlacement = () => playerElsewhere;
             Reject(() => Query(world, sameCell, playerElsewhere));

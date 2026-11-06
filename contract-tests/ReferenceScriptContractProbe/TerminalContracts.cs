@@ -95,8 +95,8 @@ internal static partial class TerminalContracts
         Require(world.GetLinkedRef(A(0x90)) == A(0x91) && conditions.Evaluate(A(0x90), linked) == 3,
             "Terminal linked predicate borrowed the terminal pivot or a raw declaring-plugin FormID.");
         Reject(() => conditions.Evaluate(A(0x90), linked with { Reference = 0x01000092 }));
-        Reject(() => conditions.Evaluate(A(0x90), linked with { RunOn = 3 }));
-        Reject(() => conditions.Evaluate(A(0x93), linked));
+        Require(FalloutCondition.Failed(conditions.Evaluate(A(0x90), linked with { RunOn = 3 })), "A terminal supplied a combat target.");
+        Require(FalloutCondition.Failed(conditions.Evaluate(A(0x93), linked)), "A terminal without a linked reference supplied a subject.");
         Require(conditions.Evaluate(A(0x90), linked with { Function = 5 }) == world.GetLocked(A(0x91)) &&
             conditions.Evaluate(A(0x90), linked with { Function = 65 }) == world.GetLockLevel(A(0x91)),
             "Linked terminal lock predicates did not use the current shared access owner.");

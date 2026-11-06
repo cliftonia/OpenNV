@@ -154,6 +154,9 @@ internal sealed class FalloutDeliveredEffects
         foreach (var active in _active) active.State = active.State with { Elapsed = active.State.Elapsed + seconds };
     }
 
+    internal IEnumerable<FalloutActiveEffect> ActiveOn(FalloutFormKey target) => _active
+        .Where(active => active.State.Target == target).Select(active => new FalloutActiveEffect(active.State.Source, active.State.Effect));
+
     internal FalloutDeliveredEffectsSnapshot? Capture()
     {
         RequireAvailable();

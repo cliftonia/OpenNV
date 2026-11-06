@@ -85,7 +85,8 @@ internal static class ScriptNameContracts
             [FalloutConditionParameter.Form, FalloutConditionParameter.Integer], "Bridged integer optionality is not explicit.");
         foreach (var shared in new[] { false, true })
         {
-            using var fixture = new ScriptSaveFixture("", "set saved to GetPlayerTeammateCount + Exists Other + 5\n" +
+            // Exists compares its subject with the parameter, so it is not subjectless.
+            using var fixture = new ScriptSaveFixture("", "set saved to GetPlayerTeammateCount + 6\n" +
                 "set suffix to GetRestrained + 9");
             var quests = new FalloutQuestState(fixture.Records);
             var scripts = new FalloutQuestScripts(fixture.Records, quests, new HashSet<FalloutFormKey>(), new(),

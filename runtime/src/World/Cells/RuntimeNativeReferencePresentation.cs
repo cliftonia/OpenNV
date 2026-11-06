@@ -16,6 +16,7 @@ internal partial class RuntimeNativeReferencePresentation : Node
     private IReadOnlyList<FalloutPlacedReference> _references;
     private Func<FalloutPlacedReference, Node3D?> _materialize;
     private readonly Dictionary<FalloutFormKey, Node3D> _nodes = [];
+    private readonly Dictionary<ulong, FalloutFormKey> _owners = [];
     private readonly Dictionary<FalloutFormKey, (FalloutPlacedReference Source, Node3D Node)> _warmNodes = [];
     private readonly Dictionary<FalloutFormKey, FalloutPlacedReference> _referencesByKey = [];
     private readonly HashSet<FalloutFormKey> _unresolvable = [];
@@ -88,7 +89,7 @@ internal partial class RuntimeNativeReferencePresentation : Node
             .Select(value => (value.Key, value.Node.GlobalTransform, value.Node.Velocity)).ToArray();
         foreach (var (key, node, _) in actors)
         {
-            _nodes.Remove(key); _warmNodes.Remove(key);
+            _nodes.Remove(key); _owners.Remove(node.GetInstanceId()); _warmNodes.Remove(key);
             UnbindObjectAnimation(key);
             _fadeGeometry.Remove(key); _publishedOpacity.Remove(key);
             // Free synchronously: QueueFree leaves source callbacks alive
@@ -122,7 +123,7 @@ internal partial class RuntimeNativeReferencePresentation : Node
         foreach (var sound in NodeTraversal.SelfAndDescendants<NativeOwnedAnimationSoundPlayer>(actor)) sound.RetirePlayback();
         GamebryoReferenceEnableRuntime.Apply(actor, false);
         UnbindObjectAnimation(key);
-        _nodes.Remove(key); _fadeGeometry.Remove(key); _publishedOpacity.Remove(key);
+        _nodes.Remove(key); _owners.Remove(actor.GetInstanceId()); _fadeGeometry.Remove(key); _publishedOpacity.Remove(key);
         actor.GetParent().RemoveChild(actor);
         actor.QueueFree();
     }
@@ -156,6 +157,7 @@ internal partial class RuntimeNativeReferencePresentation : Node
         {
             if (_nodes.Remove(key, out var node))
             {
+                _owners.Remove(node.GetInstanceId());
                 var partStarted = StartPart();
                 UnbindObjectAnimation(key);
                 FinishPart(ref unbindMilliseconds, partStarted);
@@ -243,6 +245,7 @@ internal partial class RuntimeNativeReferencePresentation : Node
         if (_nodes.ContainsKey(key)) throw new InvalidOperationException($"Reference {key} is already registered.");
         RefreshGeometry(key, node);
         _nodes.Add(key, node);
+        _owners.Add(node.GetInstanceId(), key);
         if (node is OpenNV.Runtime.World.Actors.RuntimeNativeNpc actor)
             actor.AppearanceChanged = () => RefreshGeometry(key, node);
         if (node.GetChildren().OfType<RuntimeNativeDestructible>().SingleOrDefault() is { } destruction)
@@ -261,6 +264,14 @@ internal partial class RuntimeNativeReferencePresentation : Node
         PublishOpacity(key);
         // Attached or rebuilt 3D re-applies a retained Securitron face.
         ApplySecuritronFace(key, node);
+    }
+
+    // The registered reference whose presentation contains this scene node.
+    internal FalloutFormKey? OwnerOf(Node? node)
+    {
+        for (; node is not null; node = node.GetParent())
+            if (_owners.TryGetValue(node.GetInstanceId(), out var key)) return key;
+        return null;
     }
 
     internal Node3D? TryResolve(FalloutFormKey key) => _enabled.ContainsKey(key) ? Resolve(key) : null;

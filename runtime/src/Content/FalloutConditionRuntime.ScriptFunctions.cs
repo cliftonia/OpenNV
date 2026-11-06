@@ -15,8 +15,10 @@ internal sealed partial class FalloutConditionRuntime
             FalloutScriptValue? secondForm = null)
         {
             if (!scoped && explicitReceiver) RequireReference(subject());
-            return Evaluate(new FalloutConditionQuery(new(declaration, 0, 0, (ushort)function, number, second, 0, 0), argument, secondForm),
+            var result = Evaluate(new FalloutConditionQuery(new(declaration, 0, 0, (ushort)function, number, second, 0, 0), argument, secondForm),
                 new(scoped ? subject() : declaration.FormKey));
+            // A script expression has no false-for-every-operator outcome.
+            return FalloutCondition.Failed(result) ? throw new NotSupportedException($"Script function {function} reported evaluation failure.") : result;
         }
         FalloutScriptFunction None(Function id, bool scoped = true) => new([], _ => Call(id, scoped: scoped)) { ReadOnly = id != Function.GetRandomPercent };
         FalloutScriptFunction Form(Function id, bool scoped = true) => new([FalloutScriptArgumentKind.Value],
