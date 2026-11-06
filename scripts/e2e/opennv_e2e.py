@@ -291,13 +291,29 @@ def test_perf() -> str:
                 f"max {intervals['maximumMilliseconds']:.0f} ms")
 
 
-def answer_dialogue(game: Game) -> bool:
+def answer_dialogue(game: Game, finished: bool = False) -> bool:
     conversation = game.gameplay().get("conversation") or {}
     if conversation.get("phase") != "choices":
         return False
-    choices = [c["text"] for c in conversation.get("choices") or []]
-    preferred = next((c for c in choices if c.startswith("Thanks")), choices[0] if choices else None)
+    offered = conversation.get("choices") or []
+    choices = [c["text"] for c in offered]
+    # Once the opening needs nothing more from a conversation (a late
+    # activation can reopen Doc's services menu), take the built-in GOODBYE
+    # topic (0xD4) instead of looping through the first service topic forever.
+    leave = next((c["text"] for c in offered if (c.get("topic") or {}).get("objectId") == 0xD4), None) if finished else None
+    preferred = leave or next((c for c in choices if c.startswith("Thanks")), choices[0] if choices else None)
     return preferred is not None and game.press(preferred)
+
+
+def leave_conversation(game: Game, timeout: float = 120) -> None:
+    """Ends a conversation the opening no longer needs by choosing GOODBYE."""
+    def closed():
+        phase = (game.gameplay().get("conversation") or {}).get("phase")
+        if phase in (None, "closed"):
+            return True
+        answer_dialogue(game, finished=True)
+        return False
+    game.wait(closed, timeout, "the conversation to close")
 
 
 def opening_target(stage: int) -> dict | None:
@@ -353,7 +369,7 @@ def drive_opening(game: Game, done, timeout: float = 900) -> None:
             game.press(button)  # "finished with your appearance?" confirmation
         elif button := label("next") or label("done") or label("ok"):
             game.press(button)  # appearance pages, traits, message boxes, name entry
-        elif answer_dialogue(game):
+        elif answer_dialogue(game, finished=stage >= 200):
             pass
         elif (target := opening_target(stage)) and (gameplay.get("player") or {}).get("movementEnabled"):
             bot = game.state().get("bot") or {}
@@ -379,6 +395,7 @@ def test_rest() -> str:
         drive_opening(game, lambda gameplay, stage:
                       stage >= 200 and (gameplay.get("player") or {}).get("movementEnabled"))
         game.dismiss_popups(3)
+        leave_conversation(game)
         # VCG01 keeps fighting disabled inside the house; any disabled control
         # makes the Wait key do nothing.
         rest = ((game.gameplay().get("opening") or {}).get("rest") or {})
