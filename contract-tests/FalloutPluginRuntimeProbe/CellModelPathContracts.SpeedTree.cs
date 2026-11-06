@@ -65,6 +65,8 @@ internal static partial class CellModelPathContracts
         _ = consumed.Uniform(0, 1); _ = consumed.Uniform(0, 1); _ = consumed.Uniform(0, 1);
         Require(steady.Uniform(0, 1) == consumed.Uniform(0, 1), "A zero-variance spline evaluation did not consume one random draw.");
         Reject<InvalidDataException>(() => FalloutSpeedTreeSpline.Parse("BezierSpline 0 1 0 { 3 0 0 1 1 0.1 }"));
+        Reject<InvalidDataException>(() => FalloutSpeedTreeSpline.Parse("BezierSpline 0 1 0 { 858993461 0 0 1 1 0.1 1 1 1 1 0.1 }"));
+        Reject<InvalidDataException>(() => FalloutSpeedTreeSpline.Parse("BezierSpline 0 1 0 { 2.5 0 0 1 1 0.1 1 1 1 1 0.1 }"));
 
         var spt = SyntheticSpt();
         var source = FalloutSpeedTreeSource.Read(spt);
@@ -80,6 +82,13 @@ internal static partial class CellModelPathContracts
         var foreign = spt.ToArray(); foreign[10] = (byte)'X';
         Reject<InvalidDataException>(() => FalloutSpeedTreeSource.Read(foreign));
 
+        // Oversized or unbounded sources fail closed instead of exhausting memory.
+        var flood = FalloutSpeedTreeSource.Read(SyntheticSpt(branchFrequency: 1e9f));
+        Reject<InvalidDataException>(() => FalloutSpeedTreeGenerator.Generate(flood, 1, 1, .5f));
+        var dense = FalloutSpeedTreeSource.Read(SyntheticSpt(branchFrequency: 4000, leafFrequency: 20000));
+        Reject<InvalidDataException>(() => FalloutSpeedTreeGenerator.Generate(dense, 1, 1, .5f));
+        Reject<NotSupportedException>(() => FalloutSpeedTreeSource.Read(SyntheticSpt(extraLevels: 7)));
+        Reject<InvalidDataException>(() => FalloutSpeedTreeSource.Read(SyntheticSpt(leafFrequency: float.NaN)));
         var tree0 = FalloutSpeedTreeGenerator.Generate(source, 301409, 1, .5f);
         var tree1 = FalloutSpeedTreeGenerator.Generate(source, 301409, 1, .5f);
         var tree2 = FalloutSpeedTreeGenerator.Generate(source, 554776, 1, .5f);
@@ -95,12 +104,12 @@ internal static partial class CellModelPathContracts
             tree0.Leaves.All(leaf => leaf.Lightness is > 0 and < 1 && leaf.Group is >= 0 and < 48 && leaf.Corners.Count == 4),
             "Generated SpeedTree trunk, branch strips or leaf cards are malformed.");
         Console.WriteLine("OPENNV_SPEEDTREE_CONTRACT_PASS cnam=true snamSeeds=true xsedIndex=true icon=true shadowRadiusInt=true nifRefused=true " +
-            $"rng=true splineDraws=true sptTokens=true malformedRefused=true truncatedRefused=true deterministic=true " +
+            $"rng=true splineDraws=true sptTokens=true malformedRefused=true truncatedRefused=true budgets=true deterministic=true " +
             $"branchVertices={tree0.BranchVertices.Count} leaves={tree0.Leaves.Count}");
     }
 
     // Trunk (8 sides x 8 segments), one branch level and a final leaf level.
-    private static byte[] SyntheticSpt()
+    private static byte[] SyntheticSpt(float branchFrequency = 50, float leafFrequency = 400, int extraLevels = 0)
     {
         var bytes = new List<byte>();
         void Int(int value) { var data = new byte[4]; BinaryPrimitives.WriteInt32LittleEndian(data, value); bytes.AddRange(data); }
@@ -141,9 +150,10 @@ internal static partial class CellModelPathContracts
         Token(2005, () => Int(99));
         Token(2006, () => Float(200));
         Token(2007, () => Float(10));
-        Token(1014, () => Int(3));
-        Level(.8f, .02f, -90, 8, 8, 50, .3f, .95f);
-        Level(.2f, .006f, 45, 6, 3, 400, .1f, .9f);
+        Token(1014, () => Int(3 + extraLevels));
+        Level(.8f, .02f, -90, 8, 8, branchFrequency, .3f, .95f);
+        for (var index = 0; index < extraLevels; index++) Level(.2f, .006f, 45, 6, 3, 10, .1f, .9f);
+        Level(.2f, .006f, 45, 6, 3, leafFrequency, .1f, .9f);
         Level(.05f, .001f, 30, 4, 1, 0, 0, 1);
         Int(1015);
         Int(1003);

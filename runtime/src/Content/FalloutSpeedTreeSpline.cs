@@ -72,8 +72,10 @@ internal sealed class FalloutSpeedTreeSpline
             float.IsFinite(value) ? value : throw new InvalidDataException("SpeedTree spline has a malformed number.");
         if (words.Length < 6 || words[0] != "BezierSpline" || words[4] != "{" || words[^1] != "}")
             throw new InvalidDataException("SpeedTree spline is not a BezierSpline block.");
-        var count = (int)Number(5);
-        if (count < 2 || words.Length != 7 + count * 5) throw new InvalidDataException("SpeedTree spline control-point count is malformed.");
+        var declared = Number(5);
+        if (declared != MathF.Floor(declared) || declared < 2 || declared > (words.Length - 7) / 5 || words.Length != 7 + (int)declared * 5)
+            throw new InvalidDataException("SpeedTree spline control-point count is malformed.");
+        var count = (int)declared;
         var points = new (Vector2, Vector2, float)[count];
         for (var index = 0; index < count; index++)
         {

@@ -43,6 +43,7 @@ internal sealed record FalloutSpeedTreeSource(
     IReadOnlyList<FalloutSpeedTreeLeafMap> LeafMaps)
 {
     private const string Magic = "__IdvSpt_02_";
+    internal const int MaximumLevels = 8;
     private enum Kind { Int, Float, Bool, Text, Vector, Floats8, Floats13, Coordinates, Sphere, Capsule, Box }
 
     private static readonly Dictionary<int, Kind> General = new()
@@ -163,7 +164,7 @@ internal sealed record FalloutSpeedTreeSource(
                 if (token == 10000) leafCorners = (IReadOnlyList<float>)block[10002];
             }
             if (general is null || leaves is null) throw new InvalidDataException("SpeedTree source has no general tree or leaf section.");
-            if (levels.Count < 2) throw new NotSupportedException("SpeedTree source needs a geometry level and a leaf level.");
+            if (levels.Count is < 2 or > MaximumLevels) throw new NotSupportedException("SpeedTree source needs 2-8 levels: geometry levels and a leaf level.");
             var maps = leafTextures.Select((texture, index) => LeafMap(texture, index, leafCorners)).ToArray();
             var bark = (string)Required(general, 2000);
             return new(bark[(Math.Max(bark.LastIndexOf('\\'), bark.LastIndexOf('/')) + 1)..], Finite(general, 2001), Finite(general, 2003),
@@ -191,6 +192,9 @@ internal sealed record FalloutSpeedTreeSource(
             var sides = Integer(6008, 6);
             var segments = Integer(6009, 3);
             if (sides is < 3 or > 64 || segments is < 1 or > 64) throw new InvalidDataException("SpeedTree level has an unbounded cross-section or segment count.");
+            float[] numbers = [Number(6010, .3f), Number(6011, 1), Number(6012, .3f), Number(6013, 1), Number(6014, 1)];
+            if (numbers.Any(value => !float.IsFinite(value)) || numbers[2] < 0)
+                throw new InvalidDataException("SpeedTree level has a non-finite attachment, frequency or repeat value.");
             return new(Spline(6000), Spline(6001), Spline(6002), Spline(6003), Spline(6004), Spline(6005), Spline(6006), Spline(6007),
                 Spline(6017), sides, segments, Number(6010, .3f), Number(6011, 1), Number(6012, .3f), Number(6013, 1), Number(6014, 1),
                 Flag(6015, true), Flag(6016, false));

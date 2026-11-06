@@ -28,6 +28,11 @@ internal sealed class FalloutSpeedTreeGenerator
 {
     private const int WindMatrices = 4;
     private const float LeafLightnessCap = .99f;
+    // Generation budgets: shipped trees stay well below them; a source that
+    // exceeds one is malformed rather than silently truncated.
+    internal const int MaximumBranchVertices = 200_000;
+    internal const int MaximumLeaves = 50_000;
+    private const int MaximumChildren = 4096;
     private readonly FalloutSpeedTreeSource _source;
     private readonly FalloutSpeedTreeRandom _random;
     private readonly float _size;
@@ -66,7 +71,9 @@ internal sealed class FalloutSpeedTreeGenerator
         var radius = level.Radius.Evaluate(age, _random) * _size;
         var flexibility = level.Flexibility.Evaluate(age, _random);
         if (.85f * radiusCap < level.RadiusProfile.Evaluate(0, _random) * radius) radius = .85f * radiusCap;
-        if (!(length > 0) || !(radius >= 0)) return;
+        if (!float.IsFinite(length) || !float.IsFinite(radius) || !float.IsFinite(startAngle) || !float.IsFinite(gravity) || !float.IsFinite(flexibility))
+            throw new InvalidDataException("SpeedTree branch parameters are not finite.");
+        if (length <= 0 || radius < 0) return;
         // The trunk opens the wind level: it and its whole sub-tree follow one matrix.
         if (levelIndex == 0) windMatrix = _windCounter++ % WindMatrices;
         var second = level.Disturbance.Disturbance(0, _random);
@@ -102,7 +109,10 @@ internal sealed class FalloutSpeedTreeGenerator
         }
         Mesh(level, frames, centres, radii, winds, length, radius, fade, windMatrix);
 
-        var count = (int)MathF.Floor(level.Frequency / _size * length);
+        var children = MathF.Floor(level.Frequency / _size * length);
+        if (!float.IsFinite(children) || children > MaximumChildren)
+            throw new InvalidDataException("SpeedTree branch child count exceeds its budget.");
+        var count = (int)children;
         var leaves = levelIndex + 2 == _source.Levels.Count;
         for (var child = 0; child < count; child++)
         {
@@ -123,6 +133,7 @@ internal sealed class FalloutSpeedTreeGenerator
             {
                 var map = Math.Min((int)_random.Uniform(0, _source.LeafMaps.Count), _source.LeafMaps.Count - 1);
                 _anchors.Add((at, map, _random.Uniform(0, 1) < .5f, wind, windMatrix));
+                if (_anchors.Count > MaximumLeaves) throw new InvalidDataException("SpeedTree leaves exceed the generation budget.");
                 continue;
             }
             _random.Seed(seed);
@@ -155,6 +166,8 @@ internal sealed class FalloutSpeedTreeGenerator
         var uRepeat = level.UAbsolute ? level.URepeat : level.URepeat * radius * 2 * MathF.PI;
         var vRepeat = level.VAbsolute ? level.VRepeat : length / _size * level.VRepeat;
         var first = _vertices.Count;
+        if (first + (long)frames.Length * (sides + 1) > MaximumBranchVertices)
+            throw new InvalidDataException("SpeedTree branch vertices exceed the generation budget.");
         for (var ring = 0; ring < frames.Length; ring++)
         {
             var t = ring / (float)(frames.Length - 1);
