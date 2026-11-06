@@ -14,7 +14,6 @@ internal sealed class FalloutCasinoWinnings(FalloutPluginStack records)
 {
     internal const int BannedLevel = 4;
     private readonly Dictionary<FalloutFormKey, (long Earnings, int Level)> _casinos = [];
-    internal long Revision { get; private set; }
 
     internal long Earnings(FalloutFormKey casino) => _casinos.GetValueOrDefault(Require(casino)).Earnings;
     internal int Level(FalloutFormKey casino) => _casinos.GetValueOrDefault(Require(casino)).Level;
@@ -35,7 +34,6 @@ internal sealed class FalloutCasinoWinnings(FalloutPluginStack records)
         earnings = checked(earnings + net);
         level = Math.Max(level, LevelFor(earnings, maxWinnings));
         _casinos[key] = (earnings, level);
-        ++Revision;
         return level;
     }
 
@@ -44,7 +42,6 @@ internal sealed class FalloutCasinoWinnings(FalloutPluginStack records)
         if (level is < 0 or > BannedLevel) throw new InvalidDataException("Casino winnings level must lie in 0..4.");
         var key = Require(casino);
         _casinos[key] = (_casinos.GetValueOrDefault(key).Earnings, level);
-        ++Revision;
     }
 
     internal FalloutCasinoWinningsSnapshot Capture() => new(_casinos
@@ -63,7 +60,6 @@ internal sealed class FalloutCasinoWinnings(FalloutPluginStack records)
         }
         _casinos.Clear();
         foreach (var (casino, value) in replacement) _casinos.Add(casino, value);
-        ++Revision;
     }
 
     private FalloutFormKey Require(FalloutFormKey casino)

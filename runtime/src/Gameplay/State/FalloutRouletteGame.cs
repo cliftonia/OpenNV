@@ -105,10 +105,8 @@ internal sealed class FalloutRouletteGame
         }
         var returned = Return(pocket);
         LastPocket = pocket; LastReturn = returned;
-        var outcome = returned > staked ? $"You win {returned - staked} chips." :
-            returned == staked ? "You break even." : $"You lose {staked - returned} chips.";
-        if (replayed) outcome = (returned > staked ? "You feel lucky. " : "You feel unlucky. ") + outcome;
-        Message = $"{Name(pocket)} {(pocket is 0 or DoubleZero ? "green" : IsRed(pocket) ? "red" : "black")}. " + outcome;
+        Message = $"{Name(pocket)} {(pocket is 0 or DoubleZero ? "green" : IsRed(pocket) ? "red" : "black")}. " +
+            FalloutCasinoTable.OutcomeText(staked, returned, replayed);
         _bets.Clear();
         _table.Settle(staked, returned);
     }

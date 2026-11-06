@@ -57,6 +57,15 @@ internal sealed class FalloutCasinoTable
         _completed?.Invoke(returned > staked);
     }
 
+    // The settlement line shared by every game; a Luck replay that flipped the
+    // outcome is announced before it.
+    internal static string OutcomeText(long staked, long returned, bool replayed = false)
+    {
+        var outcome = returned > staked ? $"You win {returned - staked} chips." :
+            returned == staked ? "You break even." : $"You lose {staked - returned} chips.";
+        return replayed ? (returned > staked ? "You feel lucky. " : "You feel unlucky. ") + outcome : outcome;
+    }
+
     // True when a favourable (Luck above 5) or unfavourable (below 5) replay
     // applies to an outcome the player respectively lost or won.
     internal bool LuckReplays(bool playerWon)

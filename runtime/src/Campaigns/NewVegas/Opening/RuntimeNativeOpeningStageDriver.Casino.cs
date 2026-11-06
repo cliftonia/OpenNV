@@ -60,14 +60,17 @@ internal partial class RuntimeNativeOpeningStageDriver
                     $"earnings={world.CasinoWinnings.Earnings(request.Casino.Form)} level={world.CasinoWinnings.Level(request.Casino.Form)} " +
                     "owner=shared-inventory;casino-winnings;misc-statistic payoutTable=unverified");
             });
-        var textures = new Dictionary<string, Texture2D>(StringComparer.OrdinalIgnoreCase);
+        var textures = new Dictionary<string, Texture2D?>(StringComparer.OrdinalIgnoreCase);
         Texture2D? Texture(string path)
         {
             var logical = path.Replace('\\', '/');
             if (!logical.StartsWith("textures/", StringComparison.OrdinalIgnoreCase)) logical = "textures/" + logical;
             if (textures.TryGetValue(logical, out var cached)) return cached;
-            if (!source.TryRead(logical, null, out var payload, out var identity)) return null;
-            var texture = NativeDdsTexture.LoadCached(source, payload, identity, logicalPath: logical);
+            Texture2D? texture = null;
+            // The menu draws a text stand-in for absent art; the gap stays visible.
+            if (source.TryRead(logical, null, out var payload, out var identity))
+                texture = NativeDdsTexture.LoadCached(source, payload, identity, logicalPath: logical);
+            else GD.PushWarning($"OPENNV_NATIVE_CASINO_TEXTURE_DIVERGENCE texture={logical} reason=absent");
             textures.Add(logical, texture); return texture;
         }
         void Sound(string editorId)

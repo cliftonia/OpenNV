@@ -59,9 +59,8 @@ internal sealed class FalloutSlotMachineGame
         }
         LastMultiplier = Multiplier(Symbols);
         LastReturn = (long)bet * LastMultiplier;
-        var outcome = LastReturn > bet ? $"You win {LastReturn - bet} chips." : $"You lose {bet} chips.";
-        if (replayed) outcome = (LastReturn > bet ? "You feel lucky. " : "You feel unlucky. ") + outcome;
-        Message = outcome;
+        // Every paying line returns more than the stake, so a slot never breaks even.
+        Message = FalloutCasinoTable.OutcomeText(bet, LastReturn, replayed);
         _table.Settle(bet, LastReturn);
     }
 }

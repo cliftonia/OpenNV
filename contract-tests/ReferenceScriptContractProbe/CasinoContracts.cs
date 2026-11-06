@@ -36,6 +36,10 @@ internal static class CasinoContracts
             Reject(() => FalloutCasinoCommandRequest.Read(stack, FalloutCasinoGame.Roulette, stack.GetEffective(Key(0x20)), 60, 50, 0));
             Check(FalloutCasinoCommandRequest.GameFor("showslotmachinemenuparams") == FalloutCasinoGame.SlotMachine, "Slot command was not bound.");
 
+            Check(FalloutCasinoTable.OutcomeText(10, 25) == "You win 15 chips." && FalloutCasinoTable.OutcomeText(10, 10) == "You break even." &&
+                FalloutCasinoTable.OutcomeText(10, 0, replayed: true) == "You feel unlucky. You lose 10 chips." &&
+                FalloutCasinoTable.OutcomeText(5, 15, replayed: true) == "You feel lucky. You win 10 chips.",
+                "The shared casino settlement line changed.");
             Winnings(stack);
             Blackjack(stack, request);
             Roulette(stack, request with { Game = FalloutCasinoGame.Roulette });

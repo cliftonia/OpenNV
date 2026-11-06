@@ -20,8 +20,6 @@ internal sealed class FalloutBlackjackGame
     {
         internal List<Card> Cards { get; } = [];
         internal int Stake { get; set; }
-        internal bool Finished { get; set; }
-        internal bool Doubled { get; set; }
         internal int Total => FalloutBlackjackGame.Total(Cards, out _);
     }
 
@@ -39,7 +37,6 @@ internal sealed class FalloutBlackjackGame
     internal string Message { get; private set; } = "Place your bet.";
     internal long LastReturn { get; private set; }
     internal int ShoeRemaining => _shoe.Count - _next;
-    internal int ShoeSize => _shoe.Count;
     internal bool Shuffled { get; private set; }
 
     internal FalloutBlackjackGame(FalloutCasinoTable table)
@@ -118,7 +115,7 @@ internal sealed class FalloutBlackjackGame
         if (!CanDouble) throw new InvalidOperationException("You can only double down on two cards with chips to match your bet.");
         var hand = _hands[ActiveHand];
         _table.Stake(hand.Stake);
-        hand.Stake *= 2; hand.Doubled = true;
+        hand.Stake *= 2;
         hand.Cards.Add(Draw());
         Advance();
     }
@@ -152,7 +149,6 @@ internal sealed class FalloutBlackjackGame
 
     private void Advance()
     {
-        _hands[ActiveHand].Finished = true;
         if (ActiveHand + 1 < _hands.Count)
         {
             ++ActiveHand;
@@ -208,8 +204,7 @@ internal sealed class FalloutBlackjackGame
             }
         }
         LastReturn = returned;
-        Message = _surrendered ? "You surrender half your bet." :
-            returned > staked ? $"You win {returned - staked} chips." : returned == staked ? "You break even." : $"You lose {staked - returned} chips.";
+        Message = _surrendered ? "You surrender half your bet." : FalloutCasinoTable.OutcomeText(staked, returned);
         _table.Settle(staked, returned);
     }
 }
