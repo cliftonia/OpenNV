@@ -82,10 +82,10 @@ internal partial class RuntimeNativeOpeningStageDriver
             case "startradioconversation" when arguments.Count <= 1:
                 _speech!.StartRadioConversation(target, arguments.Count == 0 ? null : bindings.Form(arguments[0]).FormKey);
                 break;
-            case "stopcombatalarmonactor" or "scaonactor" when arguments.Count == 0:
+            case "stopcombatalarmonactor" when arguments.Count == 0:
                 _scripts.References!.StopCombatAlarmOnActor(target);
                 break;
-            case "forceradiostationupdate" or "frsu" when parts.Length == 1 && arguments.Count == 0:
+            case "forceradiostationupdate" when parts.Length == 1 && arguments.Count == 0:
                 RefreshRadioStations(force: true);
                 break;
             case "sexchange" when arguments.Count <= 2 && (parts.Length == 1 || _pluginStack.RuntimeFormId(target) == 0x14):
@@ -157,7 +157,7 @@ internal partial class RuntimeNativeOpeningStageDriver
                 SynchronizeTraitEntry(sourceRequested: true);
                 if (_traitEntry is null) throw new NotSupportedException("Trait input has no active menu owner.");
                 break;
-            case "showspecialbookmenuparams" or "ssbmp" when parts.Length == 1 && arguments.Count == 1:
+            case "showspecialbookmenuparams" when parts.Length == 1 && arguments.Count == 1:
                 if (!int.TryParse(arguments[0], System.Globalization.NumberStyles.Integer,
                         System.Globalization.CultureInfo.InvariantCulture, out var bookBudget))
                     throw new NotSupportedException("SPECIAL book allocation requires an owned integer points parameter.");
@@ -169,7 +169,7 @@ internal partial class RuntimeNativeOpeningStageDriver
                     throw new InvalidDataException("ShowRecipeMenu argument is not an RCCT category.");
                 OpenRecipeMenu(recipeCategory.FormKey);
                 break;
-            case "showbartermenu" or "sbm" when parts.Length is 1 or 2 && arguments.Count == 1:
+            case "showbartermenu" when parts.Length is 1 or 2 && arguments.Count == 1:
                 if (!int.TryParse(arguments[0], System.Globalization.NumberStyles.Integer,
                         System.Globalization.CultureInfo.InvariantCulture, out var discount) || discount is < -100 or > 100)
                     throw new InvalidDataException("ShowBarterMenu discount must be an integer from -100 through 100.");
@@ -216,13 +216,13 @@ internal partial class RuntimeNativeOpeningStageDriver
                 }).CallDeferred());
                 AddChild(movie);
                 break;
-            case "enablefasttravel" or "enablefast" when parts.Length == 1:
+            case "enablefasttravel" when parts.Length == 1:
                 FastTravel.Apply(arguments);
                 break;
             case "playmusic" when parts.Length == 1 && arguments.Count == 1:
                 MusicPlayer.Play(bindings.Form(arguments[0]).FormKey);
                 break;
-            case "forceweather" or "fw" when parts.Length == 1:
+            case "forceweather" when parts.Length == 1:
                 var overrideWeather = FalloutSkyLightingState.ReadForceWeatherOverride(arguments);
                 (_skyLighting ?? throw new InvalidOperationException("Sky state owner is absent."))
                     .ForceWeather(bindings.Form(arguments[0]).FormKey, overrideWeather);

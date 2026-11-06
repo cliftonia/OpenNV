@@ -49,17 +49,17 @@ internal static class ScriptEffectCommandContracts
             Reject(() => Execute(world, "addspell", "SyntheticShader"));
 
             // Visual commands need the receiver's loaded 3D; this actor is not resident.
-            Check(Execute(world, "pms", "SyntheticShader", "2") is null && world.MagicShaders(actor).Count == 0,
+            Check(Execute(world, "playmagicshadervisuals", "SyntheticShader", "2") is null && world.MagicShaders(actor).Count == 0,
                 "PMS played on a receiver without loaded 3D.");
 
             Check(Execute(world, "setweather", "SyntheticWeather", "1") is ["SyntheticWeather", "1"], "SetWeather lost its native arguments.");
-            Check(Execute(world, "sgtm", "0.5") is ["0.5"], "SGTM lost its resolved multiplier.");
-            Reject(() => Execute(world, "sgtm", "0"));
-            Check(Execute(world, "saa", "0.4") is null && world.ActorAlpha(actor) == 1, "SetActorAlpha changed a receiver without loaded 3D.");
+            Check(Execute(world, "setglobaltimemultiplier", "0.5") is ["0.5"], "SGTM lost its resolved multiplier.");
+            Reject(() => Execute(world, "setglobaltimemultiplier", "0"));
+            Check(Execute(world, "setactoralpha", "0.4") is null && world.ActorAlpha(actor) == 1, "SetActorAlpha changed a receiver without loaded 3D.");
             Check(Execute(world, "setrumble", "1", "0.5", "0.1") is ["1", "0.5", "0.1"], "SetRumble lost its motor arguments.");
             Reject(() => Execute(world, "setrumble", "1", "-1", "0.1"));
-            Check(Execute(world, "cios", "SyntheticAbility") is ["SyntheticAbility"], "CIOS lost its native spell owner.");
-            Reject(() => Execute(world, "cios", "SyntheticWeather"));
+            Check(Execute(world, "castimmediateonself", "SyntheticAbility") is ["SyntheticAbility"], "CIOS lost its native spell owner.");
+            Reject(() => Execute(world, "castimmediateonself", "SyntheticWeather"));
 
             _ = Execute(world, "setcellimagespace", "SyntheticCell", "SyntheticImage");
             Check(world.CellImageSpace(new("Effects.esm", 0x154))?.Form == new FalloutFormKey("Effects.esm", 0x155),
@@ -67,7 +67,7 @@ internal static class ScriptEffectCommandContracts
 
             _ = Execute(world, "setscreensplatterfade", "0.5", "1");
             _ = Execute(world, "setscreensplatterfade", "0.5", "1");
-            Check(Execute(world, "setsecexp", "SyntheticActor", "\"Infantry\"", "Neutral") is null, "SetSecuritronExpression requested a native owner.");
+            Check(Execute(world, "setsecuritronexpression", "SyntheticActor", "\"Infantry\"", "Neutral") is null, "SetSecuritronExpression requested a native owner.");
             Check(warnings.Count(line => line.Contains("name=setscreensplatterfade", StringComparison.Ordinal)) == 1,
                 "Deferred command warning was not emitted exactly once.");
             var native = new List<(FalloutFormKey Target, string Command, string[] Arguments)>();
@@ -81,12 +81,12 @@ internal static class ScriptEffectCommandContracts
             scripts.ExecuteProgram(records.GetEffective(actor), script, program, 0);
             // The unloaded actor's SAA is a silent no-op with no native remainder.
             Check(native.Count == 2 && native.All(call => call.Target == actor) &&
-                native[0] is (_, "sgtm", ["0.25"]) && native[1] is (_, "cios", ["SyntheticAbility"]),
+                native[0] is (_, "setglobaltimemultiplier", ["0.25"]) && native[1] is (_, "castimmediateonself", ["SyntheticAbility"]),
                 "Object-script dispatch did not hand resolved effect remainders to the native owner.");
             program = FalloutGameModeProgram.Read("begin GameMode\nSAA 0.5\nend");
             native.Clear();
             scripts.ExecuteProgram(script, script, program, 0);
-            Check(native is [(var receiver, "saa", ["0.5"])] && records.RuntimeFormId(receiver) == 0x14,
+            Check(native is [(var receiver, "setactoralpha", ["0.5"])] && records.RuntimeFormId(receiver) == 0x14,
                 "SetActorAlpha without a calling reference did not act on the player.");
             Console.WriteLine("OPENNV_SCRIPT_EFFECT_COMMAND_PASS spells=true cold=true shaders=true weather=true clock=true alpha=true " +
                 "rumble=true imageSpace=true deferredOnce=true presentation=unverified");

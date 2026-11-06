@@ -303,7 +303,6 @@ internal sealed class FalloutInventoryAcquisition(FalloutPluginStack records, Fa
                             throw new NotSupportedException("SetItemValue has no actual incoming item owner.");
                         setValue(Integer(arguments[0])); return;
                     case "addcardtoplayer":
-                    case "addcard":
                         if (parts.Length != 1 || arguments.Count != 0) throw new NotSupportedException("Card addition arguments are unbound.");
                         _cards.Add(owner.FormKey); return;
                     case "showmessage":

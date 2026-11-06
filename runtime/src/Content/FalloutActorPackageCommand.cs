@@ -21,7 +21,7 @@ internal static partial class FalloutActorPackageCommands
                 if (!match.Success || depth != 0)
                     throw new NotSupportedException($"Actor package command needs a bound expression/condition owner: {line}");
                 result.Add(new(index, match.Groups["actor"].Value,
-                    match.Groups["operation"].Value.Equals("resetai", StringComparison.OrdinalIgnoreCase)));
+                    Definitions.FalloutScriptCommandNames.Operation(match.Groups["operation"].Value) == "resetai"));
             }
             index++;
         }

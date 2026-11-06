@@ -10,10 +10,10 @@ internal sealed partial class FalloutReferenceScripts
         var match = System.Text.RegularExpressions.Regex.Match(error,
             @"^(?<event>[^:]+): Reached (?:native script|object-script) command (?<command>\S+) \((?<arguments>[0-3]) arguments\) has no owner\.$");
         if (!match.Success) return null;
-        var operation = match.Groups["command"].Value.Split('.')[^1].ToLowerInvariant();
+        var operation = OpenNV.Runtime.Content.Definitions.FalloutScriptCommandNames.Operation(match.Groups["command"].Value);
         var argumentCount = int.Parse(match.Groups["arguments"].Value, System.Globalization.CultureInfo.InvariantCulture);
         if (!(operation == "playgroup" && argumentCount == 2 && host.PlayGroup is not null ||
-            operation is "kill" or "killactor" && argumentCount <= 1 && host.PlayerLevel is not null)) return null;
+            operation is "killactor" && argumentCount <= 1 && host.PlayerLevel is not null)) return null;
         var eventName = match.Groups["event"].Value;
         if (!admitted.Any(item => item.Name.Equals(eventName, StringComparison.OrdinalIgnoreCase))) return null;
         try

@@ -140,3 +140,23 @@ completing): UseWeapon discharge, melee, equip and reload; UseItemAt sitting,
 use idles and consumption; ambush override radius and victim search; heading
 alignment; locations in another navigation region; and creature dispatch of
 these five types. No ordinary-play run has yet exercised them.
+
+## Script name resolution
+
+Public script command aliases resolve to full command names before dispatch,
+`Ref. Command` tokenizes as one qualified command, and Else trailing text is
+admitted by inspection as the executor ignores it. Any named condition function
+is callable from scripts through the shared evaluator with the calling reference
+as subject; executors consult that bridge after every specialized owner. Bridged
+integer parameters are required unless documented optional. SetQuestDelay runs
+in the shared and fallback executors and persists in the quest clock snapshot;
+an unbound quest script refuses it. No shipped or installed-mod script local
+collides with a bridged function or alias name.
+
+Owned-stack completeness after merging the combat, Hardcore and script-command
+work: 499 of 651 quests have no unsupported dependency; main lines New Vegas
+27/44, Dead Money 12/15, Honest Hearts 16/27, Lonesome Road 9/9, Old World
+Blues 5/6. `Behemoth` is IsAlwaysHardcore's alias
+and needs the always-hardcore flag owner. Known pre-existing issue: quests that
+attach the same SCPT share one recurrence clock, so SetQuestDelay on one quest
+also changes the other's interval.

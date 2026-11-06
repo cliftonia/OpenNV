@@ -19,7 +19,7 @@ internal sealed partial class FalloutGameModeProgram
         {
             var tokens = _lines[index];
             var kind = tokens[0].ToLowerInvariant();
-            var operation = kind[(kind.LastIndexOf('.') + 1)..];
+            var operation = Definitions.FalloutScriptCommandNames.Operation(kind);
             var ownership = "control-flow";
             string? error = null;
             try
@@ -41,7 +41,8 @@ internal sealed partial class FalloutGameModeProgram
                         expression = tokens[3..];
                         break;
                     case "let" or "eval": expression = tokens[1..]; break;
-                    case "else" or "endif" or "loop" or "break" or "continue" or "return":
+                    case "else": break; // Like the compiler and executor, ignore Else trailing text.
+                    case "endif" or "loop" or "break" or "continue" or "return":
                         if (tokens.Length != 1) throw new NotSupportedException("Control statement arguments are unbound.");
                         break;
                     default:

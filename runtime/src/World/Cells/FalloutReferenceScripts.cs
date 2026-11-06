@@ -44,7 +44,7 @@ internal sealed record FalloutReferenceScriptHost(Func<FalloutFormKey, FalloutFo
     Func<FalloutFormKey, FalloutFormKey?>? InventoryContainer = null,
     Action<FalloutFormKey, FalloutFormKey?>? RemoveInventoryInstance = null, Action<double>? RewardKarma = null,
     FalloutScriptSession? Session = null,
-    Func<FalloutFormKey, bool>? IsImageSpaceActive = null);
+    Func<FalloutFormKey, bool>? IsImageSpaceActive = null, Action<FalloutFormKey, double>? SetQuestDelay = null);
 internal sealed record FalloutReferenceScriptEventResult(FalloutFormKey Reference, string Event, int Blocks, string? Error,
     string? RecoveredError = null, bool Abandoned = false);
 internal sealed record FalloutReferenceScriptEvent(string Name, FalloutFormKey? ActionReference = null,
@@ -910,7 +910,8 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                 "getactionref" => FalloutScriptFunction.Typed([], _ => FalloutScriptValue.Form(
                     actor is { } activator ? records.RuntimeFormId(activator) : 0)),
                 "abs" => new([FalloutScriptArgumentKind.Number], arguments => Math.Abs(arguments[0].Number)),
-                _ => null,
+                _ => parts.Length <= 2 ? Conditions.ConditionScriptFunction(operation, records.GetEffective(bindings.Source), Target,
+                    name => bindings.Form(name).FormKey, parts.Length == 2 || caller is not null) : null,
             };
         }
         double Number(string argument) => FalloutGameModeProgram.Evaluate([argument], Read, Function);
@@ -1058,7 +1059,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                 _restoringDetection = null; _preparedDetection = null;
                 return;
             }
-            if (parts.Length == 1 && operation is "triggerscreenblood" or "tsb")
+            if (parts.Length == 1 && operation is "triggerscreenblood")
             {
                 if (arguments.Count != 1) throw new InvalidDataException("TriggerScreenBlood requires one count.");
                 world.ScreenBlood.Trigger(source, FalloutScreenBlood.Count(Number(arguments[0])));
@@ -1232,7 +1233,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                         throw new InvalidDataException("SetOwnership owner has no valid form identity.");
                     world.SetOwnership(target, ownershipId == 0 ? null : records.RuntimeFormKey((uint)ownershipId));
                     break;
-                case "kill" or "killactor":
+                case "killactor":
                     if (arguments.Count > 3) throw new InvalidDataException("KillActor has an invalid argument count.");
                     if (arguments.Count > 1) throw new NotSupportedException("Script death limb/cause parameters have no source owner.");
                     if (records.RuntimeFormId(target) == 0x14) throw new NotSupportedException("Script player death requires the player vitals owner.");
@@ -1290,7 +1291,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                         (host.ResetPlayerHealth ?? throw new NotSupportedException("Player ResetHealth has no shared vitals owner."))();
                     else world.ResetHealth(target);
                     break;
-                case "stopcombatalarmonactor" or "scaonactor" when arguments.Count == 0:
+                case "stopcombatalarmonactor" when arguments.Count == 0:
                     world.StopCombatAlarmOnActor(target);
                     break;
                 case "stopcombat" when arguments.Count == 0:
@@ -1314,17 +1315,17 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                 case "ignorecrime" when arguments.Count == 1:
                     world.SetActorFlag(target, Boolean(arguments[0]), false);
                     break;
-                case "sifh" or "setignorefriendlyhits" when arguments.Count == 1:
+                case "setignorefriendlyhits" when arguments.Count == 1:
                     world.SetActorFlag(target, Boolean(arguments[0]), true);
                     break;
                 case "addperk" or "removeperk" when arguments.Count is 1 or 2:
                     world.ChangePerk(target, bindings.Form(arguments[0]).FormKey, operation == "addperk",
                         arguments.Count == 2 && Number(arguments[1]) != 0);
                     break;
-                case "setcs" or "setcombatstyle" when arguments.Count == 1:
+                case "setcombatstyle" when arguments.Count == 1:
                     world.SetCombatStyle(target, bindings.Form(arguments[0]).FormKey);
                     break;
-                case "addtofaction" or "addfac" or "setfactionrank" when arguments.Count == 2:
+                case "addtofaction" or "setfactionrank" when arguments.Count == 2:
                     var rank = Number(arguments[1]);
                     if (rank != Math.Truncate(rank) || rank is < -1 or > 127) throw new InvalidDataException("Faction rank is invalid.");
                     world.ChangeFaction(target, bindings.Form(arguments[0]).FormKey, (int)rank, operation == "setfactionrank");
@@ -1341,7 +1342,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                 case "setplayerteammate" when arguments.Count == 1:
                     world.SetPlayerTeammate(target, Boolean(arguments[0]));
                     break;
-                case "moveto" or "movetofade" or "movetomarkerwithfade" when arguments.Count is >= 1 and <= 4:
+                case "movetomarker" or "movetomarkerwithfade" when arguments.Count is >= 1 and <= 4:
                     var moveDestination = Reference(arguments[0]);
                     var moveX = arguments.Count > 1 ? (float)Number(arguments[1]) : 0;
                     var moveY = arguments.Count > 2 ? (float)Number(arguments[2]) : 0;
@@ -1359,6 +1360,10 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                     break;
                 case "completequest" when parts.Length == 1 && arguments.Count == 1:
                     quests.Complete(Quest(arguments[0]));
+                    break;
+                case "setquestdelay" when parts.Length == 1 && arguments.Count == 2:
+                    (host.SetQuestDelay ?? throw new NotSupportedException("SetQuestDelay has no quest script clock owner."))(
+                        Quest(arguments[0]), Number(arguments[1]));
                     break;
                 case "forceactivequest" when parts.Length == 1 && arguments.Count == 1:
                     quests.ForceActive(Quest(arguments[0]));
@@ -1447,7 +1452,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                     else host.Apply(new(FalloutReferenceEffectKind.AddItem, source, target, addedItem,
                         Value: (int)quantity, Enable: hideAddition));
                     break;
-                case "equipitem" or "equipobject" when arguments.Count is >= 1 and <= 3:
+                case "equipitem" when arguments.Count is >= 1 and <= 3:
                     var equipItem = bindings.Form(arguments[0]).FormKey;
                     var noUnequip = arguments.Count >= 2 && FalloutInventoryCommands.ReadEquipmentFlag(Number(arguments[1]), true);
                     var hideEquip = arguments.Count >= 3 && FalloutInventoryCommands.ReadEquipmentFlag(Number(arguments[2]), false);
@@ -1505,7 +1510,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                 case "stoplook" when arguments.Count <= 1:
                     host.Apply(new(FalloutReferenceEffectKind.HeadTracking, source, target));
                     break;
-                case "evp" or "evaluatepackage" when arguments.Count <= 1:
+                case "evaluatepackage" when arguments.Count <= 1:
                     host.Apply(new(FalloutReferenceEffectKind.EvaluatePackages, source, target, Enable: arguments.Count == 1 && Boolean(arguments[0])));
                     break;
                 case "resetai" when arguments.Count == 0:
@@ -1521,12 +1526,12 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                     // removal concerns the caller's script override, not its base list.
                     host.Apply(new(FalloutReferenceEffectKind.ScriptPackage, source, target));
                     break;
-                case "applyimagespacemodifier" or "imod" or "removeimagespacemodifier" or "rimod" when
+                case "applyimagespacemodifier" or "removeimagespacemodifier" when
                     parts.Length == 1 && (arguments.Count == 1 || arguments.Count == 2 && arguments[1] == "*"):
                     var modifier = bindings.Form(arguments[0]);
                     if (modifier.Signature != "IMAD") throw new InvalidDataException("Image-space modifier is not IMAD.");
                     host.Apply(new(FalloutReferenceEffectKind.ImageSpace, source, modifier.FormKey,
-                        Enable: operation is "applyimagespacemodifier" or "imod"));
+                        Enable: operation is "applyimagespacemodifier"));
                     break;
                 case "enable" or "disable" when arguments.Count <= 1:
                     var enable = operation == "enable";
@@ -1534,7 +1539,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                     if (world.SetEnabled(target, enable, fade))
                         host.Apply(new(FalloutReferenceEffectKind.ReferenceEnable, source, target, Enable: enable, Fade: fade));
                     break;
-                case "swaptexture" or "swaptextureonref" when parts.Length == 1 && arguments.Count == 3:
+                case "swaptextureonref" when parts.Length == 1 && arguments.Count == 3:
                     host.Apply(new(FalloutReferenceEffectKind.Texture, source, bindings.Reference(arguments[0]),
                         NodeName: StringArgument(arguments[1]), TexturePath: StringArgument(arguments[2])));
                     break;
@@ -1556,7 +1561,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                     (host.Challenges ?? throw new NotSupportedException("IncrementScriptedChallenge has no shared challenge owner."))
                         .IncrementScripted(bindings.Form(arguments[0]).FormKey);
                     break;
-                case "killquestupdates" or "kqu" when parts.Length == 1 && arguments.Count == 0:
+                case "killquestupdates" when parts.Length == 1 && arguments.Count == 0:
                     quests.KillQuestUpdates();
                     break;
                 case "startconversation" when arguments.Count is 1 or 2:
@@ -1580,7 +1585,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                     var total = checked((int)Index(Number(arguments[0])));
                     host.Apply(new(FalloutReferenceEffectKind.SpecialMenu, source, Value: total));
                     break;
-                case "showbartermenu" or "sbm" when arguments.Count <= 1:
+                case "showbartermenu" when arguments.Count <= 1:
                     var discount = arguments.Count == 0 ? 0 : Number(arguments[0]);
                     if (!double.IsFinite(discount) || discount is < -100 or > 100 || discount != Math.Truncate(discount))
                         throw new InvalidDataException("ShowBarterMenu discount must be an integer from -100 through 100.");
@@ -1604,7 +1609,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                         [arguments[0], .. new[] { casino.MinimumBet, casino.MaximumBet, casino.MaxWinnings }
                             .Select(value => value.ToString(System.Globalization.CultureInfo.InvariantCulture))]);
                     break;
-                case "addcardtoplayer" or "addcard" when arguments.Count == 0:
+                case "addcardtoplayer" when arguments.Count == 0:
                     // The command's caller is a real reference whose effective
                     // base record supplies the card identity. Inventory event
                     // delivery and RemoveMe are separate owners.

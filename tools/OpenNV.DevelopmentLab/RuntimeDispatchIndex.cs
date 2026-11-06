@@ -240,7 +240,12 @@ internal static class RuntimeDispatchIndex
                 Mode.Strings => subjects.Contains(expression.ToString()) || expression is InvocationExpressionSyntax
                 {
                     Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "ToLowerInvariant" or "ToLower" } lowered
-                } && IsSubject(lowered.Expression, subjects),
+                } && IsSubject(lowered.Expression, subjects) || expression is InvocationExpressionSyntax
+                {
+                    Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Operation" } canonical,
+                    ArgumentList.Arguments: [var argument]
+                } && canonical.Expression.ToString().EndsWith("FalloutScriptCommandNames", StringComparison.Ordinal) &&
+                    IsSubject(argument.Expression, subjects),
                 Mode.Procedures => expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Procedure" },
                 _ => true,
             };

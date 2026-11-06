@@ -21,8 +21,8 @@ internal static partial class FalloutImageSpaceCommands
                 if (!match.Success || depth != 0)
                     throw new NotSupportedException($"Image-space command needs a bound expression/condition owner: {line}");
                 var operation = match.Groups["operation"].Value;
-                commands.Add(new(index, operation.Equals("imod", StringComparison.OrdinalIgnoreCase) ||
-                    operation.Equals("ApplyImageSpaceModifier", StringComparison.OrdinalIgnoreCase), match.Groups["modifier"].Value));
+                commands.Add(new(index, Definitions.FalloutScriptCommandNames.Operation(operation) == "applyimagespacemodifier",
+                    match.Groups["modifier"].Value));
             }
             index++;
         }

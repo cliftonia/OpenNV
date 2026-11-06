@@ -125,6 +125,7 @@ internal partial class RuntimeNativeOpeningStageDriver
                 IsDead: DialogueActorDead, HealthPercentage: ActorHealthPercentage,
                 MiscStatistic: name => _scripts.MiscStatistics.Read(FalloutMiscStatisticNames.Index(
                     RuntimeLiveContentSource.Current ?? throw new InvalidOperationException("Statistic declarations have no owned source."), name)),
+                SetQuestDelay: _scripts.SetQuestDelay,
                 IsSneaking: actor => _pluginStack.RuntimeFormId(actor) == 0x14 ? _player.Activity.Sneaking :
                     throw new NotSupportedException("NPC sneaking query has no retained actor activity owner."),
                 IsImageSpaceActive: modifier => _imageSpaceState.Active.Any(active => active.Source.Form == modifier)));

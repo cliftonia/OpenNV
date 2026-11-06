@@ -223,7 +223,7 @@ internal sealed class ScriptSaveFixture : IDisposable
     internal FalloutPluginRecord Script => Records.GetEffective(new("Saves.esm", 0x50));
 
     internal ScriptSaveFixture(string body, string questBody = "", Func<bool>? hardcore = null, string? functionBody = null,
-        string gameModeBody = "", string? artifactDirectory = null, bool includeSecondReference = false)
+        string gameModeBody = "", string? artifactDirectory = null, bool includeSecondReference = false, bool bindQuest = false)
     {
         _directory = artifactDirectory is null ? Directory.CreateTempSubdirectory("opennv-script-save-") :
             Directory.CreateDirectory(Path.Combine(artifactDirectory, "source-save-ordering-" + Guid.NewGuid().ToString("N")));
@@ -231,13 +231,13 @@ internal sealed class ScriptSaveFixture : IDisposable
         var questHeader = header.ToArray(); questHeader[16] = 1;
         byte[][] Scope(byte[] scriptHeader, string source) => [Field("SCHR", scriptHeader),
             Field("SLSD", Local(1)), Field("SCVR", Text("saved")), Field("SLSD", Local(2)), Field("SCVR", Text("suffix")),
-            Field("SCRO", U32(0x14)), Field("SCRO", U32(0x91)), Field("SCTX", Text(source))];
+            Field("SCRO", U32(0x14)), Field("SCRO", U32(0x91)), bindQuest ? Field("SCRO", U32(0x60)) : [], Field("SCTX", Text(source))];
         File.WriteAllBytes(Path.Combine(_directory.FullName, "Saves.esm"), Join(
             Record("TES4", 0, Field("HEDR", new byte[12])), Record("NPC_", 7), Record("NPC_", 2),
             Record("ACTI", 1, Field("SCRI", U32(0x50))),
             Record("SCPT", 0x50, Scope(header, "float saved\nfloat suffix\nbegin OnActivate\n" + body +
                 "\nend\nbegin GameMode\n" + gameModeBody + "\nend")),
-            Record("QUST", 0x60, Field("DATA", [1, 0]), Field("SCRI", U32(0x51))),
+            Record("QUST", 0x60, bindQuest ? Field("EDID", Text("SavesQuest")) : [], Field("DATA", [1, 0]), Field("SCRI", U32(0x51))),
             Record("SCPT", 0x51, Scope(questHeader, "float saved\nfloat suffix\nbegin GameMode\n" + questBody + "\nend")),
             functionBody is null ? [] : Record("SCPT", 0x52, Scope(header,
                 "float saved\nfloat suffix\nbegin Function {}\n" + functionBody + "\nend")),
