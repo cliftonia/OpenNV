@@ -137,7 +137,7 @@ internal static partial class RuntimeNativeNifMeshBuilder
                 controller.Block.TypeName != link.ControllerType || controller.Time.Target != target ||
                 controller.Modifier != link.Variable1 || (controller.Time.Flags & 0x40) == 0)
                 throw new NotSupportedException($"Particle channel {sequence.Name}/{link.NodeName} has no declared owner.");
-            return particle.Runtime.Bind(_source, link);
+            return particle.Runtime.Bind(_source, link, (sequence, sequence.StartTime, sequence.StopTime, sequence.CycleType == 0));
         }
 
         private RuntimeNifControllerChannel BuildAlphaChannel(FalloutNifControllerSequence sequence,

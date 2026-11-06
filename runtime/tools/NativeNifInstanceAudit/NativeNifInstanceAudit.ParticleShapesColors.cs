@@ -17,7 +17,7 @@ public partial class NativeNifInstanceAudit
         {
             var first = Create(file); var second = Create(file);
             var emitter = new FalloutNifControllerLink("Particles", "", "NiPSysEmitterCtlr", "Emitter", "BirthRate", 7, 9, 0);
-            first.Bind(file, emitter).Apply(0);
+            Sample(first, file, 1f / 60);
             first.Bind(file, emitter with { ControllerType = "NiPSysEmitterLifeSpanCtlr", Variable2 = "", Interpolator = 6 }).Apply(0);
             Advance(first, 1f / 60);
             first.EmissionEnabled = false;
@@ -45,7 +45,7 @@ public partial class NativeNifInstanceAudit
                 !state.SequenceEqual(Convert.FromBase64String(JsonSerializer.SerializeToElement(first.Observation).GetProperty("state").GetString()!)))
                 throw new InvalidDataException("Reenabled source color modifier changed simulation or failed to restore identical draw output.");
             var ordered = Create(file);
-            ordered.Bind(file, emitter).Apply(0);
+            Sample(ordered, file, .1f);
             ordered.Bind(file, emitter with { ControllerType = "NiPSysEmitterLifeSpanCtlr", Variable2 = "", Interpolator = 6 }).Apply(0);
             Advance(ordered, .1f);
             if (ordered.ActiveCount < 2) throw new InvalidDataException("Particle ordering fixture has no sortable population.");
@@ -68,14 +68,14 @@ public partial class NativeNifInstanceAudit
             }
             var mortalFile = FalloutNifFile.Read(ParticleShapesColorsFixture(die: true));
             var mortal = Create(mortalFile);
-            mortal.Bind(mortalFile, emitter).Apply(0);
+            Sample(mortal, mortalFile, 1f / 60);
             mortal.Bind(mortalFile, emitter with { ControllerType = "NiPSysEmitterLifeSpanCtlr", Variable2 = "", Interpolator = 6 }).Apply(0);
             Advance(mortal, 1f / 60); mortal.EmissionEnabled = false; Advance(mortal, 1.2f);
             if (mortal.ActiveCount != 0 || mortal.DeathCount != 1 || mortal.CollisionCount != 1)
                 throw new InvalidDataException("Sphere collision did not honor the source death declaration.");
             var movingNodes = new Dictionary<int, Node3D>();
             var moving = Create(file, movingNodes);
-            moving.Bind(file, emitter).Apply(0);
+            Sample(moving, file, 1f / 60);
             moving.Bind(file, emitter with { ControllerType = "NiPSysEmitterLifeSpanCtlr", Variable2 = "", Interpolator = 6 }).Apply(0);
             Advance(moving, 1f / 60); moving.EmissionEnabled = false;
             movingNodes[18].Position = new(10, 0, 0);
@@ -90,7 +90,7 @@ public partial class NativeNifInstanceAudit
             var callbackFile = FalloutNifFile.Read(callbackBytes);
             var callbackNodes = new Dictionary<int, Node3D>();
             var callback = Create(callbackFile, callbackNodes);
-            callback.Bind(callbackFile, emitter).Apply(0);
+            Sample(callback, callbackFile, 1f / 60);
             callback.Bind(callbackFile, emitter with { ControllerType = "NiPSysEmitterLifeSpanCtlr", Variable2 = "", Interpolator = 6 }).Apply(0);
             callback.LifecycleEvent += value => { if (value.Kind == "collision") callbackNodes[18].Position = new(10, 0, 0); };
             Advance(callback, 1f / 60); callback.EmissionEnabled = false; Advance(callback, 1.2f);
@@ -105,6 +105,14 @@ public partial class NativeNifInstanceAudit
         finally { fixture.Free(); }
         if (Performance.GetMonitor(Performance.Monitor.ObjectOrphanNodeCount) != before)
             throw new InvalidDataException("Particle source fixture retired with orphaned native nodes.");
+
+        // The emitter controller's first sample primes its clock; the second
+        // sample's interval emits on the following system update.
+        static void Sample(RuntimeNifParticleSystem system, FalloutNifFile input, float seconds)
+        {
+            var birth = system.Bind(input, new FalloutNifControllerLink("Particles", "", "NiPSysEmitterCtlr", "Emitter", "BirthRate", 7, 9, 0));
+            birth.Apply(0); birth.Apply(seconds);
+        }
 
         RuntimeNifParticleSystem Create(FalloutNifFile input, Dictionary<int, Node3D>? nodes = null)
         {

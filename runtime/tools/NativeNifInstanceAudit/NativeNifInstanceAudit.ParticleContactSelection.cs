@@ -31,9 +31,11 @@ public partial class NativeNifInstanceAudit
         Check(0, .01f, "nearest");
         Check(.01f, .01f, "authored-tie");
         Check(.01f, .0095f, "bounded-end-slab");
-        Check(.0195f, .0195f, "immediate-first", 12, 1);
+        // An immediate contact moving into the plane slides (normal removed);
+        // a frame-end contact reflects and scales the whole velocity by bounce.
+        Check(.0195f, .0195f, "immediate-first", 12, 0);
         var endHeight = .02f - 2f / 60;
-        Check(endHeight, endHeight, "frame-end", 16, 0, true);
+        Check(endHeight, endHeight, "frame-end", 16, .5f, true);
 
         void Check(float firstHeight, float secondHeight, string label, int expectedOwner = 16, float expectedVelocity = .5f, bool frameEnd = false)
         {
@@ -56,13 +58,18 @@ public partial class NativeNifInstanceAudit
                 var contacts = new List<FalloutNifParticleLifecycleEvent>();
                 runtime.LifecycleEvent += value => { if (value.Kind == "collision") contacts.Add(value); };
                 var link = new FalloutNifControllerLink("Particles", "", "NiPSysEmitterCtlr", "Emitter", "BirthRate", 7, 9, 0);
-                runtime.Bind(file, link).Apply(0);
+                // The emitter controller's interval births the particle at the
+                // frame's end (age zero); the next update moves it one frame.
+                var birth = runtime.Bind(file, link);
+                birth.Apply(0); birth.Apply(1f / 60);
                 runtime.Bind(file, link with { ControllerType = "NiPSysEmitterLifeSpanCtlr", Variable2 = "", Interpolator = 6 }).Apply(0);
+                runtime.BeginParentMotion(1f / 60); runtime.Advance(1f / 60); runtime.EndParentMotion();
+                runtime.EmissionEnabled = false; contacts.Clear();
                 runtime.BeginParentMotion(1f / 60); runtime.Advance(1f / 60); runtime.EndParentMotion();
                 if (runtime.BirthCount != 1 || contacts.Count != 1 || contacts[0].DeclaringOwner != expectedOwner ||
                     MathF.Abs(contacts[0].Velocity.Y - expectedVelocity) > .00001f ||
                     (frameEnd ? MathF.Abs(runtime.Positions.Single().Y - secondHeight) > .00001f : runtime.Positions.Single().Y <= secondHeight))
-                    throw new InvalidDataException($"Particle {label} selection, single response or remaining motion differs.");
+                    throw new InvalidDataException($"Particle {label} selection, single response or remaining motion differs: births={runtime.BirthCount} contacts={contacts.Count} owner={(contacts.Count > 0 ? contacts[0].DeclaringOwner : -1)} vy={(contacts.Count > 0 ? contacts[0].Velocity.Y : float.NaN)} y={runtime.Positions.FirstOrDefault().Y}.");
             }
             finally { fixture.Free(); }
         }

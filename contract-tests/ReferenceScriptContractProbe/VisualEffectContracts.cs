@@ -17,7 +17,7 @@ internal static class VisualEffectContracts
         NifSpawn();
         Console.WriteLine("OPENNV_EFFECT_SHADER_FADE_CURVE_PASS stepped=true release=true pulse=true holes=true addons=true");
         Console.WriteLine("OPENNV_EFFECT_SHADER_PARTICLE_PASS scale=true color=true rotation=true births=true deaths=true motion=true finish=true");
-        Console.WriteLine("OPENNV_NIF_PARTICLE_UPDATE_PASS emission=true windows=true backlog=true loop=true order=true forces=true colliders=true spawn=true parity=unverified");
+        Console.WriteLine("OPENNV_NIF_PARTICLE_UPDATE_PASS emission=true windows=true backlog=true burstKept=true slowFrames=true sequences=true loop=true order=true forces=true colliders=true spawn=true parity=unverified");
     }
 
     private static void FadeCurve()
@@ -83,7 +83,7 @@ internal static class VisualEffectContracts
     private static void ParticleCloud()
     {
         var cloud = new FalloutEffectShaderParticleCloud(Effect(.5f, 1), new(1, 0, 0), new(0, 0, -2), 1, new Random(7));
-        void Emit(Random random, out Numerics.Vector3 position, out Numerics.Vector3 direction) { position = default; direction = Numerics.Vector3.UnitY; }
+        bool Emit(Random random, out Numerics.Vector3 position, out Numerics.Vector3 direction) { position = default; direction = Numerics.Vector3.UnitY; return true; }
         Require(cloud.BatchCount == 1, "a half birth ratio fits one batch");
         cloud.Update(0, 0, false, Emit);
         Require(cloud.LiveCount == 0 && Near(cloud.Ratio(0), .5f), "first update hands out the ratio without births");
@@ -107,8 +107,16 @@ internal static class VisualEffectContracts
         Require(cloud.Finished, "released particles stop being born and die out");
     }
 
-    private static FalloutNifParticleEmitterClock Clock(Func<float, bool>? active = null, float[]? keys = null, bool keyed = false) =>
-        new() { Rate = _ => 10, RateKeyed = keyed, Active = active ?? (_ => true), ActiveKeys = keys, LoopStart = 0, LoopStop = 1 };
+    private static FalloutNifParticleEmitterCurves Curves(float rate = 10, Func<float, bool>? active = null, float[]? keys = null,
+        bool keyed = false, bool loops = true) =>
+        new() { Rate = _ => rate, RateKeyed = keyed, Active = active ?? (_ => true), ActiveKeys = keys, LoopStart = 0, LoopStop = 1, Loops = loops };
+
+    // One controller sample followed by one system update.
+    private static int Step(FalloutNifParticleEmitterClock clock, FalloutNifParticleEmitterCurves curves, double time, float life, float[] ages)
+    {
+        clock.Apply(curves, time);
+        return clock.Advance(life, ages);
+    }
 
     private static void NifEmission()
     {
@@ -116,21 +124,41 @@ internal static class VisualEffectContracts
         Require(FalloutNifParticleEmitterClock.Interval(10, .05, .35, 0, double.PositiveInfinity, ages) == 3 &&
             Near(ages[0], .25f) && Near(ages[1], .15f) && Near(ages[2], .05f), "interval births at exact multiples");
         Require(FalloutNifParticleEmitterClock.Interval(1000, 0, 1, 0, double.PositiveInfinity, ages) == 15, "interval cap");
-        var constant = Clock();
-        Require(constant.Advance(0, 1, ages) == 0, "first controller update emits nothing");
+        var constant = new FalloutNifParticleEmitterClock();
+        var persistent = Curves();
+        Require(Step(constant, persistent, 0, 1, ages) == 0, "first controller sample only primes the clock");
         var total = 0;
-        for (var frame = 1; frame <= 640; frame++) total += constant.Advance(frame / 64.0, 1, ages);
+        for (var frame = 1; frame <= 640; frame++) total += Step(constant, persistent, frame / 64.0, 1, ages);
         Require(total == 100, $"floor-from-start emission has no drift ({total})");
-        Require(constant.Advance(15, 1, ages) == 0 && constant.Stored == 15, "a long gap discards the backlog");
+        Require(Step(constant, persistent, 15, 1, ages) == 0 && constant.Stored == 15, "a looping emitter discards a long backlog");
+        // A one-shot burst survives a long first frame after the build-time sample.
+        var burst = new FalloutNifParticleEmitterClock();
+        var oneShot = Curves(loops: false);
+        burst.Apply(oneShot, 0);
+        Require(Step(burst, oneShot, 2, .05f, ages) == FalloutNifParticleEmitterClock.MaximumPerInterval, "a long first frame keeps a one-shot burst");
+        // Short-lived looping emitters still emit across slow frames.
+        var brief = new FalloutNifParticleEmitterClock();
+        Step(brief, persistent, 0, .03f, ages);
+        Require(Step(brief, persistent, .25, .03f, ages) == 2, "slow frames do not starve short-lived emitters");
+        // Two sequences on one emitter keep their own curves.
+        var shared = new FalloutNifParticleEmitterClock();
+        FalloutNifParticleEmitterCurves slow = Curves(10, loops: false), fast = Curves(100, loops: false);
+        Step(shared, slow, 0, 1, ages);
+        Require(Step(shared, slow, .5, 1, ages) == 5, "first sequence uses its own rate");
+        Require(Step(shared, fast, 0, 1, ages) == 0 && ReferenceEquals(shared.Curves, fast), "a newly active sequence primes from its own time");
+        Require(Step(shared, fast, .1, 1, ages) == 10, "second sequence uses its own rate");
         float[] keys = [0, .1f, .2f, .5f];
-        var windows = Clock(time => time is >= .1f and < .2f || time >= .5f, keys);
-        windows.Rate = _ => 100;
-        windows.Advance(0, 10, ages);
-        Require(windows.Advance(.3, 10, ages) == 10 && Near(ages[0], .19f) && Near(ages[9], .1f), "closed window ages measured at now");
-        Require(windows.Advance(.625, 10, ages) == 12 && Near(ages[0], .115f) && Near(ages[11], .005f), "open window emits up to now");
-        var looping = Clock(keyed: true);
-        looping.Advance(.9, 1, ages);
-        Require(looping.Advance(.1, 1, ages) == 2 && Near(ages[0], .1f) && Near(ages[1], 0), "a looped controller emits its tail and head");
+        var windows = new FalloutNifParticleEmitterClock();
+        var keyed = Curves(100, time => time is >= .1f and < .2f || time >= .5f, keys);
+        Step(windows, keyed, 0, 10, ages);
+        Require(Step(windows, keyed, .3, 10, ages) == 10 && Near(ages[0], .19f) && Near(ages[9], .1f), "closed window ages measured at now");
+        Require(Step(windows, keyed, .625, 10, ages) == 12 && Near(ages[0], .115f) && Near(ages[11], .005f), "open window emits up to now");
+        var looping = new FalloutNifParticleEmitterClock();
+        var keyedRate = Curves(keyed: true);
+        Step(looping, keyedRate, .9, 1, ages);
+        Require(Step(looping, keyedRate, .1, 1, ages) == 2 && Near(ages[0], .1f) && Near(ages[1], 0), "a looped controller emits its tail and head");
+        try { FalloutNifParticleEmitterClock.Interval(float.PositiveInfinity, 0, 1, 0, 2, ages); Require(false, "infinite rate refused"); }
+        catch (InvalidDataException) { }
         Require(Near(FalloutNifParticleEmission.Sin(MathF.PI / 2), 1) && Near(FalloutNifParticleEmission.Sin(-MathF.PI / 2), -1) &&
             Near(FalloutNifParticleEmission.Cos(0), 1), "table sine and cosine");
     }

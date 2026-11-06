@@ -8,14 +8,18 @@ namespace OpenNV.Runtime.Presentation.Rendering;
 // scaled by the instance's add-on clock.
 internal sealed partial class NativeEffectShader
 {
+    // Parsed add-on models per owned source; instances stay per attach.
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<RuntimeLiveContentSource, Dictionary<string, FalloutNifFile>> Models = [];
     private readonly List<(Node3D Root, GeometryInstance3D[] Geometry)> _addons = [];
     private FalloutEffectShaderAddonClock _addonClock;
+    private float _addonAlpha = float.NaN, _addonScale = float.NaN;
 
     private void AttachAddons(RuntimeLiveContentSource content, FalloutPluginStack records, FalloutFormKey form,
         List<(Node3D Parent, int Bone)> nodes, float units)
     {
         var debris = FalloutDebris.Read(records, form);
         var prototypes = new Dictionary<string, RuntimeNativeNifPrototype>(StringComparer.OrdinalIgnoreCase);
+        var models = Models.GetValue(content, _ => new(StringComparer.OrdinalIgnoreCase));
         try
         {
             var initial = Math.Max(.01f, _effect.Addons.ScaleStart ?? 0);
@@ -24,8 +28,12 @@ internal sealed partial class NativeEffectShader
                 var model = debris.Pick(_random).Model;
                 if (!prototypes.TryGetValue(model, out var prototype))
                 {
-                    if (!content.TryRead(model, null, out var bytes, out _)) throw new FileNotFoundException("Effect shader add-on model is missing.", model);
-                    prototypes.Add(model, prototype = new RuntimeNativeNifPrototype(bytes, units));
+                    if (!models.TryGetValue(model, out var file))
+                    {
+                        if (!content.TryRead(model, null, out var bytes, out _)) throw new FileNotFoundException("Effect shader add-on model is missing.", model);
+                        models.Add(model, file = FalloutNifFile.Read(bytes));
+                    }
+                    prototypes.Add(model, prototype = new RuntimeNativeNifPrototype(file, units));
                 }
                 var root = prototype.InstantiatePlaced(Transform3D.Identity);
                 root.Scale = Vector3.One * initial;
@@ -44,11 +52,15 @@ internal sealed partial class NativeEffectShader
         if (_addons.Count == 0) return false;
         var source = _effect.Addons;
         _addonClock.Step(source, Releasing, delta);
-        var scale = Vector3.One * _addonClock.Scale(source, Releasing);
+        var scale = _addonClock.Scale(source, Releasing);
+        var alpha = _addonClock.Alpha;
+        if (scale == _addonScale && alpha == _addonAlpha) return alpha > 1e-4f;
+        _addonScale = scale; _addonAlpha = alpha;
         foreach (var (root, geometry) in _addons)
         {
-            (root is BoneAttachment3D ? root.GetChild<Node3D>(0) : root).Scale = scale;
-            foreach (var instance in geometry) instance.Transparency = 1 - _addonClock.Alpha;
+            if (!IsInstanceValid(root)) continue;
+            (root is BoneAttachment3D ? root.GetChild<Node3D>(0) : root).Scale = Vector3.One * scale;
+            foreach (var instance in geometry) if (IsInstanceValid(instance)) instance.Transparency = 1 - alpha;
         }
         return _addonClock.Alpha > 1e-4f;
     }

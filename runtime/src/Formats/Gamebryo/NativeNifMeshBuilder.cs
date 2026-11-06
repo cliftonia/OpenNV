@@ -588,7 +588,7 @@ internal static partial class RuntimeNativeNifMeshBuilder
                             Skeleton = new NodePath("../.."),
                         };
                         rendered.SetMeta("opennv_nif_geometry_block", blockIndex);
-                    PreserveMaterialName(rendered, geometry);
+                        PreserveMaterialName(rendered, geometry);
                         rendered.SetMeta("opennv_nif_source_name", geometry.Name);
                         PreserveExtraDataMetadata(rendered, geometry.ExtraData);
                         rendered.SetMeta("opennv_nif_skin_instance", instance.Block.Index);

@@ -30,8 +30,15 @@ public partial class NativeNifInstanceAudit
                 throw new InvalidDataException("Particle lifespan controller lost its source fields.");
             var life = new FalloutNifControllerLink("Particles", "", "NiPSysEmitterLifeSpanCtlr", "Emitter", "", 6, 9, 0);
             first.Bind(file, life).Apply(0);
-            first.Bind(file, life with { ControllerType = "NiPSysEmitterCtlr", Variable2 = "BirthRate", Interpolator = 7 }).Apply(0);
-            void Advance(float seconds) { first.BeginParentMotion(seconds); first.Advance(seconds); first.EndParentMotion(); }
+            // Emission belongs to the emitter controller: it samples every frame
+            // before the system update, as its controller player would.
+            var birth = first.Bind(file, life with { ControllerType = "NiPSysEmitterCtlr", Variable2 = "BirthRate", Interpolator = 7 });
+            var controllerTime = 0f; birth.Apply(controllerTime);
+            void Advance(float seconds)
+            {
+                birth.Apply(controllerTime += seconds);
+                first.BeginParentMotion(seconds); first.Advance(seconds); first.EndParentMotion();
+            }
             for (var frame = 0; frame < 20; frame++) Advance(1f / 60);
             first.Bind(file, life with { Interpolator = 14 }).Apply(0);
             for (var frame = 0; frame < 3; frame++) Advance(1f / 60);

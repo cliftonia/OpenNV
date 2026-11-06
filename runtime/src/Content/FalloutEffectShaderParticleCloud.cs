@@ -3,7 +3,8 @@ using System.Numerics;
 namespace OpenNV.Runtime.Content;
 
 // Presentation-space emission point: a position (metres) and a unit direction.
-internal delegate void FalloutEffectShaderEmitter(Random random, out Vector3 position, out Vector3 direction);
+// False when the source is gone; the update then stops emitting.
+internal delegate bool FalloutEffectShaderEmitter(Random random, out Vector3 position, out Vector3 direction);
 
 internal readonly record struct FalloutEffectShaderParticleSample(Vector3 Centre, float HalfSize, float Angle,
     Vector4 Color, Vector2 TileOffset);
@@ -149,7 +150,8 @@ internal sealed class FalloutEffectShaderParticleCloud
                 if (age >= 0 && age * _life[slot] <= lifetime) continue;
                 if (Spawned(slot)) { Clear(slot); Live--; }
                 if (births <= 0 || Live >= limit) continue;
-                emitter(_owner._random, out _position[slot], out _direction[slot]);
+                if (!emitter(_owner._random, out var position, out var direction)) { births = 0; continue; }
+                _position[slot] = position; _direction[slot] = direction;
                 _birth[slot] = _previous;
                 births--; Live++;
             }

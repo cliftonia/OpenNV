@@ -111,8 +111,10 @@ internal partial class RuntimeNativeOpeningStageDriver
     // everything else from its mesh surfaces.
     private NativeEffectShaderEmitMode EffectShaderEmitMode(FalloutFormKey reference)
     {
-        if (_pluginStack.RuntimeFormId(reference) == 0x14 || _pluginStack.GetEffective(reference).Signature is "ACHR" or "ACRE")
-            return NativeEffectShaderEmitMode.Skeleton;
+        // A first-person player emits from its view-model surfaces.
+        if (_pluginStack.RuntimeFormId(reference) == 0x14)
+            return _player.ThirdPersonView ? NativeEffectShaderEmitMode.Skeleton : NativeEffectShaderEmitMode.Surface;
+        if (_pluginStack.GetEffective(reference).Signature is "ACHR" or "ACRE") return NativeEffectShaderEmitMode.Skeleton;
         return _pluginStack.GetEffective(FalloutReferenceIdentity.Base(_pluginStack, reference)).Signature switch
         {
             "WEAP" => NativeEffectShaderEmitMode.Line,

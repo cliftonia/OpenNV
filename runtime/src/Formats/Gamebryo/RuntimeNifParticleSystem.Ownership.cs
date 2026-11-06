@@ -56,7 +56,7 @@ internal sealed partial class RuntimeNifParticleSystem
     {
         // Only generated owners belong here; material, source and siblings remain external.
         ReleaseParticleDraw(freeVisual: true);
-        _active.Clear(); _emitters.Clear(); _speeds.Clear(); _lifespans.Clear(); _gravityStrengths.Clear();
+        _active.Clear(); _emitters.Clear(); _emitterCurves.Clear(); _speeds.Clear(); _lifespans.Clear(); _gravityStrengths.Clear();
         _meshes.Clear(); _particleMeshSources.Clear(); _emissionError = null; _colliders.Clear(); _keyColors.Clear(); _spawnOwners.Clear(); _particleIndices.Clear(); _stepTransforms.Clear();
         _particles = []; _drawBuffer = []; _drawOrder = []; _modifiers = []; _emitterModifiers = []; _updateModifiers = []; _drawModifiers = []; _activeDrawModifiers = []; _colliderPoses = [];
         _source = null!; _data = null!; _nodes = null!;
@@ -137,8 +137,8 @@ internal sealed partial class RuntimeNifParticleSystem
             // Removing and reattaching a scene is not destruction. Predelete,
             // rather than ExitTree, closes this object's native capability.
             ReleaseParticleDraw(freeVisual: false);
-                _collisionWork.Clear(); _particleIndices.Clear();
-            _active.Clear(); _emitters.Clear(); _speeds.Clear(); _lifespans.Clear(); _gravityStrengths.Clear();
+            _collisionWork.Clear(); _particleIndices.Clear();
+            _active.Clear(); _emitters.Clear(); _emitterCurves.Clear(); _speeds.Clear(); _lifespans.Clear(); _gravityStrengths.Clear();
             _meshes.Clear(); _particleMeshSources.Clear(); _emissionError = null; _colliders.Clear(); _keyColors.Clear(); _spawnOwners.Clear(); _stepTransforms.Clear();
             _particles = []; _drawBuffer = []; _drawOrder = []; _modifiers = []; _emitterModifiers = []; _updateModifiers = []; _colliderPoses = [];
             _nodes = null!; LifecycleEvent = null; _configured = false;

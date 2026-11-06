@@ -159,14 +159,24 @@ internal sealed partial class NativeEffectShader : Node
     {
         foreach (var (geometry, previous) in _targets)
             if (IsInstanceValid(geometry) && geometry.MaterialOverlay == _membrane) geometry.MaterialOverlay = previous;
-        _targets.Clear();
     }
 
-    public override void _ExitTree() { Restore(); ReleaseAddons(); }
+    // Leaving the tree (a reparent or residency change) restores the target's
+    // own overlays; re-entering reapplies the membrane to live targets.
+    public override void _EnterTree()
+    {
+        if (_membrane is null) return;
+        foreach (var (geometry, _) in _targets)
+            if (IsInstanceValid(geometry)) geometry.MaterialOverlay = _membrane;
+    }
+
+    public override void _ExitTree() => Restore();
 
     public override void _Notification(int what)
     {
         if (what != NotificationPredelete) return;
+        Restore(); _targets.Clear();
+        ReleaseAddons();
         _membrane?.Dispose();
         ReleaseParticleDraw();
     }

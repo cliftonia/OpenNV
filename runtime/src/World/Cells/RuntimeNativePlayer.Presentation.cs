@@ -31,6 +31,7 @@ internal partial class RuntimeNativePlayer
     private bool WeaponAiming => _aiming && _weaponHandling is { Drawn: true } && FalloutWeaponSight.CanAim(_firstPerson?.Weapon);
     private readonly Godot.Collections.Array<Rid> _selfQueryBodies = [];
     private float _thirdPersonDistance = 2;
+    internal bool ThirdPersonView => _thirdPersonMode;
     internal object PresentationState => new
     {
         thirdPerson = _thirdPersonMode,

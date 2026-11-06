@@ -38,6 +38,8 @@ internal sealed partial class NativeEffectShader
     private FalloutEffectShaderParticleSample[] _samples = [];
     private NativeParticleDrawOrder[] _drawOrder = [];
     private int _visibleCount;
+    private bool _sourceLost;
+    private Vector3 _boundsCentre = new(float.NaN, 0, 0);
 
     private void AttachParticles(Node3D target, RuntimeLiveContentSource content, FalloutPluginStack records,
         NativeEffectShaderEmitMode mode, float units)
@@ -67,8 +69,12 @@ internal sealed partial class NativeEffectShader
         _quad = new QuadMesh { Size = Vector2.One * 2, Material = material };
         _draw = new MultiMesh
         {
-            TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = true, UseCustomData = true,
-            Mesh = _quad, InstanceCount = cloud.Capacity, VisibleInstanceCount = 0,
+            TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
+            UseColors = true,
+            UseCustomData = true,
+            Mesh = _quad,
+            InstanceCount = cloud.Capacity,
+            VisibleInstanceCount = 0,
         };
         _visual = new MultiMeshInstance3D { Name = "EffectShaderParticles", Multimesh = _draw, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
         AddChild(_visual);
@@ -83,6 +89,12 @@ internal sealed partial class NativeEffectShader
     {
         if (_cloud is not { } cloud) return false;
         cloud.Update(_age, delta, Releasing, _emitter);
+        if (_sourceLost && !Releasing)
+        {
+            // A freed bone, node or mesh ends emission; the instance releases.
+            GD.PushWarning($"OPENNV_EFFECT_SHADER_DEFERRED shader={_effect.Form} reason=effect-shader-emission-source-retired");
+            Stop();
+        }
         PublishParticles(cloud);
         return !cloud.Finished;
     }
@@ -94,7 +106,15 @@ internal sealed partial class NativeEffectShader
             for (var slot = 0; slot < FalloutEffectShaderTiming.ParticleBatchCapacity; slot++)
                 if (cloud.Sample(batch, slot, _age, out var sample)) _samples[count++] = sample;
         if (_visibleCount != count) { _draw!.VisibleInstanceCount = count; _visibleCount = count; }
-        _draw!.CustomAabb = new Aabb(_target.GlobalPosition - Vector3.One * _boundsExtent, Vector3.One * (2 * _boundsExtent));
+        var visible = _target.IsVisibleInTree();
+        if (_visual!.Visible != visible) _visual.Visible = visible;
+        // The batch bound follows the target; refit only after it moves a quarter extent.
+        var centre = _target.GlobalPosition;
+        if (!(centre.DistanceTo(_boundsCentre) < _boundsExtent / 4))
+        {
+            _boundsCentre = centre;
+            _draw!.CustomAabb = new Aabb(centre - Vector3.One * (1.25f * _boundsExtent), Vector3.One * (2.5f * _boundsExtent));
+        }
         if (count == 0) return;
         var camera = GetViewport().GetCamera3D();
         var basis = camera?.GlobalBasis.Orthonormalized() ?? Basis.Identity;
@@ -117,16 +137,19 @@ internal sealed partial class NativeEffectShader
                 new Color(sample.Color.X, sample.Color.Y, sample.Color.Z, sample.Color.W),
                 new Color(sample.TileOffset.X, scale.X, sample.TileOffset.Y, scale.Y));
         }
-        _draw.Buffer = _drawBuffer;
+        _draw!.Buffer = _drawBuffer;
     }
 
     // Weapon: a point along local +Y up to the bound reach, moving in local XZ.
     private FalloutEffectShaderEmitter LineEmitter(Node3D target, float length) =>
         (Random random, out Numerics.Vector3 position, out Numerics.Vector3 direction) =>
         {
+            position = direction = default;
+            if (!Alive(target)) return false;
             var transform = target.GlobalTransform;
             position = ToNumerics(transform * (SourceY * (length * random.NextSingle())));
             direction = ToNumerics((transform.Basis * PlanarDirection(random)).Normalized());
+            return true;
         };
 
     // Actor or activator: a random bone or helper node; a node with children
@@ -145,7 +168,8 @@ internal sealed partial class NativeEffectShader
         var helpers = new List<(Node3D Node, Node3D Parent, bool Branch)>();
         foreach (var node in SceneGraph.NodeTraversal.SelfAndDescendants<Node3D>(target))
         {
-            if (node == target || node is VisualInstance3D or Skeleton3D or CollisionObject3D or CollisionShape3D ||
+            // Only source NIF nodes: not sound emitters, attachments or other effects.
+            if (node == target || !node.HasMeta(SourceNodeMeta) || node is VisualInstance3D or Skeleton3D ||
                 node.GetParent() is not Node3D parent) continue;
             helpers.Add((node, parent, node.GetChildren().Any(child => child is Node3D and not VisualInstance3D)));
             nodes.Add((node, -1));
@@ -153,12 +177,14 @@ internal sealed partial class NativeEffectShader
         if (bones.Count + helpers.Count == 0) return null;
         return (Random random, out Numerics.Vector3 position, out Numerics.Vector3 direction) =>
         {
+            position = direction = default;
             var pick = random.Next(bones.Count + helpers.Count);
             Transform3D self, parent;
             bool branch;
             if (pick < bones.Count)
             {
                 var (skeleton, bone, parentBone, isBranch) = bones[pick];
+                if (!Alive(skeleton)) return false;
                 self = skeleton.GlobalTransform * skeleton.GetBoneGlobalPose(bone);
                 parent = skeleton.GlobalTransform * skeleton.GetBoneGlobalPose(parentBone);
                 branch = isBranch;
@@ -166,6 +192,7 @@ internal sealed partial class NativeEffectShader
             else
             {
                 var (node, parentNode, isBranch) = helpers[pick - bones.Count];
+                if (!Alive(node) || !Alive(parentNode)) return false;
                 self = node.GlobalTransform; parent = parentNode.GlobalTransform; branch = isBranch;
             }
             if (branch)
@@ -179,6 +206,7 @@ internal sealed partial class NativeEffectShader
                 position = ToNumerics(self.Origin);
                 direction = ToNumerics(CubeDirection(random));
             }
+            return true;
         };
     }
 
@@ -213,17 +241,20 @@ internal sealed partial class NativeEffectShader
         if (rigid.Count + skinned.Count == 0) return null;
         return (Random random, out Numerics.Vector3 position, out Numerics.Vector3 direction) =>
         {
+            position = direction = default;
             var pick = random.Next(rigid.Count + skinned.Count);
             if (pick < rigid.Count)
             {
                 var (mesh, vertices, normals) = rigid[pick];
+                if (!Alive(mesh)) return false;
                 var vertex = random.Next(vertices.Length);
                 var transform = mesh.GlobalTransform;
                 position = ToNumerics(transform * vertices[vertex]);
                 direction = ToNumerics((transform.Basis * normals[vertex]).Normalized());
-                return;
+                return true;
             }
             var (skinnedMesh, skeleton, bones) = skinned[pick - rigid.Count];
+            if (!Alive(skinnedMesh) || !Alive(skeleton)) return false;
             var bone = bones[random.Next(bones.Length)];
             var paired = skeleton.GetBoneParent(bone) is >= 0 and var parent ? parent : bone;
             var weight = random.NextSingle();
@@ -231,7 +262,18 @@ internal sealed partial class NativeEffectShader
             var other = skeleton.GlobalTransform * skeleton.GetBoneGlobalPose(paired).Origin;
             position = ToNumerics(origin * weight + other * (1 - weight));
             direction = ToNumerics((skinnedMesh.GlobalBasis * PlanarDirection(random)).Normalized());
+            return true;
         };
+    }
+
+    private const string SourceNodeMeta = "opennv_nif_source_node";
+
+    // A retired source flags the instance once instead of failing every frame.
+    private bool Alive(Node node)
+    {
+        if (IsInstanceValid(node) && node.IsInsideTree()) return true;
+        _sourceLost = true;
+        return false;
     }
 
     private static bool BelowBip(Node3D root, Node node)

@@ -94,9 +94,7 @@ internal sealed class NativeNifEffectPlayback
             controller.SetProcess(false);
         }
         foreach (var (node, visible) in _surfaces) node.Visible = visible;
-        // A zero-length update records each emitter's start time, so a burst
-        // authored at the first key emits on the first frame.
-        foreach (var particle in Particles) { particle.EmissionEnabled = _duration > 0; particle.ResetParentMotion(); particle.Advance(0); }
+        foreach (var particle in Particles) { particle.EmissionEnabled = _duration > 0; particle.ResetParentMotion(); }
         _elapsed = 0; Active = true; _root.Visible = true;
     }
 

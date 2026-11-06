@@ -1,5 +1,21 @@
 namespace OpenNV.Runtime.Formats.Gamebryo;
 
+// One sequence's emitter-controller curves: birth rate, emitter activity and
+// the clock range it loops over. Every sequence binds its own instance.
+internal sealed class FalloutNifParticleEmitterCurves
+{
+    // Birth rate at a controller time, and the first birth-rate key time.
+    internal Func<float, float> Rate { get; set; } = _ => 0;
+    internal float RateBegin { get; set; }
+    internal bool RateKeyed { get; set; }
+    // Emitter-active samples and its key times; null keys mean constant.
+    internal Func<float, bool> Active { get; set; } = _ => true;
+    internal float[]? ActiveKeys { get; set; }
+    internal required double LoopStart { get; init; }
+    internal required double LoopStop { get; init; }
+    internal required bool Loops { get; init; }
+}
+
 // NiPSysEmitterCtlr emission. Counts are floors measured from the start of the
 // active window, so there is no fractional accumulator; ages are the times
 // since each particle's exact birth, measured at the controller's `now`.
@@ -9,26 +25,34 @@ internal sealed class FalloutNifParticleEmitterClock
     internal const int MaximumWindows = 20;
     // Ages one Advance can produce: every window, plus a loop tail.
     internal const int MaximumPerAdvance = MaximumPerInterval * (MaximumWindows + 1) * 2;
+    // Short-lived emitters must still emit across slow frames; the backlog
+    // discard never triggers below this gap.
+    internal const float MinimumBacklogSeconds = .5f;
     private double _stored = double.NaN;
+    private FalloutNifParticleEmitterCurves? _curves;
 
-    // Birth rate at a controller time, and the first birth-rate key time.
-    internal required Func<float, float> Rate { get; set; }
-    internal float RateBegin { get; set; }
-    internal bool RateKeyed { get; set; }
-    // Emitter-active samples and its key times; null keys mean constant.
-    internal required Func<float, bool> Active { get; set; }
-    internal float[]? ActiveKeys { get; set; }
-    internal required double LoopStart { get; init; }
-    internal required double LoopStop { get; init; }
-    internal double? Now { get; set; }
+    internal double? Now { get; private set; }
     internal double Stored => _stored;
+    internal FalloutNifParticleEmitterCurves? Curves => _curves;
 
-    internal void Reset() { _stored = double.NaN; Now = null; }
+    internal void Reset() { _stored = double.NaN; Now = null; _curves = null; }
+
+    // A controller channel sampled its sequence at `time`. The first sample
+    // (or one from a newly active sequence) primes the stored time, so an
+    // authored burst at the first key still emits on the next update.
+    internal void Apply(FalloutNifParticleEmitterCurves curves, double time)
+    {
+        if (!double.IsFinite(time)) throw new InvalidDataException("Particle emitter controller time is not finite.");
+        if (!ReferenceEquals(curves, _curves)) { _curves = curves; _stored = time; }
+        else if (double.IsNaN(_stored)) _stored = time;
+        Now = time;
+    }
 
     // Emit(rate, last, current, start, stop): births at whole multiples of
     // 1/rate after `start`, inside (last, min(current, stop)], at most 15.
     internal static int Interval(float rate, double last, double current, double start, double stop, Span<float> ages)
     {
+        if (!float.IsFinite(rate)) throw new InvalidDataException("Particle emitter birth rate is not finite.");
         if (!(rate > 0) || start >= stop || start >= current || last >= stop) return 0;
         var duration = current <= stop ? current - start : stop - start;
         var first = (long)((start <= last ? last - start : 0) * rate);
@@ -37,31 +61,34 @@ internal sealed class FalloutNifParticleEmitterClock
         return Math.Max(0, count);
     }
 
-    // Advances the stored controller time to `now`. A first call, or a gap
-    // longer than `backlogLimit`, records the time and emits nothing.
-    internal int Advance(double now, float backlogLimit, Span<float> ages)
+    // Consumes the pending controller time. A looping (persistent) emitter
+    // whose gap exceeds max(backlogLimit, MinimumBacklogSeconds) discards
+    // that backlog; one-shot emitters keep their bursts, bounded by the caps.
+    internal int Advance(float backlogLimit, Span<float> ages)
     {
-        if (double.IsNaN(_stored) || now >= _stored && now - _stored > backlogLimit) { _stored = now; return 0; }
+        if (Now is not { } now || _curves is not { } curves) return 0;
+        Now = null;
+        if (curves.Loops && now >= _stored && now - _stored > Math.Max(backlogLimit, MinimumBacklogSeconds)) { _stored = now; return 0; }
         int count;
-        if (now >= _stored) count = Walk(_stored, now, 0, ages);
+        if (now >= _stored) count = Walk(curves, _stored, now, 0, ages);
         else
         {
             // The controller looped: finish the old cycle, then start the new one.
             // A constant rate and constant activity restart from the loop start.
-            count = ActiveKeys is null && !RateKeyed ? 0 : Walk(_stored, LoopStop, now - LoopStart, ages);
-            count += Walk(LoopStart, now, 0, ages[count..]);
+            count = curves.ActiveKeys is null && !curves.RateKeyed ? 0 : Walk(curves, _stored, curves.LoopStop, now - curves.LoopStart, ages);
+            count += Walk(curves, curves.LoopStart, now, 0, ages[count..]);
         }
         _stored = now;
         return count;
     }
 
-    private int Walk(double from, double to, double extra, Span<float> ages)
+    private static int Walk(FalloutNifParticleEmitterCurves curves, double from, double to, double extra, Span<float> ages)
     {
         if (to <= from) return 0;
-        if (ActiveKeys is null)
+        if (curves.ActiveKeys is null)
         {
-            if (!Active((float)from)) return 0;
-            var constant = Interval(Rate((float)(from + .5 * (to - from))), from, to, RateBegin, double.PositiveInfinity, ages);
+            if (!curves.Active((float)from)) return 0;
+            var constant = Interval(curves.Rate((float)(from + .5 * (to - from))), from, to, curves.RateBegin, double.PositiveInfinity, ages);
             for (var index = 0; index < constant; index++) ages[index] += (float)extra;
             return constant;
         }
@@ -70,11 +97,11 @@ internal sealed class FalloutNifParticleEmitterClock
         for (var window = 0; window < MaximumWindows; window++)
         {
             double start;
-            if (Active((float)time)) start = WindowStart(time);
-            else if (FirstActiveKey(time, to) is { } opened) start = opened;
+            if (curves.Active((float)time)) start = WindowStart(curves, time);
+            else if (FirstActiveKey(curves, time, to) is { } opened) start = opened;
             else break;
-            var stop = WindowEnd(start);
-            var rate = Rate((float)(stop < to ? start + .5 * (stop - start) : to));
+            var stop = WindowEnd(curves, start);
+            var rate = curves.Rate((float)(stop < to ? start + .5 * (stop - start) : to));
             var emitted = Interval(rate, time, to, start, stop, ages[count..]);
             // Ages from a closed window were measured at its end.
             var later = extra + (stop < to ? to - stop : 0);
@@ -87,27 +114,27 @@ internal sealed class FalloutNifParticleEmitterClock
     }
 
     // The latest false-to-true key at or before `time` (or the first key).
-    private double WindowStart(double time)
+    private static double WindowStart(FalloutNifParticleEmitterCurves curves, double time)
     {
-        var keys = ActiveKeys!;
+        var keys = curves.ActiveKeys!;
         var start = keys[0];
         for (var index = 0; index < keys.Length && keys[index] <= time; index++)
-            if (Active(keys[index]) && (index == 0 || !Active(keys[index - 1]))) start = keys[index];
+            if (curves.Active(keys[index]) && (index == 0 || !curves.Active(keys[index - 1]))) start = keys[index];
         return start;
     }
 
     // The first false key after `start`; an unclosed window stays open.
-    private double WindowEnd(double start)
+    private static double WindowEnd(FalloutNifParticleEmitterCurves curves, double start)
     {
-        foreach (var key in ActiveKeys!)
-            if (key > start && !Active(key)) return key;
+        foreach (var key in curves.ActiveKeys!)
+            if (key > start && !curves.Active(key)) return key;
         return double.PositiveInfinity;
     }
 
-    private double? FirstActiveKey(double after, double until)
+    private static double? FirstActiveKey(FalloutNifParticleEmitterCurves curves, double after, double until)
     {
-        foreach (var key in ActiveKeys!)
-            if (key > after && key <= until && Active(key)) return key;
+        foreach (var key in curves.ActiveKeys!)
+            if (key > after && key <= until && curves.Active(key)) return key;
         return null;
     }
 }

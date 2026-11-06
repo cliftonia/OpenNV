@@ -14,6 +14,7 @@ internal sealed partial class RuntimeNifParticleSystem : Node3D
     private FalloutNifParticleModifier[] _drawModifiers = [], _activeDrawModifiers = [];
     private readonly Dictionary<string, bool> _active = new(StringComparer.Ordinal);
     private readonly Dictionary<string, FalloutNifParticleEmitterClock> _emitters = new(StringComparer.Ordinal);
+    private readonly Dictionary<(string Emitter, object Sequence), FalloutNifParticleEmitterCurves> _emitterCurves = [];
     private readonly float[] _emissionAges = new float[FalloutNifParticleEmitterClock.MaximumPerAdvance];
     private readonly Dictionary<string, float> _speeds = new(StringComparer.Ordinal);
     private readonly Dictionary<string, float> _lifespans = new(StringComparer.Ordinal);
@@ -293,7 +294,10 @@ internal sealed partial class RuntimeNifParticleSystem : Node3D
         if (!_nodes.ContainsKey(index)) throw new InvalidDataException($"Particle transform {index} is not reachable.");
     }
 
-    internal RuntimeNifControllerChannel Bind(FalloutNifFile file, FalloutNifControllerLink link)
+    // `sequence` identifies the owning controller sequence and its clock range;
+    // a direct controller binds its own time controller's range.
+    internal RuntimeNifControllerChannel Bind(FalloutNifFile file, FalloutNifControllerLink link,
+        (object Key, double Start, double Stop, bool Loops)? sequence = null)
     {
         RequireConfigured();
         if (link.ControllerType == "NiPSysGravityStrengthCtlr")
@@ -356,18 +360,22 @@ internal sealed partial class RuntimeNifParticleSystem : Node3D
         if (link.ControllerType == "NiPSysEmitterCtlr" && link.Variable2 == "BirthRate" && _lifespans.ContainsKey(link.Variable1))
         {
             var sampler = new FalloutNifFloatAnimation(file, link.Interpolator);
-            var clock = EmitterClock(file, link);
-            clock.Rate = time => Math.Max(0, sampler.Sample(time));
-            clock.RateBegin = sampler.FirstKeyTime; clock.RateKeyed = sampler.Keyed;
-            return new(time => { RequireConfigured(); clock.Now = time; });
+            var (clock, curves) = EmitterCurves(file, link, sequence);
+            curves.Rate = time =>
+            {
+                var rate = sampler.Sample(time);
+                return float.IsFinite(rate) ? Math.Max(0, rate) : throw new InvalidDataException("Particle emitter birth rate is not finite.");
+            };
+            curves.RateBegin = sampler.FirstKeyTime; curves.RateKeyed = sampler.Keyed;
+            return new(time => { RequireConfigured(); clock.Apply(curves, time); });
         }
         if (link.ControllerType == "NiPSysEmitterCtlr" && link.Variable2 == "EmitterActive" && _lifespans.ContainsKey(link.Variable1))
         {
             var sampler = new FalloutNifBoolAnimation(file, link.Interpolator);
-            var clock = EmitterClock(file, link);
-            if (sampler.ConstantValue is { } constant) { clock.Active = _ => constant; clock.ActiveKeys = null; }
-            else { clock.Active = sampler.Sample; clock.ActiveKeys = sampler.BoundaryTimes.Order().ToArray(); }
-            return new(time => { RequireConfigured(); clock.Now = time; });
+            var (clock, curves) = EmitterCurves(file, link, sequence);
+            if (sampler.ConstantValue is { } constant) { curves.Active = _ => constant; curves.ActiveKeys = null; }
+            else { curves.Active = sampler.Sample; curves.ActiveKeys = sampler.BoundaryTimes.Order().ToArray(); }
+            return new(time => { RequireConfigured(); clock.Apply(curves, time); });
         }
         if (link.ControllerType == "NiPSysModifierActiveCtlr" && link.Variable2.Length == 0)
         {
@@ -381,14 +389,22 @@ internal sealed partial class RuntimeNifParticleSystem : Node3D
         throw new NotSupportedException($"Particle channel {link.Variable1}/{link.Variable2} is unsupported.");
     }
 
-    private FalloutNifParticleEmitterClock EmitterClock(FalloutNifFile file, FalloutNifControllerLink link)
+    // One clock per emitter; one set of curves per emitter and sequence, so
+    // every sequence keeps its own birth-rate and activity interpolators.
+    private (FalloutNifParticleEmitterClock, FalloutNifParticleEmitterCurves) EmitterCurves(FalloutNifFile file,
+        FalloutNifControllerLink link, (object Key, double Start, double Stop, bool Loops)? sequence)
     {
-        if (_emitters.TryGetValue(link.Variable1, out var clock)) return clock;
-        var controller = file.ReadObject(link.Controller) as FalloutNifParticleController ??
-            throw new InvalidDataException("Particle emitter channel has no source controller.");
-        clock = new() { Rate = _ => 0, Active = _ => true, LoopStart = controller.Time.StartTime, LoopStop = controller.Time.StopTime };
-        _emitters.Add(link.Variable1, clock);
-        return clock;
+        if (!_emitters.TryGetValue(link.Variable1, out var clock)) _emitters.Add(link.Variable1, clock = new());
+        if (sequence is null)
+        {
+            var controller = file.ReadObject(link.Controller) as FalloutNifParticleController ??
+                throw new InvalidDataException("Particle emitter channel has no source controller.");
+            sequence = (link.Controller, controller.Time.StartTime, controller.Time.StopTime, ((controller.Time.Flags >> 1) & 3) == 0);
+        }
+        var (key, start, stop, loops) = sequence.Value;
+        if (!_emitterCurves.TryGetValue((link.Variable1, key), out var curves))
+            _emitterCurves.Add((link.Variable1, key), curves = new() { LoopStart = start, LoopStop = stop, Loops = loops });
+        return (clock, curves);
     }
 
     public override void _Ready()
@@ -463,9 +479,8 @@ internal sealed partial class RuntimeNifParticleSystem : Node3D
     {
         foreach (var modifier in _emitterModifiers)
         {
-            if (!_emitters.TryGetValue(modifier.Name, out var clock) || clock.Now is not { } now) continue;
-            clock.Now = null;
-            var count = clock.Advance(now, _lifespans[modifier.Name], _emissionAges);
+            if (!_emitters.TryGetValue(modifier.Name, out var clock)) continue;
+            var count = clock.Advance(_lifespans[modifier.Name], _emissionAges);
             if (!EmissionEnabled || !_active[modifier.Name]) continue;
             for (var index = 0; index < count; index++)
                 if (!Emit(modifier, _emissionAges[index])) break;
