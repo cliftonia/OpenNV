@@ -45,6 +45,7 @@ internal static partial class CellModelPathContracts
         {
             var tree = FalloutSpeedTree.Read(record, "textures\\trees\\billboards", "textures\\trees\\leaves");
             if (!source.TryRead(tree.Model, null, out var spt, out _)) throw new FileNotFoundException("Owned SpeedTree source is missing.", tree.Model);
+            if (tree.GeometryUnsupported is not null || tree.LeafTexture is null) throw new InvalidDataException($"Owned SpeedTree cannot feed geometry: {tree.GeometryUnsupported}");
             var parsed = FalloutSpeedTreeSource.Read(spt);
             foreach (var texture in new[] { tree.Billboard, tree.LeafTexture, "textures\\trees\\branches\\" + Path.ChangeExtension(parsed.BarkTexture, ".dds") })
                 if (!source.TryRead(texture, null, out _, out _)) throw new FileNotFoundException("Owned SpeedTree texture is missing.", texture);

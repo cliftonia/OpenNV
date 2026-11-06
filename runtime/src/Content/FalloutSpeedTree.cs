@@ -7,11 +7,14 @@ namespace OpenNV.Runtime.Content;
 // shadow radius (int32; negative means 128), rock speed, rustle speed. BNAM:
 // billboard width and height in game units. SNAM lists the shape seeds that
 // placed references select by XSED index. ICON names the leaf composite atlas.
+// The billboard needs only MODL, BNAM and the wind/dimming fields; a record
+// that cannot feed generated geometry keeps its billboard and names the gap
+// in GeometryUnsupported.
 internal sealed record FalloutSpeedTree(
     FalloutFormKey Form,
     string Model,
     string Billboard,
-    string LeafTexture,
+    string? LeafTexture,
     IReadOnlyList<int> Seeds,
     float BillboardWidth,
     float BillboardHeight,
@@ -22,7 +25,8 @@ internal sealed record FalloutSpeedTree(
     float LeafDimming,
     int ShadowRadius,
     float RockSpeed,
-    float RustleSpeed)
+    float RustleSpeed,
+    string? GeometryUnsupported)
 {
     private const int DefaultShadowRadius = 128;
     private const byte UnassignedSeedIndex = 255;
@@ -47,24 +51,29 @@ internal sealed record FalloutSpeedTree(
         float[] values = [At(parameters, 0), At(parameters, 1), At(parameters, 2), At(parameters, 3), At(parameters, 4), At(parameters, 6), At(parameters, 7)];
         if (!float.IsFinite(width) || !float.IsFinite(height) || width <= 0 || height <= 0)
             throw new InvalidDataException($"TREE {record.FormKey} billboard dimensions are not positive.");
-        if (values.Any(value => !float.IsFinite(value)) || values[5] < 0 || values[6] < 0)
+        if (!float.IsFinite(values[4]) || !float.IsFinite(values[5]) || !float.IsFinite(values[6]) || values[5] < 0 || values[6] < 0)
             throw new InvalidDataException($"TREE {record.FormKey} wind/dimming parameters are invalid.");
+        string? unsupported = values[..4].All(float.IsFinite) ? null : "CNAM leaf curvature, leaf angles or branch dimming are not finite";
         var shadowRadius = BinaryPrimitives.ReadInt32LittleEndian(parameters[20..]);
         // Each four-byte SNAM entry is one seed; zero entries are dropped at load.
         var seeds = new List<int>();
         foreach (var field in fields.Where(field => field.Signature == "SNAM"))
         {
-            if (field.Data.Length % 4 != 0) throw new InvalidDataException($"TREE {record.FormKey} SNAM is not a list of int32 seeds.");
+            if (field.Data.Length % 4 != 0) { unsupported ??= "SNAM is not a list of int32 seeds"; continue; }
             for (var offset = 0; offset < field.Data.Length; offset += 4)
                 if (BinaryPrimitives.ReadInt32LittleEndian(field.Data.Span[offset..]) is var seed and not 0) seeds.Add(seed);
         }
-        var icon = FalloutDialogueTopic.Text(Single(fields, "ICON").Span).Replace('/', '\\').TrimStart('\\');
+        var iconFields = fields.Where(field => field.Signature == "ICON").ToArray();
+        var icon = iconFields.Length == 1 ? FalloutDialogueTopic.Text(iconFields[0].Data.Span).Replace('/', '\\').TrimStart('\\') : "";
         if (icon.Length == 0 || icon.Contains("..", StringComparison.Ordinal) || Path.IsPathRooted(icon.Replace('\\', '/')))
-            throw new InvalidDataException($"TREE {record.FormKey} leaf texture is not a relative texture name.");
+        {
+            unsupported ??= "ICON does not name one relative leaf texture";
+            icon = "";
+        }
         var name = Path.GetFileNameWithoutExtension(model.Replace('\\', '/'));
-        return new(record.FormKey, model, Join(billboardDirectory, name + ".dds"), Join(leafDirectory, icon), seeds, width, height,
-            values[0], values[1], values[2], Math.Clamp(values[3], 0, 1), Math.Clamp(values[4], 0, 1),
-            shadowRadius < 0 ? DefaultShadowRadius : shadowRadius, values[5], values[6]);
+        return new(record.FormKey, model, Join(billboardDirectory, name + ".dds"), icon.Length == 0 ? null : Join(leafDirectory, icon), seeds,
+            width, height, values[0], values[1], values[2], float.IsFinite(values[3]) ? Math.Clamp(values[3], 0, 1) : 0, Math.Clamp(values[4], 0, 1),
+            shadowRadius < 0 ? DefaultShadowRadius : shadowRadius, values[5], values[6], unsupported);
     }
 
     // REFR XSED is one byte, or a legacy int32 truncated to its low byte. It

@@ -41,18 +41,20 @@ internal partial class RuntimeNativeSpeedTreeOwner : Node3D
     internal const string NodeName = "OwnedSpeedTrees";
     private const int WindMatrixCount = 4;
 
-    private sealed class Model(FalloutSpeedTreeGeometry geometry, ArrayMesh mesh, MultiMesh instances, MultiMeshInstance3D visual)
+    private sealed class Model(FalloutSpeedTreeGeometry geometry, Aabb bounds, ArrayMesh mesh, MultiMesh instances, MultiMeshInstance3D visual)
     {
         internal FalloutSpeedTreeGeometry Geometry { get; } = geometry;
+        internal Aabb Bounds { get; } = bounds;
         internal ArrayMesh Mesh { get; } = mesh;
         internal MultiMesh Instances { get; } = instances;
         internal MultiMeshInstance3D Visual { get; } = visual;
     }
 
-    private sealed class Batch(FalloutSpeedTree tree, FalloutSpeedTreeSource source, ShaderMaterial material, MultiMesh instances, MultiMeshInstance3D visual)
+    private sealed class Batch(FalloutSpeedTree tree, ShaderMaterial material, MultiMesh instances, MultiMeshInstance3D visual)
     {
         internal FalloutSpeedTree Tree { get; } = tree;
-        internal FalloutSpeedTreeSource Source { get; } = source;
+        // Parsed on first generated-geometry use; billboards never need it.
+        internal FalloutSpeedTreeSource? Source { get; set; }
         internal ShaderMaterial Material { get; } = material;
         internal MultiMesh Instances { get; } = instances;
         internal MultiMeshInstance3D Visual { get; } = visual;
@@ -90,7 +92,7 @@ internal partial class RuntimeNativeSpeedTreeOwner : Node3D
             model = batch.Tree.Model,
             billboard = batch.Tree.Billboard,
             leaves = batch.Tree.LeafTexture,
-            bark = batch.Source.BarkTexture,
+            bark = batch.Source?.BarkTexture,
             seeds = batch.Tree.Seeds,
             shadowRadius = batch.Tree.ShadowRadius,
             size = new[] { batch.Tree.BillboardWidth, batch.Tree.BillboardHeight },
@@ -131,6 +133,12 @@ internal partial class RuntimeNativeSpeedTreeOwner : Node3D
         if (!float.IsFinite(_near) || !float.IsFinite(_far) || _near < 0 || _far < _near)
             throw new InvalidDataException("SpeedTree LOD distances are invalid.");
         _sizeConversion = FalloutGameSettingFloats.Read(records, "fTreeSizeConversion");
+        if (GeometryEnabled && !(float.IsFinite(_sizeConversion) && _sizeConversion > 0))
+        {
+            // Billboards still draw; generated geometry stays visibly disabled.
+            GD.PushError($"OPENNV_SPEEDTREE_GEOMETRY_DIVERGENCE fTreeSizeConversion={_sizeConversion} is not a positive size conversion.");
+            _near = _far = 0;
+        }
         _forceFullLod = _ini.Boolean("SpeedTree", "bForceFullLOD") && GeometryEnabled;
         float? Forced(string key, Func<float, bool> valid) => _ini.Number("SpeedTree", key) is var value && valid(value) ? value : null;
         _forcedLeafDimming = Forced("fTreeForceLeafDimming", value => value is >= 0 and <= 1);
@@ -183,7 +191,6 @@ internal partial class RuntimeNativeSpeedTreeOwner : Node3D
 
     private Batch CreateBatch(FalloutSpeedTree tree)
     {
-        var source = FalloutSpeedTreeSource.Read(ReadRequired(tree.Model, "SpeedTree source"));
         var material = new ShaderMaterial { Shader = _billboardProgram };
         material.SetShaderParameter("source_billboard", Texture(tree.Billboard, "SpeedTree billboard texture"));
         material.SetShaderParameter("source_alpha_cutoff", _alphaCutoff);
@@ -200,24 +207,30 @@ internal partial class RuntimeNativeSpeedTreeOwner : Node3D
             Visible = false // The first authoritative frame binds lighting before drawing.
         };
         AddChild(visual);
-        GD.Print($"OPENNV_SPEEDTREE_READY tree={tree.Form} model={tree.Model} bark={source.BarkTexture} billboard={tree.Billboard} " +
-            $"leaves={tree.LeafTexture} seeds=[{string.Join(',', tree.Seeds)}] levels={source.Levels.Count} leafMaps={source.LeafMaps.Count} " +
-            $"size={tree.BillboardWidth}x{tree.BillboardHeight} rock={tree.RockSpeed} rustle={tree.RustleSpeed}");
-        return new(tree, source, material, instances, visual);
+        GD.Print($"OPENNV_SPEEDTREE_READY tree={tree.Form} model={tree.Model} billboard={tree.Billboard} " +
+            $"leaves={tree.LeafTexture} seeds=[{string.Join(',', tree.Seeds)}] size={tree.BillboardWidth}x{tree.BillboardHeight} " +
+            $"rock={tree.RockSpeed} rustle={tree.RustleSpeed} geometryUnsupported={tree.GeometryUnsupported ?? "none"}");
+        return new(tree, material, instances, visual);
     }
 
-    // Generated shapes are cached per (TREE, seed): placed copies share one mesh.
-    private Model? GeneratedModel(Batch batch, int seed)
+    // Generated shapes are cached per (TREE, seed): placed copies share one
+    // mesh. Any source, texture or generation failure leaves that tree type on
+    // billboards only and stays visible as a geometry divergence.
+    private Model? GeneratedModel(Batch batch, RuntimeNativeSpeedTreeReference member)
     {
-        if (batch.Models.TryGetValue(seed, out var cached)) return cached;
         if (batch.GeometryError is not null) return null;
+        var seed = 0;
         try
         {
+            if (batch.Tree.GeometryUnsupported is { } unsupported) throw new NotSupportedException(unsupported);
+            batch.Source ??= FalloutSpeedTreeSource.Read(ReadRequired(batch.Tree.Model, "SpeedTree source"));
+            seed = member.Definition.ReferenceSeed(member.SeedIndex, batch.Source.Seed);
+            if (batch.Models.TryGetValue(seed, out var cached)) return cached;
             var started = Time.GetTicksUsec();
             var geometry = FalloutSpeedTreeGenerator.Generate(batch.Source, seed, _sizeConversion, _forcedBranchDimming ?? batch.Tree.BranchDimming);
             batch.BranchMaterial ??= GeneratedMaterial(_branchProgram,
                 Texture(_branchDirectory.TrimEnd('\\', '/') + "\\" + Path.ChangeExtension(batch.Source.BarkTexture, ".dds").ToLowerInvariant(), "SpeedTree bark texture"));
-            batch.LeafMaterial ??= GeneratedMaterial(_leafProgram, Texture(batch.Tree.LeafTexture, "SpeedTree leaf texture"));
+            batch.LeafMaterial ??= GeneratedMaterial(_leafProgram, Texture(batch.Tree.LeafTexture!, "SpeedTree leaf texture"));
             var mesh = RuntimeNativeSpeedTreeMesh.Build(geometry, _units, batch.BranchMaterial, batch.LeafMaterial);
             var instances = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseCustomData = true, Mesh = mesh };
             var visual = new MultiMeshInstance3D
@@ -230,15 +243,21 @@ internal partial class RuntimeNativeSpeedTreeOwner : Node3D
             AddChild(visual);
             GD.Print($"OPENNV_SPEEDTREE_GENERATED tree={batch.Tree.Form} seed={seed} size={geometry.Size:0.##} " +
                 $"branchVertices={geometry.BranchVertices.Count} leaves={geometry.Leaves.Count} microseconds={Time.GetTicksUsec() - started}");
-            return batch.Models[seed] = new(geometry, mesh, instances, visual);
+            return batch.Models[seed] = new(geometry, RuntimeNativeSpeedTreeMesh.Bounds(geometry, _units), mesh, instances, visual);
         }
         catch (Exception error) when (error is IOException or InvalidDataException or NotSupportedException)
         {
-            // The billboard keeps drawing; the generated-geometry gap stays visible.
-            batch.GeometryError = error.Message;
-            GD.PushError($"OPENNV_SPEEDTREE_GEOMETRY_DIVERGENCE tree={batch.Tree.Form} seed={seed}: {error.Message}");
+            DisableGeometry(batch, $"seed={seed}: {error.Message}");
             return null;
         }
+    }
+
+    private static void DisableGeometry(Batch batch, string reason)
+    {
+        batch.GeometryError = reason;
+        foreach (var model in batch.Models.Values) { model.Instances.InstanceCount = 0; model.Visual.Visible = false; }
+        batch.Dirty = true;
+        GD.PushError($"OPENNV_SPEEDTREE_GEOMETRY_DIVERGENCE tree={batch.Tree.Form} {reason}");
     }
 
     private ShaderMaterial GeneratedMaterial(Shader program, Texture2D texture)
@@ -269,8 +288,7 @@ internal partial class RuntimeNativeSpeedTreeOwner : Node3D
         {
             var lod = !GeometryEnabled ? 0 : _forceFullLod ? 1 :
                 Math.Clamp(1 - (member.GlobalPosition.DistanceTo(camera) / _units - _near) / Math.Max(_far - _near, 1e-3f), 0, 1);
-            var seed = member.Definition.ReferenceSeed(member.SeedIndex, batch.Source.Seed);
-            var model = lod > 0 ? GeneratedModel(batch, seed) : null;
+            var model = lod > 0 ? GeneratedModel(batch, member) : null;
             if (model is null) lod = 0;
             else
             {
@@ -282,12 +300,13 @@ internal partial class RuntimeNativeSpeedTreeOwner : Node3D
         // Wind and the camera-facing turn stay inside the authored
         // billboard square scaled by the reference; the margin covers sway.
         var half = Math.Max(batch.Tree.BillboardWidth, batch.Tree.BillboardHeight) * _units;
-        Publish(batch.Instances, billboards, half);
+        Publish(batch.Instances, billboards, new Aabb(-Vector3.One * half, Vector3.One * (2 * half)));
+        // Generated meshes cull by their own generated bounds.
         foreach (var model in batch.Models.Values)
-            Publish(model.Instances, generated.GetValueOrDefault(model) ?? [], half);
+            Publish(model.Instances, batch.GeometryError is null ? generated.GetValueOrDefault(model) ?? [] : [], model.Bounds);
     }
 
-    private static void Publish(MultiMesh multimesh, List<(Transform3D Transform, float Lod)> members, float half)
+    private static void Publish(MultiMesh multimesh, List<(Transform3D Transform, float Lod)> members, Aabb local)
     {
         multimesh.InstanceCount = members.Count;
         if (members.Count == 0) return;
@@ -297,8 +316,7 @@ internal partial class RuntimeNativeSpeedTreeOwner : Node3D
             var (transform, lod) = members[index];
             multimesh.SetInstanceTransform(index, transform);
             multimesh.SetInstanceCustomData(index, new Color(lod, 0, 0, 0));
-            var extent = Vector3.One * (half * transform.Basis.Scale.X);
-            var next = new Aabb(transform.Origin - extent, extent * 2);
+            var next = transform * local;
             bounds = bounds is { } prior ? prior.Merge(next) : next;
         }
         multimesh.CustomAabb = bounds!.Value;
@@ -329,18 +347,12 @@ internal partial class RuntimeNativeSpeedTreeOwner : Node3D
                 Bind(batch.Material, frame);
                 batch.Material.SetShaderParameter("source_wind", wind);
                 batch.Visual.Visible = batch.Instances.InstanceCount > 0;
-                if (batch.Models.Count == 0) continue;
-                foreach (var material in new[] { batch.BranchMaterial!, batch.LeafMaterial! })
+                if (batch.Models.Count == 0 || batch.GeometryError is not null) continue;
+                try { BindGenerated(batch, frame, matrices, strength); }
+                catch (Exception error) when (error is InvalidDataException or NotSupportedException or InvalidOperationException)
                 {
-                    Bind(material, frame);
-                    material.SetShaderParameter("tree_wind", matrices);
+                    DisableGeometry(batch, error.Message);
                 }
-                var tree = batch.Tree;
-                batch.LeafMaterial!.SetShaderParameter("tree_rock", new Vector3(.25f * strength, (float)(tree.RockSpeed * _rockTime % 2), 1));
-                batch.LeafMaterial.SetShaderParameter("tree_rustle", new Vector3(.15f * strength, (float)(tree.RustleSpeed * _rustleTime % 2), 1));
-                batch.LeafMaterial.SetShaderParameter("tree_curvature", _forcedCurvature ?? tree.LeafCurvature);
-                batch.LeafMaterial.SetShaderParameter("tree_leaf_dimming", _forcedLeafDimming ?? tree.LeafDimming);
-                foreach (var model in batch.Models.Values) model.Visual.Visible = model.Instances.InstanceCount > 0;
             }
         }
         catch (Exception error)
@@ -348,6 +360,21 @@ internal partial class RuntimeNativeSpeedTreeOwner : Node3D
             Error = error.Message; SetMeta("opennv_speedtree_error", Error);
             GD.PushError($"OPENNV_SPEEDTREE_DIVERGENCE {error}");
         }
+    }
+
+    private void BindGenerated(Batch batch, RuntimeNativeGrassFrame frame, Godot.Collections.Array<Basis> matrices, float strength)
+    {
+        foreach (var material in new[] { batch.BranchMaterial!, batch.LeafMaterial! })
+        {
+            Bind(material, frame);
+            material.SetShaderParameter("tree_wind", matrices);
+        }
+        var tree = batch.Tree;
+        batch.LeafMaterial!.SetShaderParameter("tree_rock", new Vector3(.25f * strength, (float)(tree.RockSpeed * _rockTime % 2), 1));
+        batch.LeafMaterial.SetShaderParameter("tree_rustle", new Vector3(.15f * strength, (float)(tree.RustleSpeed * _rustleTime % 2), 1));
+        batch.LeafMaterial.SetShaderParameter("tree_curvature", _forcedCurvature ?? tree.LeafCurvature);
+        batch.LeafMaterial.SetShaderParameter("tree_leaf_dimming", _forcedLeafDimming ?? tree.LeafDimming);
+        foreach (var model in batch.Models.Values) model.Visual.Visible = model.Instances.InstanceCount > 0;
     }
 
     private static void Bind(ShaderMaterial material, RuntimeNativeGrassFrame frame)

@@ -124,8 +124,7 @@ internal static class ScriptEffectCommandContracts
             "Securitron face did not survive a cold save.");
         try { cold.RestoreSecuritronFaces(world.CaptureSecuritronFaces()); throw new InvalidDataException("Securitron faces restored twice."); }
         catch (InvalidOperationException) { }
-        Reject(() => execute(world, "setsecexp", ["SyntheticActor", "\"\"", "Neutral"]));
-        world.SetSecuritronFace(actor, "", "Neutral");
+        _ = execute(world, "setsecexp", ["SyntheticActor", "\"\"", "Neutral"]);
         Check(world.SecuritronFace(actor) is { Personality: "", TexturePath: null }, "An empty Securitron word did not select no texture.");
         world.UnloadCell(new("Effects.esm", 0x157));
         using var duplicated = new FalloutReferenceWorld(records);

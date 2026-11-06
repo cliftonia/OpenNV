@@ -128,8 +128,8 @@ internal static class FalloutScriptEffectCommands
                 var securitron = resolve.Reference(arguments[0]);
                 if (records.GetEffective(securitron).Signature is not ("ACHR" or "ACRE"))
                     throw new InvalidDataException("Securitron expression target is not a placed actor.");
-                var personality = FalloutSecuritronFace.Word(PlainString(arguments[1]));
-                var emotion = FalloutSecuritronFace.Word(PlainString(arguments[2]));
+                var personality = SecuritronWord(arguments[1]);
+                var emotion = SecuritronWord(arguments[2]);
                 if (world.IsResident(securitron)) world.SetSecuritronFace(securitron, personality, emotion);
                 return null;
             default:
@@ -181,6 +181,9 @@ internal static class FalloutScriptEffectCommands
         var text = token.Length >= 2 && token[0] == '"' && token[^1] == '"' ? token[1..^1] : token;
         return text.Length is > 0 and <= 511 ? text : throw new InvalidDataException("Script string argument is empty or exceeds 511 characters.");
     }
+
+    // An empty word is valid here: it selects no face texture.
+    private static string SecuritronWord(string token) => FalloutSecuritronFace.Word(token == "\"\"" ? "" : PlainString(token));
 
     private static FalloutFormKey Require(FalloutPluginRecord record, string signature) => record.Signature == signature
         ? record.FormKey : throw new InvalidDataException($"Script effect argument is {record.Signature}, not {signature}.");

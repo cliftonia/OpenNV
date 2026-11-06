@@ -45,7 +45,8 @@ internal static partial class CellModelPathContracts
         Require(shrub.Seeds.SequenceEqual([301409, 554776]), "TREE SNAM seed list kept a zero entry or lost a seed.");
         Require(Read(0x402).ShadowRadius == 128 && Read(0x402).Seeds.Count == 0, "A negative TREE shadow radius did not become 128.");
         Reject<NotSupportedException>(() => Read(0x401));
-        Reject<InvalidDataException>(() => Read(0x403));
+        Require(Read(0x403) is { LeafTexture: null, GeometryUnsupported: not null, BillboardWidth: 175 },
+            "An escaping ICON did not leave the tree on its billboard with a visible geometry gap.");
         byte? Index(uint id) => FalloutSpeedTree.ReadSeedIndex(stack.GetEffective(new("Trees.esm", id)));
         Require(Index(0x500) == 4 && Index(0x501) == 1 && Index(0x502) is null, "REFR XSED seed index was not read as a byte.");
         Reject<InvalidDataException>(() => Index(0x503));

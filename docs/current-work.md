@@ -115,7 +115,10 @@ OnClose dispatch when door motion finishes. ScriptCommandContracts covers these.
 Still visibly deferred: PlaceLeveledActorAtMe and PlaceAtReticle (no runtime
 actor spawner or camera pick owner), SetLevel, SetPackDuration, Reset3DState,
 base-record SetItemValue, NavMesh exclusion, SetScreenSplatterFade, the AddSpell
-HUD notice and ability application, GetLineOfSight native rays,
+HUD notice and ability application, GetLineOfSight native rays, Securitron face
+presentation (faces are stored, saved and applied to Screen01:0 but not yet
+observed in game), generated SpeedTree geometry (implemented but shipped off in
+every quality profile: generated sizes do not match the billboards yet),
 shader particles, ShowTutorialMenu, SetPCCanUsePowerArmor, readers of the
 SetNoAvoidance/SetAllVisible flags, and the OnStartCombat, OnReset,
 ScriptEffectUpdate, OnDestructionStageChange, OnMagicEffectHit, OnSell and

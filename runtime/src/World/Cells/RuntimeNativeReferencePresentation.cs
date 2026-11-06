@@ -250,7 +250,6 @@ internal partial class RuntimeNativeReferencePresentation : Node
         GamebryoReferenceEnableRuntime.Apply(node, _world.IsEnabled(key));
         ApplyImposterVisibility(key, node);
         PublishOpacity(key);
-        ApplySecuritronFace(key, node);
     }
 
     private void RefreshGeometry(FalloutFormKey key, Node3D node)
@@ -260,6 +259,8 @@ internal partial class RuntimeNativeReferencePresentation : Node
         _fadeGeometry[key] = RuntimeNativeReferenceOpacity.Collect(node);
         _publishedOpacity.Remove(key);
         PublishOpacity(key);
+        // Attached or rebuilt 3D re-applies a retained Securitron face.
+        ApplySecuritronFace(key, node);
     }
 
     internal Node3D? TryResolve(FalloutFormKey key) => _enabled.ContainsKey(key) ? Resolve(key) : null;

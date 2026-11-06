@@ -55,6 +55,22 @@ internal static class RuntimeNativeSpeedTreeMesh
         return mesh;
     }
 
+    // Local bounds of the generated tree in metres: branch vertices and leaf
+    // centres widened by each card's largest corner reach.
+    internal static Aabb Bounds(FalloutSpeedTreeGeometry geometry, float units)
+    {
+        Vector3 Point(System.Numerics.Vector3 value) => new Vector3(value.X, value.Z, -value.Y) * units;
+        Aabb? bounds = null;
+        void Include(Aabb next) => bounds = bounds is { } prior ? prior.Merge(next) : next;
+        foreach (var vertex in geometry.BranchVertices) Include(new Aabb(Point(vertex.Position), Vector3.Zero));
+        foreach (var leaf in geometry.Leaves)
+        {
+            var reach = leaf.Corners.Max(corner => corner.Length()) * units;
+            Include(new Aabb(Point(leaf.Position) - Vector3.One * reach, Vector3.One * (2 * reach)));
+        }
+        return bounds ?? throw new InvalidDataException("Generated SpeedTree geometry is empty.");
+    }
+
     private static void Add(ArrayMesh mesh, Material material, Vector3[] points, Vector3[] normals, Vector2[] uvs, Vector2[]? corners,
         float[] custom, int[] indices)
     {

@@ -30,7 +30,7 @@ internal static class RuntimeNativeSpeedTreeShader
     // weighted per vertex (CUSTOM0: shade or lightness, weight, matrix, phase).
     private const string Generated = Shared + """
         uniform mat3 tree_wind[4];
-        uniform sampler2D source_texture : source_color, filter_linear_mipmap, repeat_enable;
+        uniform sampler2D source_texture : filter_linear_mipmap, repeat_enable;
         varying vec3 tree_light;
 
         vec3 tree_wind_offset(vec3 point, vec4 data) {

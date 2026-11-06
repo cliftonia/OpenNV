@@ -14,7 +14,8 @@ internal partial class RuntimeNativeReferencePresentation
         var revision = _world.SecuritronFaceRevision;
         if (_publishedFaceRevision == revision) return;
         _publishedFaceRevision = revision;
-        foreach (var (key, node) in _nodes) ApplySecuritronFace(key, node);
+        foreach (var (key, node) in _nodes)
+            if (GodotObject.IsInstanceValid(node) && !node.IsQueuedForDeletion()) ApplySecuritronFace(key, node);
     }
 
     private void ApplySecuritronFace(FalloutFormKey key, Node3D node)
