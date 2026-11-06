@@ -305,6 +305,10 @@ internal sealed partial class NativeOwnedPipBoyMenu : Control
         }
         else if (_state.Selection == 0)
         {
+            // Hardcore adds the H2O, FOD and SLP sub-pages (modes 3..5); leaving
+            // Hardcore on one of them falls back to CND.
+            var hardcore = (Hardcore ?? throw new NotSupportedException("STATUS sub-pages have no Hardcore owner."))();
+            if (!hardcore && _statusMode > 2) _statusMode = 0;
             Bind("stats_status_container", "user0", _statusMode);
             Bind("stats_CND_button", "_x", 0); Bind("stats_CND_button", "_y", 0);
             foreach (var (part, art) in new[] { ("head", "head"), ("face", "face_00"), ("torso", "torso"),
@@ -325,16 +329,18 @@ internal sealed partial class NativeOwnedPipBoyMenu : Control
                 Bind("stats_player_" + part + "_pct_meter", "_Value", remaining);
                 Bind("stats_player_" + part + "_crippled", "visible", damage >= crippleThreshold ? 1 : 0);
             }
-            Hide("stats_healing_mode", "stats_H20_button", "stats_FOD_button", "stats_SLP_button");
+            Hide("stats_healing_mode");
+            if (!hardcore) Hide("stats_H20_button", "stats_FOD_button", "stats_SLP_button");
             BindStatsAid();
-            foreach (var (button, label) in new[] { ("CND", "CND"), ("RAD", "RAD"), ("EFF", "EFF") })
-                Target(Tile("stats_" + button + "_button"), label, () =>
-                {
-                    _statusMode = button == "CND" ? 0 : button == "RAD" ? 1 : 2;
-                    Refresh();
-                });
+            string[] buttons = hardcore ? ["CND", "RAD", "EFF", "H20", "FOD", "SLP"] : ["CND", "RAD", "EFF"];
+            for (var index = 0; index < buttons.Length; index++)
+            {
+                var mode = index;
+                Target(Tile("stats_" + buttons[index] + "_button"), buttons[index], () => { _statusMode = mode; Refresh(); });
+            }
             if (_statusMode == 1) BindRadiationPanel(vitals);
             else if (_statusMode == 2) BindEffectsPanel();
+            else if (_statusMode > 2) BindNeedPanel(vitals, _statusMode);
         }
         else if (_state.Selection is 2 or 3)
         {

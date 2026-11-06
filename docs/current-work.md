@@ -52,6 +52,29 @@ is false. SCDA instruction execution, remaining source failures, all quest
 branches, dialogue/combat/effects, housing CELL ownership and complete cold
 continuation remain open. Passing selected tests is not whole-game acceptance.
 
+Hardcore needs and Sleep/Wait follow a clean-room behaviour description.
+Dehydration, Hunger and SleepDeprivation accrue in real time from the effective
+rate settings (saved in vitals, campaign schema v74+). Their DEHY/HUNG/SLPD stage
+diseases, notices and fatal damage come from the records. Need effects of food,
+water and the Doctor's Bag apply, and the HUD and Pip-Boy show the needs.
+Sleep/Wait uses the original refusal chains and runs one game hour per real
+second. The hour step order is the original one, and the full heal happens only
+when a non-Hardcore Sleep ends naturally. Synthetic and owned-data contracts pass;
+the e2e rest test waits three hours in the world.
+Trespass outside unowned cells, alarm, underwater and radiation admission
+inputs, the HealRate/Modify Recovered Health heal terms, rest autosave/fade
+and actor catch-up remain unbound and are named in rest telemetry.
+
+Combat damage now follows one ordered owner: the attacker formula (attack-arm,
+skill, MeleeDamage/UnarmedDamage, companion Charisma), then target mitigation
+(DR capped by fMaxArmorRating, DT with entries 58/56, ammo and entry-0 damage,
+the minimum floor, weapon resistance type, VATS player multiplier) and the
+per-mille critical roll with entries 1/2/36. Critical stages, SetVATSTarget and
+the Agility PushActorAway force are owned and saved (schema v75). Still open and
+visible: critical effect spells (no actor active-effect owner), ash piles,
+Meltdown, sneak-attack detection, blocking, split beam, disarm/stagger, scripted
+FireWeapon, flee destinations, the player ragdoll knockdown and VATS special moves.
+
 ## Next owner and publication
 
 The complete required runtime gate passes: Release/Debug, formatting/analyzers,
@@ -74,6 +97,30 @@ additional gaps. Actual ordinary-input opening-route and fresh-process save
 continuation follow the offline block; matched retail evidence is additionally
 required before parity claims.
 
+## Script command coverage
+
+Shared object, quest, effect and result runs map an unresolved reference
+qualifier to the engine's three outcomes: a statement reuses the previous or
+implicit receiver, an expression term is zero, a quest statement without any
+receiver abandons that run (pending frame events survive), and a non-reference
+expression qualifier disables the script form for the session. A zero ref
+variable keeps its shared last resolved form. Each degraded site reports one
+counted OPENNV_SCRIPT_QUALIFIER line.
+
+EnterTrigger runs the trigger script at once (nesting limit five), ClearOwnership
+and SetCellImageSpace are saved in schema v74, script actor alpha and shaders
+follow loaded 3D, NPC CastImmediateOnSelf applies value effects, and OnOpen and
+OnClose dispatch when door motion finishes. ScriptCommandContracts covers these.
+
+Still visibly deferred: PlaceLeveledActorAtMe and PlaceAtReticle (no runtime
+actor spawner or camera pick owner), SetLevel, SetPackDuration, Reset3DState,
+base-record SetItemValue, NavMesh exclusion, SetScreenSplatterFade, the AddSpell
+HUD notice and ability application, GetLineOfSight native rays, securitron faces,
+shader particles, ShowTutorialMenu, SetPCCanUsePowerArmor, readers of the
+SetNoAvoidance/SetAllVisible flags, and the OnStartCombat, OnReset,
+ScriptEffectUpdate, OnDestructionStageChange, OnMagicEffectHit, OnSell and
+OnActorEquip events.
+
 ## Script name resolution (mac-play branch)
 
 Public script command aliases resolve to full command names before dispatch,
@@ -86,9 +133,10 @@ in the shared and fallback executors and persists in the quest clock snapshot;
 an unbound quest script refuses it. No shipped or installed-mod script local
 collides with a bridged function or alias name.
 
-Owned-stack completeness: 463 of 651 quests have no unsupported dependency
-(394 before); main lines New Vegas 25/44, Dead Money 11/15, Honest Hearts 14/27,
-Lonesome Road 9/9, Old World Blues 5/6. `Behemoth` is IsAlwaysHardcore's alias
+Owned-stack completeness after merging the combat, Hardcore and script-command
+work: 499 of 651 quests have no unsupported dependency; main lines New Vegas
+27/44, Dead Money 12/15, Honest Hearts 16/27, Lonesome Road 9/9, Old World
+Blues 5/6. `Behemoth` is IsAlwaysHardcore's alias
 and needs the always-hardcore flag owner. Known pre-existing issue: quests that
 attach the same SCPT share one recurrence clock, so SetQuestDelay on one quest
 also changes the other's interval.

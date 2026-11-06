@@ -26,11 +26,11 @@ internal static class RuntimeDispatchIndex
     // the native session's command dispatch.
     internal static readonly Root[] Statements =
     [
-        new("reference-result", ReferenceScripts, "Call", "operation", "command"),
+        new("reference-result", ReferenceScripts, "CallCore", "operation", "command"),
         new("native-host", "runtime/src/Campaigns/NewVegas/Opening/RuntimeNativeOpeningStageDriver.Commands.cs",
             "ApplyNativeSourceCommand", "operation", "command"),
     ];
-    internal static readonly Root[] Functions = [new("reference-function", ReferenceScripts, "FunctionFor", "operation", "name", "parts[^1]")];
+    internal static readonly Root[] Functions = [new("reference-function", ReferenceScripts, "ResolveFunction", "operation", "name", "parts[^1]")];
     internal static readonly Root[] Conditions =
     [
         new("condition-runtime", "runtime/src/Content/FalloutConditionRuntime.cs", "EvaluateValue"),

@@ -19,17 +19,17 @@ internal partial class RuntimeNativeOpeningStageDriver
         switch (operation)
         {
             case "castimmediateonself" when arguments.Count == 1:
-                if (!player)
+                var spell = bindings.Form(arguments[0]).FormKey;
+                try
                 {
-                    FalloutScriptCommandDeferral.Warn("castimmediateonself", "npc-actor-effect-owner-unbound");
-                    return true;
+                    if (player) _ = _ingestibles.PrepareActorEffect(spell).Commit();
+                    else _ = _scripts.References!.CastActorEffectOnSelf(target, spell, SourcePlayerLevel, _globals, _scripts.Session.Hardcore);
                 }
-                try { _ = _ingestibles.PrepareActorEffect(bindings.Form(arguments[0]).FormKey).Commit(); }
                 catch (NotSupportedException error)
                 {
                     // Spell types, scripted and presentation effects have no
-                    // staged actor lifecycle yet; value effects already applied.
-                    FalloutScriptCommandDeferral.Warn("castimmediateonself", $"player-effect-unbound:{error.Message}");
+                    // staged actor lifecycle yet; nothing was applied.
+                    FalloutScriptCommandDeferral.Warn("castimmediateonself", $"actor-effect-unbound:{error.Message}");
                 }
                 return true;
             case "dispel" when player && arguments.Count == 1:
@@ -37,20 +37,12 @@ internal partial class RuntimeNativeOpeningStageDriver
                 _ = _ingestibles.Dispel(item => item == dispelled);
                 return true;
             case "dispelallspells" when player && arguments.Count == 0:
-                _ = _ingestibles.Dispel(_ => true);
+                _ = _ingestibles.Dispel(item => FalloutScriptEffectCommands.DispelledByDispelAll(_pluginStack, item));
                 return true;
+            // NPC alpha is published by the reference presentation from the
+            // world; only the player's own 3D is applied here.
             case "setactoralpha" when arguments.Count == 1:
-                var alpha = float.Parse(arguments[0], NumberStyles.Float, CultureInfo.InvariantCulture);
-                if (player)
-                {
-                    FalloutScriptCommandDeferral.Warn("setactoralpha", "player-self-visibility-owner-unbound");
-                    return true;
-                }
-                // Residency rebuilds presentation from source; the world retains
-                // the alpha for the session. A non-resident actor has no geometry.
-                foreach (var actor in ResidentPresentation(target))
-                    foreach (var geometry in SceneGraph.NodeTraversal.SelfAndDescendants<GeometryInstance3D>(actor))
-                        geometry.Transparency = 1 - alpha;
+                if (player) _player.SetScriptAlpha(float.Parse(arguments[0], NumberStyles.Float, CultureInfo.InvariantCulture));
                 return true;
             // Membranes attach to the resident presentation only; a reference
             // that streams in later does not replay a retained shader yet.
@@ -66,7 +58,7 @@ internal partial class RuntimeNativeOpeningStageDriver
                     if (NativeEffectShaderMembrane.Attach(node, effect, content, duration) is not null) attached++;
                 }
                 if (!effect.HasMembrane) FalloutScriptCommandDeferral.Warn("playmagicshadervisuals", "effect-shader-particles-unbound");
-                else if (attached == 0) FalloutScriptCommandDeferral.Warn("playmagicshadervisuals", player ? "player-self-visibility-owner-unbound" : "target-not-resident");
+                else if (attached == 0) FalloutScriptCommandDeferral.Warn("playmagicshadervisuals", "membrane-attachment-produced-no-geometry");
                 return true;
             case "stopmagicshadervisuals" when arguments.Count == 1:
                 var stopped = bindings.Form(arguments[0]).FormKey;
@@ -97,6 +89,7 @@ internal partial class RuntimeNativeOpeningStageDriver
     // Resident presentation roots of a placed actor or object reference.
     private IEnumerable<Node3D> ResidentPresentation(FalloutFormKey reference)
     {
+        if (_pluginStack.RuntimeFormId(reference) == 0x14) return _player.SelfPresentation.ToArray();
         var key = reference.ToString();
         return SceneGraph.NodeTraversal.SelfAndDescendants<Node3D>(GetTree().Root).Where(node =>
             node.IsInsideTree() && !node.IsQueuedForDeletion() && node switch

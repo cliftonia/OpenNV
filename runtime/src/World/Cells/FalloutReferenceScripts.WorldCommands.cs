@@ -53,6 +53,34 @@ internal sealed partial class FalloutReferenceScripts
     private static void DeferPlaceLeveledActor() =>
         FalloutScriptCommandDeferral.Warn("placeleveledactoratme", "runtime-actor-spawning-has-no-owner;returns-no-reference");
 
+    internal const int EnterTriggerNestingLimit = 5;
+    [ThreadStatic] private static int _enterTriggerDepth;
+
+    // EnterTrigger admits OnTrigger and OnTriggerEnter for the entering
+    // reference (filtered and unfiltered blocks alike) and runs the trigger's
+    // script at once, loaded or not. Past the nesting limit, or on a disabled
+    // trigger, the event waits for the trigger's next ordinary frame instead.
+    private void EnterTrigger(FalloutFormKey target, FalloutFormKey entering)
+    {
+        var trigger = world.Get(target);
+        if (trigger.Script is null) return;
+        if (_enterTriggerDepth >= EnterTriggerNestingLimit || !world.IsEnabled(target))
+        {
+            world.ForcedTriggers.Enter(target, entering);
+            return;
+        }
+        ++_enterTriggerDepth;
+        try
+        {
+            // The trigger's own fault stays on the trigger; the caller continues.
+            var failed = DispatchFrameCore(trigger, [new("OnTrigger", TriggerReferences: new HashSet<FalloutFormKey> { entering }),
+                new("OnTriggerEnter", entering)], 0).FirstOrDefault(result => result.Error is not null);
+            if (failed is not null)
+                FalloutScriptCommandDeferral.Sink($"OPENNV_SCRIPT_ENTERTRIGGER_FAILED trigger={target} actor={entering} error={failed.Error}");
+        }
+        finally { --_enterTriggerDepth; }
+    }
+
     private bool TryWorldCommand(string operation, WorldCommandContext context)
     {
         var arguments = context.Arguments;
@@ -60,10 +88,7 @@ internal sealed partial class FalloutReferenceScripts
         {
             case "entertrigger":
                 RequireArguments(context, 1, 1);
-                var entering = context.Reference(arguments[0]);
-                _ = world.Get(context.Target);
-                if (world.IsResident(context.Target)) world.ForcedTriggers.Enter(context.Target, entering);
-                else FalloutScriptCommandDeferral.Warn(operation, "unloaded-trigger-receives-no-event");
+                EnterTrigger(context.Target, context.Reference(arguments[0]));
                 return true;
             case "additemhealthpercent":
                 RequireArguments(context, 3, 4);
@@ -114,16 +139,34 @@ internal sealed partial class FalloutReferenceScripts
             // Remaining names have no OpenNV consumer for their engine effect:
             // item barter value overrides, unowned overrides, door path cost, navmesh travel exclusion,
             // and 3D/animation reset. DamageObject is owned by FalloutScriptActorCommands.
-            case "setitemvalue" or "setminimaluse":
+            // Outside an inventory item's script, SetItemValue edits the base
+            // record's value for every instance; no base-value owner exists.
+            case "setitemvalue":
                 RequireArguments(context, 1, 1);
                 _ = context.Number(arguments[0]);
                 _ = world.Get(context.Target);
-                FalloutScriptCommandDeferral.Warn(operation, "engine-effect-has-no-runtime-owner");
+                FalloutScriptCommandDeferral.Warn(operation, "base-item-value-override-has-no-owner");
                 return true;
-            case "clearownership" or "reset3dstate":
+            // Only a door receiver is accepted; its base flag changes player
+            // quest-target pathing, which has no door path-cost consumer.
+            case "setminimaluse":
+                RequireArguments(context, 1, 1);
+                _ = Flag(context.Number(arguments[0]), context.Command);
+                if (records.GetEffective(world.Get(context.Target).Base).Signature != "DOOR")
+                {
+                    FalloutScriptCommandDeferral.Sink($"OPENNV_SCRIPT_WARNING name=setminimaluse reason=must-be-called-on-a-door-reference target={context.Target}");
+                    return true;
+                }
+                FalloutScriptCommandDeferral.Warn(operation, "door-minimal-use-has-no-path-cost-consumer");
+                return true;
+            case "clearownership":
+                RequireArguments(context, 0, 0);
+                world.ClearOwnership(context.Target);
+                return true;
+            case "reset3dstate":
                 RequireArguments(context, 0, 0);
                 _ = world.Get(context.Target);
-                FalloutScriptCommandDeferral.Warn(operation, "engine-effect-has-no-runtime-owner");
+                FalloutScriptCommandDeferral.Warn(operation, "reset-sequence-and-cached-animation-state-have-no-owner");
                 return true;
             case "setcellpublicflag" when context.PathLength == 1:
                 RequireArguments(context, 2, 2);

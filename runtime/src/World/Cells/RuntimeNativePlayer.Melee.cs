@@ -96,7 +96,7 @@ internal partial class RuntimeNativePlayer
             if (collider is not null && RuntimeNativeDestructible.Find(collider) is { } destructible)
             {
                 var baseDamage = BinaryPrimitives.ReadInt16LittleEndian(itemData[12..]);
-                destructible.Hit(_damage!.Resolve(weapon.Form, baseDamage).Amount, _presentationRecords.RuntimeFormKey(0x14));
+                destructible.Hit(_damage!.Resolve(weapon.Form, baseDamage).Unmitigated, _presentationRecords.RuntimeFormKey(0x14));
             }
             if (collider is not null && RuntimeNativeActorCombat.Find(collider) is { } combat)
             {

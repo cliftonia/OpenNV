@@ -193,6 +193,7 @@ internal sealed partial class FalloutReferenceWorld
             else
             {
                 _residentReferences.Remove(key);
+                RetireTransientPresentation(key);
                 var instance = _instances[key];
                 if (instance.DeletePending) { instance.Deleted = true; instance.DeletePending = false; }
             }

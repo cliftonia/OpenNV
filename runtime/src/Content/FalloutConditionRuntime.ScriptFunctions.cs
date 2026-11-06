@@ -65,6 +65,34 @@ internal sealed partial class FalloutConditionRuntime
             "getpos" => new([FalloutScriptArgumentKind.Identifier], arguments =>
                 Call(Function.GetPos, number: AxisIndex(arguments[0].Identifier!)))
             { ReadOnly = true },
+            "getangle" => new([FalloutScriptArgumentKind.Identifier], arguments =>
+                Call(Function.GetAngle, number: AxisIndex(arguments[0].Identifier!)))
+            { ReadOnly = true },
+            "getisghost" => None(Function.GetIsGhost),
+            "hasloaded3d" => None(Function.HasLoaded3D),
+            "getisalerted" => None(Function.GetAlerted),
+            "getcurrentaiprocedure" => None(Function.GetCurrentAIProcedure),
+            "getlineofsight" => Form(Function.GetLineOfSight),
+            "getxpfornextlevel" => None(Function.GetXPForNextLevel, false),
+            "isplayerinregion" => Form(Function.PlayerInRegion, false),
+            "islimbgone" => new([FalloutScriptArgumentKind.Number, FalloutScriptArgumentKind.OptionalNumber], arguments =>
+                Call(Function.IsLimbGone, number: ScriptIndex(arguments[0].Number),
+                    second: arguments.Count == 2 && arguments[1].Number > 0 ? ScriptIndex(arguments[1].Number) : 0))
+            { ReadOnly = true },
+            // Seven optional 0/1 flags in DisablePlayerControls order form the
+            // queried mask; omitted flags take that command's defaults.
+            "getplayercontrolsdisabled" => new(Enumerable.Repeat(FalloutScriptArgumentKind.OptionalNumber, 7).ToArray(), arguments =>
+            {
+                var mask = 0u;
+                for (var index = 0; index < 7; ++index)
+                {
+                    var requested = index < arguments.Count ? ScriptIndex(arguments[index].Number) : index < 4 ? 1u : 0u;
+                    if (requested > 1) throw new InvalidDataException("GetPlayerControlsDisabled flags are zero or one.");
+                    mask |= requested << index;
+                }
+                return Call(Function.GetPlayerControlsDisabled, number: mask, scoped: false);
+            })
+            { ReadOnly = true },
             "getinsamecell" => Form(Function.GetInSameCell),
             "getincell" => Form(Function.GetInCell),
             "getinworldspace" => Form(Function.GetInWorldspace),
@@ -73,6 +101,9 @@ internal sealed partial class FalloutConditionRuntime
                 Call(Function.GetIsCreatureType, number: ScriptIndex(arguments[0].Number)))
             { ReadOnly = true },
             "getinzone" => Form(Function.GetInZone),
+            "isincriticalstage" => new([FalloutScriptArgumentKind.Identifier], arguments =>
+                Call(Function.IsInCriticalStage, number: FalloutCriticalStage.Parse(arguments[0].Identifier!)))
+            { ReadOnly = true },
             "getissex" => Sex(Function.GetIsSex, true),
             "getpcissex" => Sex(Function.GetPCIsSex, false),
             "getactorvalue" => new([FalloutScriptArgumentKind.Identifier], arguments =>

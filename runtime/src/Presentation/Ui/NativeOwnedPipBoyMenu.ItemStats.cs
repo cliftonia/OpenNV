@@ -11,7 +11,7 @@ internal sealed partial class NativeOwnedPipBoyMenu
     private object? _inventoryHeadline;
     internal Func<FalloutActorDefense>? InventoryDefense { get; init; }
     internal Func<float>? InventoryCarryCapacity { get; init; }
-    internal Func<bool>? InventoryHardcore { get; init; }
+    internal Func<bool>? Hardcore { get; init; }
     internal Func<FalloutFormKey, FalloutItemVariant, string>? InventoryDamage { get; init; }
     internal Func<FalloutFormKey, string>? InventoryStrength { get; init; }
     internal Func<FalloutFormKey, FalloutItemVariant, string?>? InventoryAmmo { get; init; }
@@ -84,7 +84,7 @@ internal sealed partial class NativeOwnedPipBoyMenu
         // and weapon perk73 are separate reached owners, never a base-weight
         // substitute. Inspect current source declarations without executing them.
         string? weightText = null;
-        var sourceWeight = item.RecordType == "AMMO" && !(InventoryHardcore ??
+        var sourceWeight = item.RecordType == "AMMO" && !(Hardcore ??
             throw new NotSupportedException("AMMO weight has no current Hardcore owner."))() ? 0 : item.Weight;
         if (sourceWeight is not { } baseWeight) missing.Add("WeightInfo:source-weight");
         else

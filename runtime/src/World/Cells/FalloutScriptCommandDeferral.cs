@@ -11,10 +11,20 @@ internal static class FalloutScriptCommandDeferral
     // its warning channel before any session can execute source scripts.
     internal static Action<string> Sink { get; set; } = message => Console.Error.WriteLine(message);
 
-    internal static void Warn(string operation, string reason)
+    internal static bool WasReported(string operation)
+    {
+        lock (Gate) return Reported.Contains("SCRIPT_COMMAND:" + operation);
+    }
+
+    internal static void Warn(string operation, string reason) => Report("SCRIPT_COMMAND", operation, reason);
+
+    // A combat rule reached in play whose consumer owner is absent.
+    internal static void WarnCombat(string rule, string reason) => Report("COMBAT", rule, reason);
+
+    private static void Report(string channel, string name, string reason)
     {
         lock (Gate)
-            if (!Reported.Add(operation)) return;
-        Sink($"OPENNV_SCRIPT_COMMAND_DEFERRED name={operation} reason={reason}");
+            if (!Reported.Add(channel + ":" + name)) return;
+        Sink($"OPENNV_{channel}_DEFERRED name={name} reason={reason}");
     }
 }

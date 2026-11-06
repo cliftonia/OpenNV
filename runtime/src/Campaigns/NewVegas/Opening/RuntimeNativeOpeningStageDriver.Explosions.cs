@@ -28,13 +28,13 @@ internal sealed partial class RuntimeNativeScriptExplosions : Node3D
     private readonly Func<FalloutFormKey> _cell;
     private readonly Func<int> _level;
     private readonly FalloutGlobalState _globals;
-    private readonly Action<FalloutWeaponDamage, byte> _damagePlayer;
+    private readonly Action<FalloutWeaponDamage, byte, Func<float>?> _damagePlayer;
     private readonly RuntimeNativeShotEffects _effects;
     private readonly Func<FalloutTransientExplosionRequest, FalloutPreparedTransientExplosion> _prepare;
 
     internal RuntimeNativeScriptExplosions(FalloutPluginStack records, FalloutReferenceWorld world,
         RuntimeLiveContentSource content, RuntimeNativePlayer player, Func<FalloutFormKey> cell,
-        Func<int> level, FalloutGlobalState globals, Action<FalloutWeaponDamage, byte> damagePlayer)
+        Func<int> level, FalloutGlobalState globals, Action<FalloutWeaponDamage, byte, Func<float>?> damagePlayer)
     {
         Name = "OwnedScriptExplosions";
         _records = records; _world = world; _player = player; _cell = cell; _level = level;

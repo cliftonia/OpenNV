@@ -74,8 +74,14 @@ internal partial class RuntimeNativeOpeningStageDriver
         Function.GetHealthPercentage => ActorHealthPercentage(_pluginStack.RuntimeFormKey(0x14)),
         Function.HasPerk => _playerSkills.HasPerk(condition.FormArgument1) ? 1 : 0,
         Function.IsHardcore => _scripts.Session.Hardcore ? 1 : 0,
+        Function.IsPCSleeping => _scripts.Session.PlayerSleeping ? 1 : 0,
+        Function.GetPCSleepHours => _scripts.Session.PlayerSleepHours,
         Function.PlayerInRegion => _scripts.References!.IsInRegion(_pluginStack.RuntimeFormKey(0x14), condition.FormArgument1,
             SharedConditions.PlayerPlacement?.Invoke(), _player.UnitsToMeters) ? 1 : 0,
+        Function.GetXPForNextLevel => Vitals.NextLevelExperiencePoints,
+        Function.GetPlayerControlsDisabled => PlayerControls.AnyDisabled(condition.Argument1) ? 1 : 0,
+        Function.GetAngle => FalloutConditionRuntime.WrappedDegrees(
+            OpenNV.Runtime.Formats.Gamebryo.GamebryoCoordinate.ReferenceEuler(_player.GlobalBasis)[checked((int)(condition.Argument1 - 'X'))]),
         _ => throw new NotSupportedException($"Player condition {condition.Function} has no authoritative native state owner."),
     };
 }

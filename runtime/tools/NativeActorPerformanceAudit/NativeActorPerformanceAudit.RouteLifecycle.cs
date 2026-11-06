@@ -40,7 +40,7 @@ public partial class NativeActorPerformanceAudit
         player.RestoreTransform(saved.PlayerPosition!, saved.PlayerRotation!, FalloutNativeCampaignSave.RestorePlayerViewPitch(saved));
         var ended = 0;
         Field("_context").SetValue(combat, new NativeActorCombatContext(() => player, () => vitals,
-            (_, _) => throw new InvalidDataException("Route lifecycle attempted gameplay damage."),
+            (_, _, _) => throw new InvalidDataException("Route lifecycle attempted gameplay damage."),
             (_, _) => throw new InvalidDataException("Pending-query lifecycle attempted a new source route."),
             _ => true, () => vitals.Level, globals, config.Player.StepHeightMeters, config.Simulation.GravityMetersPerSecondSquared,
             DispatchEvent: (reference, name) =>

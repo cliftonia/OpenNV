@@ -1,0 +1,16 @@
+# OpenNV iOS launch arguments, one per line. {documents} = the app's Documents folder.
+# Copy to Documents/OpenNV/launch-args.txt (scripts/ios/push-data.sh does this).
+--data-root
+{documents}/FalloutNV
+--campaign
+fallout-new-vegas
+--save-path
+{documents}/Saves/courier-v1.json
+# Optional mods copied to Documents/Mods/<name>, in load order:
+# --mod-stack
+# [{"Id":"my-mod","Root":"{documents}/Mods/MyMod","AdditionalRoots":[]}]
+--fullscreen
+--show-fps
+# 3D resolution scale (0.25-1.0); lower is faster, FSR upscales.
+--render-scale
+0.6

@@ -14,6 +14,8 @@ internal sealed record FalloutDestructionStage(byte HealthPercent, byte Index, b
 internal sealed record FalloutDestructible(FalloutFormKey Form, string Sha256, int Health, byte Flags,
     IReadOnlyList<FalloutDestructionStage> Stages)
 {
+    internal bool VatsTargetable => (Flags & 1) != 0;
+
     internal static FalloutDestructible? Read(FalloutPluginStack records, FalloutFormKey key)
     {
         var record = records.GetEffective(key);

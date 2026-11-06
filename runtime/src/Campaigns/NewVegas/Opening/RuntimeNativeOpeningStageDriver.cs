@@ -106,13 +106,31 @@ internal partial class RuntimeNativeOpeningStageDriver : Node
     internal FalloutSpecialAllocationBinding SpecialAllocationBinding => _playerActorValues.AllocationBinding;
     internal GameplayVitals Vitals => _vitals.State;
     private FalloutActorDefenseResolver? _incomingDefense;
-    internal void DamagePlayer(FalloutWeaponDamage damage, byte part)
+    // Incoming hits on the player: the attacker's critical roll against the
+    // player's Modify Enemy Critical Hit Chance, shared mitigation with the
+    // player's defender entries and VATS multiplier, then the player limb scale.
+    internal void DamagePlayer(FalloutWeaponDamage damage, byte part, Func<float>? random)
     {
         _scripts.References?.BeforeActorHit(_pluginStack.RuntimeFormKey(0x14));
-        var defense = ReadSharedPlayerDefense();
-        _vitals.Damage(defense.Absorb(damage.Amount, FalloutGameSettingFloats.Read(_pluginStack, "fMinDamMultiplier"), damage.AmmoEffects),
-            part, damage.LimbMultiplier);
+        var perks = _playerSkills.PerkEntries;
+        var critical = Vitals.HitPoints == 0 ? default : FalloutCriticalHits.Roll(_pluginStack, damage.Critical,
+            chance => FalloutWeaponDamageResolver.Apply(perks, 36, chance, PlayerDefenderCondition), false, random);
+        var amount = ReadSharedPlayerDefense().Mitigate(_pluginStack, damage with { Amount = damage.Amount + critical.Damage }, new(
+            ThresholdBonus: FalloutWeaponDamageResolver.Apply(perks, 56, 0, PlayerDefenderCondition),
+            WeaponResistance: damage.ResistanceActorValue >= 0 ? _playerSkills.WeaponResistance(damage.ResistanceActorValue) : 0,
+            VatsMultiplier: _player.VatsMenuActive || _player.VatsExecuting
+                ? FalloutGameSettingFloats.Read(_pluginStack, "fVATSPlayerDamageMult") : 1));
+        var limb = amount * damage.LimbMultiplier * FalloutGameSettingFloats.Read(_pluginStack, "fCombatPlayerLimbDamageMult");
+        limb = FalloutWeaponDamageResolver.Apply(perks, 6, limb, PlayerDefenderCondition);
+        _vitals.Damage(amount, part, amount > 0 ? Math.Max(limb, 0) / amount : 0);
+        if (critical.EffectFor(Vitals.HitPoints == 0) is not null)
+            FalloutScriptCommandDeferral.WarnCombat("critical-effect", "player-actor-effect-owner-unbound");
     }
+    // Defender entries evaluate the player's own tab; the attacker's weapon and
+    // actor tabs have no context in this sink and skip visibly.
+    private float PlayerDefenderCondition(byte tab, FalloutCondition condition) => tab == 0
+        ? PlayerExperienceCondition(condition)
+        : throw new NotSupportedException("Player defender perk conditions have no attacker context.");
     internal object? SpeechState => _speech?.State;
     internal FalloutSpeechSubtitle? Subtitle => _speech?.Subtitle;
     internal bool SpeechActive => _speech?.Active == true;
@@ -174,7 +192,7 @@ internal partial class RuntimeNativeOpeningStageDriver : Node
         _configured = true;
         _player = player ?? throw new ArgumentNullException(nameof(player));
         _player.UseInventoryHotkey = UseInventoryHotkey;
-        _player.OpenWaitMenu = () => RunPlayerRestRequest(FalloutRestKind.Wait, null);
+        _player.OpenWaitMenu = RunWaitControl;
         _player.ActivateBed = bed => RequestPlayerRest(FalloutRestKind.Sleep, bed);
         _raceSexContract = raceSexContract ?? throw new ArgumentNullException(nameof(raceSexContract));
         _vigorContract = vigorContract;
@@ -247,6 +265,7 @@ internal partial class RuntimeNativeOpeningStageDriver : Node
         {
             if (name.Equals("Health", StringComparison.OrdinalIgnoreCase)) return Vitals.ExactHitPoints;
             if (name.Equals("RadiationRads", StringComparison.OrdinalIgnoreCase)) return Vitals.RadiationRads;
+            if (FalloutHardcoreNeeds.ActorValue(name) is { } need) return Vitals.Need(need);
             if (name.Equals("ActionPoints", StringComparison.OrdinalIgnoreCase)) return Vitals.ActionPoints;
             if (name.Equals("XP", StringComparison.OrdinalIgnoreCase)) return Vitals.ExperiencePoints;
             if (FalloutBodyPartData.LimbActorValue(name) is { } limb)
@@ -265,6 +284,7 @@ internal partial class RuntimeNativeOpeningStageDriver : Node
         _playerAbilities.Synchronize();
         _vitals = FalloutPlayerVitals.FromActorValues(pluginStack, _playerActorValues, restore?.State.Vitals);
         _playerActorValues.BindFatigueLevel(() => _vitals.State.Level);
+        BindHardcoreNeeds();
         _player.ConfigureFatigueKnockout(_pluginStack, _pluginStack.GetEffective(_raceSexContract.Player),
             () => _playerActorValues.ReadCurrent(22), () =>
             {
@@ -357,8 +377,12 @@ internal partial class RuntimeNativeOpeningStageDriver : Node
             if (BlockingExecutionError is not null) return;
             RefreshRadioStations();
             _ingestibles.Advance(delta);
+            if (_restMenu is not null) DispatchRestMenuMode(delta);
             if (!GetTree().Paused)
             {
+                AdvanceHardcoreNeeds();
+                // SetPCSleepHours outside the menu runs one rest hour per frame.
+                if (_restMenu is null && _scripts.Session.PlayerSleeping && _scripts.Session.PlayerSleepHours > 0) RestHourStep();
                 _playerActorValues.AdvanceFatigue(delta);
                 _scripts.References?.AdvanceActorFatigue(delta);
                 _deliveredEffects.Advance(delta);
