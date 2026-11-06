@@ -255,14 +255,9 @@ def test_radio() -> str:
         open_radio(game, "Radio New Vegas")
         game.wait_log("OPENNV_NATIVE_RADIO_TUNE", 10)
         game.wait_log("OPENNV_NATIVE_RADIO_BROADCAST", 30)
-        first = game.wait(lambda: (game.gameplay().get("speech") or {}).get("positionSeconds") or None, 30,
-                          "radio audio position")
-        def advanced():
-            # A DLC "signal found" message can pause the game right after tuning.
-            game.press("OK")
-            later = (game.gameplay().get("speech") or {}).get("positionSeconds")
-            return later if later and later != first else None
-        game.wait(advanced, 20, "radio audio position to advance")
+        samples = mixed_radio_samples(game)
+        unconfirmed = [l[:200] for l in game.log_text().splitlines() if "OPENNV_AUDIO_UNCONFIRMED" in l]
+        require(not unconfirmed, f"the audio device did not confirm playback: {unconfirmed[:2]}")
         failures = [l for l in game.log_text().splitlines() if "RADIO_BROADCAST_FAILED" in l or "PIPBOY_ACTION_FAILED" in l]
         require(not failures, f"radio failures: {failures[:2]}")
         # Saving must work while a station plays (quicksave on F5).
@@ -270,7 +265,37 @@ def test_radio() -> str:
         saved = quicksave(game)
         require("SAVE_SLOT_CREATED" in saved, f"quicksave with the radio on failed: {saved[:200]}")
         require(not game.fatal_errors(), f"fatal errors: {game.fatal_errors()[:3]}")
-        return "Radio New Vegas broadcasting with advancing audio; quicksave succeeded"
+        span = samples[-1][1] - samples[0][1]
+        return f"Radio New Vegas mixing in real time ({span:.1f}s over {len(samples)} samples); quicksave succeeded"
+
+
+def mixed_radio_samples(game: Game, count: int = 4, timeout: float = 45) -> list[tuple]:
+    """Consecutive samples of one radio line whose decoded position advances at the
+    publication clock's rate. Only the mixer consuming samples moves the cursor
+    continuously; a restore or seek is a single jump, and a stalled device leaves
+    the cursor at its first buffer."""
+    run: list[tuple] = []
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        game.press("OK")  # a DLC "signal found" message can pause the game right after tuning
+        state = game.state()
+        speech = (state.get("gameplay") or {}).get("speech") or {}
+        sample = (speech.get("info"), speech.get("positionSeconds"), state.get("sampledNanoseconds"))
+        if not sample[0] or sample[1] is None or sample[2] is None:
+            run = []
+        elif run and sample[2] == run[-1][2]:
+            pass  # the same publication
+        else:
+            if run:
+                elapsed = (sample[2] - run[-1][2]) / 1e9
+                rate = (sample[1] - run[-1][1]) / elapsed if elapsed > 0 else 0
+                if sample[0] != run[-1][0] or not 0.5 <= rate <= 1.5:
+                    run = []
+            run.append(sample)
+            if len(run) >= count:
+                return run
+        time.sleep(1)
+    raise Failure(f"radio audio never advanced at mixing rate over {count} samples; last run {run}")
 
 
 def test_perf() -> str:
@@ -423,8 +448,15 @@ def test_rest() -> str:
         continue_into_world(game)
         game.settle(10)
         game.tap("T")
-        game.wait(lambda: "Wait" in [c.get("text") for c in game.controls()] or
-                  "OPENNV_REST_REFUSED" in game.log_text(), 30, "Wait menu")
+
+        def wait_menu_open() -> bool:
+            # DLC "signal found" messages arrive in a chain that can outlast the
+            # settle; a message box swallows the Wait key, so answer it and retry.
+            if game.press("OK"):
+                time.sleep(1)
+                game.tap("T")
+            return "Wait" in [c.get("text") for c in game.controls()] or "OPENNV_REST_REFUSED" in game.log_text()
+        game.wait(wait_menu_open, 60, "Wait menu")
         refusal = next((l for l in game.log_text().splitlines() if "OPENNV_REST_REFUSED" in l), None)
         require(refusal is None, f"waiting in the world was refused: {refusal}")
         for _ in range(2):
