@@ -70,7 +70,7 @@ internal sealed class FalloutInstantIngestibleScript
         }
         FalloutScriptFunction? Function(string name) => Operation(name) switch
         {
-            "getav" or "getactorvalue" => new([FalloutScriptArgumentKind.Identifier], arguments =>
+            "getactorvalue" => new([FalloutScriptArgumentKind.Identifier], arguments =>
                 actorValue((int)FalloutActorValueNames.Parse(arguments[0].Identifier!)))
             { ReadOnly = true },
             "getweaponhealthperc" => new([], _ => staged.EquippedWeaponHealthPercentage(_records)) { ReadOnly = true },

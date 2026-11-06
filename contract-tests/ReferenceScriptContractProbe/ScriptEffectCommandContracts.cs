@@ -48,20 +48,20 @@ internal static class ScriptEffectCommandContracts
             Check(cold.ScriptSpell(actor, spell) == false, "Script spell change did not survive a cold save.");
             Reject(() => Execute(world, "addspell", "SyntheticShader"));
 
-            Check(Execute(world, "pms", "SyntheticShader", "2") is ["SyntheticShader", "2"], "PMS lost its native membrane arguments.");
+            Check(Execute(world, "playmagicshadervisuals", "SyntheticShader", "2") is ["SyntheticShader", "2"], "PMS lost its native membrane arguments.");
             Check(world.MagicShaders(actor).SequenceEqual([new FalloutFormKey("Effects.esm", 0x152)]), "PMS did not retain its shader request.");
-            Check(Execute(world, "sms", "SyntheticShader") is ["SyntheticShader"], "SMS lost its native membrane argument.");
+            Check(Execute(world, "stopmagicshadervisuals", "SyntheticShader") is ["SyntheticShader"], "SMS lost its native membrane argument.");
             Check(world.MagicShaders(actor).Count == 0, "SMS did not stop its shader request.");
 
             Check(Execute(world, "setweather", "SyntheticWeather", "1") is ["SyntheticWeather", "1"], "SetWeather lost its native arguments.");
-            Check(Execute(world, "sgtm", "0.5") is ["0.5"], "SGTM lost its resolved multiplier.");
-            Reject(() => Execute(world, "sgtm", "0"));
-            Check(Execute(world, "saa", "1.5") is ["1"] && world.ActorAlpha(actor) == 1, "SetActorAlpha did not clamp.");
-            Check(Execute(world, "saa", "0.4") is not null && Math.Abs(world.ActorAlpha(actor) - 0.4f) < 1e-6, "SetActorAlpha lost its value.");
+            Check(Execute(world, "setglobaltimemultiplier", "0.5") is ["0.5"], "SGTM lost its resolved multiplier.");
+            Reject(() => Execute(world, "setglobaltimemultiplier", "0"));
+            Check(Execute(world, "setactoralpha", "1.5") is ["1"] && world.ActorAlpha(actor) == 1, "SetActorAlpha did not clamp.");
+            Check(Execute(world, "setactoralpha", "0.4") is not null && Math.Abs(world.ActorAlpha(actor) - 0.4f) < 1e-6, "SetActorAlpha lost its value.");
             Check(Execute(world, "setrumble", "1", "0.5", "0.1") is ["1", "0.5", "0.1"], "SetRumble lost its motor arguments.");
             Reject(() => Execute(world, "setrumble", "1", "-1", "0.1"));
-            Check(Execute(world, "cios", "SyntheticAbility") is ["SyntheticAbility"], "CIOS lost its native spell owner.");
-            Reject(() => Execute(world, "cios", "SyntheticWeather"));
+            Check(Execute(world, "castimmediateonself", "SyntheticAbility") is ["SyntheticAbility"], "CIOS lost its native spell owner.");
+            Reject(() => Execute(world, "castimmediateonself", "SyntheticWeather"));
 
             _ = Execute(world, "setcellimagespace", "SyntheticCell", "SyntheticImage");
             Check(world.CellImageSpace(new("Effects.esm", 0x154))?.Form == new FalloutFormKey("Effects.esm", 0x155),
@@ -69,7 +69,7 @@ internal static class ScriptEffectCommandContracts
 
             _ = Execute(world, "triggerscreensplatter", "50", "25", "2.0", "2.0");
             _ = Execute(world, "triggerscreensplatter", "50", "25", "2.0", "2.0");
-            Check(Execute(world, "setsecexp", "SyntheticActor", "Infantry", "Neutral") is null, "SetSecuritronExpression requested a native owner.");
+            Check(Execute(world, "setsecuritronexpression", "SyntheticActor", "Infantry", "Neutral") is null, "SetSecuritronExpression requested a native owner.");
             Check(warnings.Count(line => line.Contains("name=triggerscreensplatter", StringComparison.Ordinal)) == 1,
                 "Deferred command warning was not emitted exactly once.");
             var native = new List<(FalloutFormKey Target, string Command, string[] Arguments)>();
@@ -81,8 +81,8 @@ internal static class ScriptEffectCommandContracts
             program = FalloutGameModeProgram.Read("begin GameMode\nSyntheticActor.SAA 0\nsgtm 0.25\nSyntheticActor.CIOS SyntheticAbility\nend");
             native.Clear();
             scripts.ExecuteProgram(records.GetEffective(actor), script, program, 0);
-            Check(native.Count == 3 && native.All(call => call.Target == actor) && native[0] is (_, "saa", ["0"]) &&
-                native[1] is (_, "sgtm", ["0.25"]) && native[2] is (_, "cios", ["SyntheticAbility"]),
+            Check(native.Count == 3 && native.All(call => call.Target == actor) && native[0] is (_, "setactoralpha", ["0"]) &&
+                native[1] is (_, "setglobaltimemultiplier", ["0.25"]) && native[2] is (_, "castimmediateonself", ["SyntheticAbility"]),
                 "Object-script dispatch did not hand resolved effect remainders to the native owner.");
             Console.WriteLine("OPENNV_SCRIPT_EFFECT_COMMAND_PASS spells=true cold=true shaders=true weather=true clock=true alpha=true " +
                 "rumble=true imageSpace=true deferredOnce=true presentation=unverified");

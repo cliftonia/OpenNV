@@ -14,10 +14,10 @@ internal static class FalloutScriptEffectCommands
 {
     private static readonly HashSet<string> Operations =
     [
-        "cios", "castimmediateonself", "addspell", "removespell", "dispel", "dispelallspells",
-        "pms", "playmagicshadervisuals", "sms", "stopmagicshadervisuals", "saa", "setactoralpha",
-        "preloadmagiceffect", "triggerscreensplatter", "setscreensplatterfade", "setweather", "sw",
-        "setcellimagespace", "setglobaltimemultiplier", "sgtm", "setrumble", "setsecexp", "setsecuritronexpression",
+        "castimmediateonself", "addspell", "removespell", "dispel", "dispelallspells",
+        "playmagicshadervisuals", "stopmagicshadervisuals", "setactoralpha",
+        "preloadmagiceffect", "triggerscreensplatter", "setscreensplatterfade", "setweather",
+        "setcellimagespace", "setglobaltimemultiplier", "setrumble", "setsecuritronexpression",
     ];
 
     internal static bool Supports(string operation) => Operations.Contains(operation);
@@ -30,7 +30,7 @@ internal static class FalloutScriptEffectCommands
         {
             // Casting on self needs no aim or animation; the active-effect owner
             // of the caster receives the spell's effects at once.
-            case "cios" or "castimmediateonself" when arguments.Count == 1:
+            case "castimmediateonself" when arguments.Count == 1:
                 _ = Require(resolve.Form(arguments[0]), "SPEL");
                 return [arguments[0]];
             case "addspell" or "removespell" when arguments.Count == 1:
@@ -48,16 +48,16 @@ internal static class FalloutScriptEffectCommands
                 if (player) return [];
                 _ = world.DispelActorEffects(target, null);
                 return null;
-            case "pms" or "playmagicshadervisuals" when arguments.Count is 1 or 2:
+            case "playmagicshadervisuals" when arguments.Count is 1 or 2:
                 var shader = Require(resolve.Form(arguments[0]), "EFSH");
                 if (arguments.Count == 2 && !double.IsFinite(resolve.Number(arguments[1])))
                     throw new InvalidDataException("Magic shader duration is not finite.");
                 world.SetMagicShader(target, shader, true);
                 return arguments.Count == 1 ? [arguments[0]] : [arguments[0], Literal(resolve.Number(arguments[1]))];
-            case "sms" or "stopmagicshadervisuals" when arguments.Count == 1:
+            case "stopmagicshadervisuals" when arguments.Count == 1:
                 world.SetMagicShader(target, Require(resolve.Form(arguments[0]), "EFSH"), false);
                 return [arguments[0]];
-            case "saa" or "setactoralpha" when arguments.Count == 1:
+            case "setactoralpha" when arguments.Count == 1:
                 var alpha = resolve.Number(arguments[0]);
                 if (!double.IsFinite(alpha)) throw new InvalidDataException("Actor alpha is not finite.");
                 return [world.SetActorAlpha(target, (float)alpha).ToString("R", CultureInfo.InvariantCulture)];
@@ -72,14 +72,14 @@ internal static class FalloutScriptEffectCommands
                     throw new InvalidDataException("Screen splatter arguments are not finite.");
                 FalloutScriptCommandDeferral.Warn(operation, "screen-splatter-presentation-unbound");
                 return null;
-            case "setweather" or "sw" when global && arguments.Count is 1 or 2:
+            case "setweather" when global && arguments.Count is 1 or 2:
                 _ = Require(resolve.Form(arguments[0]), "WTHR");
                 return arguments.Count == 1 ? [arguments[0]] : [arguments[0], Literal(resolve.Number(arguments[1]))];
             case "setcellimagespace" when global && arguments.Count == 2:
                 world.SetCellImageSpace(Require(resolve.Form(arguments[0]), "CELL"), Require(resolve.Form(arguments[1]), "IMGS"));
                 FalloutScriptCommandDeferral.Warn(operation, "override-applies-on-next-cell-load");
                 return null;
-            case "setglobaltimemultiplier" or "sgtm" when global && arguments.Count is 1 or 2:
+            case "setglobaltimemultiplier" when global && arguments.Count is 1 or 2:
                 var multiplier = resolve.Number(arguments[0]);
                 if (!double.IsFinite(multiplier) || multiplier <= 0)
                     throw new InvalidDataException("Global time multiplier must be finite and positive.");
@@ -92,7 +92,7 @@ internal static class FalloutScriptEffectCommands
                     throw new InvalidDataException("Rumble motor strengths and duration must be finite and non-negative.");
                 return rumble.Select(Literal).ToArray();
             // Personality and emotion names are compiled enum tokens, not forms.
-            case "setsecuritronexpression" or "setsecexp" when global && arguments.Count == 3:
+            case "setsecuritronexpression" when global && arguments.Count == 3:
                 if (records.GetEffective(resolve.Reference(arguments[0])).Signature is not ("ACHR" or "ACRE"))
                     throw new InvalidDataException("Securitron expression target is not a placed actor.");
                 FalloutScriptCommandDeferral.Warn("setsecuritronexpression", "securitron-face-presentation-unbound");

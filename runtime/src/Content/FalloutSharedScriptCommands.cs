@@ -31,7 +31,7 @@ internal static class FalloutSharedScriptCommands
                 return true;
             // Engine memory/renderer housekeeping: purging cell buffers and
             // marking a scene as complex change no gameplay state in OpenNV.
-            case "purgecellbuffers" or "pcb":
+            case "purgecellbuffers":
                 Require(0, 1);
                 return true;
             case "setsceneiscomplex":

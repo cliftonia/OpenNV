@@ -531,6 +531,14 @@ internal sealed partial class FalloutQuestScripts
         }
     }
 
+    // SetQuestDelay from any script replaces the quest script's recurrence
+    // interval; the clock snapshot persists the replaced interval.
+    internal void SetQuestDelay(FalloutFormKey quest, double seconds)
+    {
+        foreach (var owner in _instances.Where(candidate => candidate.Quest.FormKey == quest))
+            owner.Clock.SetInterval((float)seconds);
+    }
+
     internal void RequireQuestExecution(FalloutFormKey quest)
     {
         if (_unbound.TryGetValue(quest, out var error)) throw new NotSupportedException($"Startup quest {quest} is unbound: {error}");
@@ -934,7 +942,9 @@ internal sealed partial class FalloutQuestScripts
                         .IsTagged(arguments[0].Identifier!) ? 1 : 0)
                 { ReadOnly = true },
                 "abs" => new([FalloutScriptArgumentKind.Number], arguments => Math.Abs(arguments[0].Number)),
-                _ => null,
+                _ => parts.Length <= 2 ? conditionRuntime.ConditionScriptFunction(operation, instance.Script,
+                    () => caller?.FormKey(_records) ?? (parts.Length == 2 ? QueryReference(parts[0]) : instance.Quest.FormKey),
+                    name => Form(name).FormKey, parts.Length == 2 || caller is not null) : null,
             };
         }
         void Call(string command, IReadOnlyList<string> rawArguments)
@@ -1010,7 +1020,7 @@ internal sealed partial class FalloutQuestScripts
                     (NumberArgument(arguments[0]));
                 return;
             }
-            if (parts.Length <= 2 && operation is "equipitem" or "equipobject" or "unequipitem" or "removeallitems" or "resetinventory")
+            if (parts.Length <= 2 && operation is "equipitem" or "unequipitem" or "removeallitems" or "resetinventory")
             {
                 var target = parts.Length == 2 ? instance.Bindings.Reference(parts[0]) : instance.Quest.FormKey;
                 bool Flag(string token) => NumberArgument(token) switch
@@ -1020,7 +1030,7 @@ internal sealed partial class FalloutQuestScripts
                     () => throw new NotSupportedException("NPC inventory has no player-level owner."), _globals);
                 var request = operation switch
                 {
-                    "equipitem" or "equipobject" when arguments.Count is >= 1 and <= 3 => new FalloutInventoryCommand(
+                    "equipitem" when arguments.Count is >= 1 and <= 3 => new FalloutInventoryCommand(
                         FalloutInventoryCommandKind.Equip, target, Item: Form(arguments[0]).FormKey,
                         NoUnequip: arguments.Count >= 2 && FalloutInventoryCommands.ReadEquipmentFlag(NumberArgument(arguments[1]), true), Silent: arguments.Count >= 3 && FalloutInventoryCommands.ReadEquipmentFlag(NumberArgument(arguments[2]), false)),
                     "unequipitem" when arguments.Count is >= 1 and <= 3 => new FalloutInventoryCommand(
@@ -1050,7 +1060,7 @@ internal sealed partial class FalloutQuestScripts
                 (host?.ResetPlayerHealth ?? throw new NotSupportedException("Player ResetHealth has no shared vitals owner."))();
                 return;
             }
-            if (parts.Length <= 2 && operation is "stopcombatalarmonactor" or "scaonactor")
+            if (parts.Length <= 2 && operation is "stopcombatalarmonactor")
             {
                 if (arguments.Count != 0) throw new InvalidDataException("StopCombatAlarmOnActor takes no arguments.");
                 (References ?? throw new NotSupportedException("Combat alarm has no shared reference owner."))
@@ -1064,7 +1074,7 @@ internal sealed partial class FalloutQuestScripts
                     .StartCombat(ReferenceArgument(parts[0]), ReferenceArgument(arguments[0]));
                 return;
             }
-            if (parts.Length == 1 && operation is "triggerscreenblood" or "tsb")
+            if (parts.Length == 1 && operation is "triggerscreenblood")
             {
                 if (arguments.Count != 1) throw new InvalidDataException("TriggerScreenBlood requires one count.");
                 ScreenBlood.Trigger(instance.Quest.FormKey, FalloutScreenBlood.Count(NumberArgument(arguments[0])));
@@ -1297,10 +1307,8 @@ internal sealed partial class FalloutQuestScripts
                 case "showmessage" when arguments.Count == 1:
                     ShowMessage(Form(arguments[0]).FormKey, instance.Script.FormKey);
                     break;
-                case "setquestdelay" or "sqd" when arguments.Count == 2:
-                    var delayed = Quest(arguments[0]).FormKey;
-                    foreach (var owner in _instances.Where(candidate => candidate.Quest.FormKey == delayed))
-                        owner.Clock.SetInterval((float)NumberArgument(arguments[1]));
+                case "setquestdelay" when arguments.Count == 2:
+                    SetQuestDelay(Quest(arguments[0]).FormKey, NumberArgument(arguments[1]));
                     break;
                 case "startquest" or "stopquest" when arguments.Count == 1:
                     _quests.SetRunning(Quest(arguments[0]).FormKey, command.Equals("startquest", StringComparison.OrdinalIgnoreCase));
@@ -1326,7 +1334,7 @@ internal sealed partial class FalloutQuestScripts
                 case "incrementscriptedchallenge" when arguments.Count == 1:
                     Challenges.IncrementScripted(Form(arguments[0]).FormKey);
                     break;
-                case "killquestupdates" or "kqu" when arguments.Count == 0:
+                case "killquestupdates" when arguments.Count == 0:
                     _quests.KillQuestUpdates();
                     break;
                 case "player.additem" when arguments.Count is 2 or 3:

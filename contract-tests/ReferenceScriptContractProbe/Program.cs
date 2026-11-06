@@ -816,6 +816,12 @@ if (args is ["--else-payload-contracts"])
     return;
 }
 
+if (args is ["--script-name-contracts"])
+{
+    ScriptNameContracts.Run();
+    return;
+}
+
 if (args is ["--owned-strip-gate-activation", var stripGateData, var stripGate, var stripGateActor])
 {
     OwnedStripGateActivationProbe.Run(stripGateData, stripGate, stripGateActor);
@@ -2017,6 +2023,7 @@ DefaultActivationContracts.Run();
 ScriptManualSaveContracts.Run();
 ReferenceInstanceCacheContracts.Run();
 HardcoreQueryContracts.Run();
+ScriptNameContracts.Run();
 TutorialActorQueryContracts.Run();
 GameTimeCommandContracts.Run();
 ActorAlertContracts.Run();

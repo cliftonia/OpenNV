@@ -6,13 +6,13 @@ internal enum FalloutActorValueOperation { SetBase, ModifyPermanent, ForceCurren
 // Source decoding and consumers of effective values remain separate owners.
 internal static class FalloutActorValueCommands
 {
-    internal static FalloutActorValueOperation? Operation(string name) => name.ToLowerInvariant() switch
+    internal static FalloutActorValueOperation? Operation(string name) => OpenNV.Runtime.Content.Definitions.FalloutScriptCommandNames.Operation(name) switch
     {
-        "setav" or "setactorvalue" => FalloutActorValueOperation.SetBase,
-        "modav" or "modactorvalue" => FalloutActorValueOperation.ModifyPermanent,
-        "forceav" or "forceactorvalue" => FalloutActorValueOperation.ForceCurrent,
-        "damageav" or "damageactorvalue" => FalloutActorValueOperation.Damage,
-        "restoreav" or "restoreactorvalue" => FalloutActorValueOperation.Restore,
+        "setactorvalue" => FalloutActorValueOperation.SetBase,
+        "modactorvalue" => FalloutActorValueOperation.ModifyPermanent,
+        "forceactorvalue" => FalloutActorValueOperation.ForceCurrent,
+        "damageactorvalue" => FalloutActorValueOperation.Damage,
+        "restoreactorvalue" => FalloutActorValueOperation.Restore,
         _ => null,
     };
 

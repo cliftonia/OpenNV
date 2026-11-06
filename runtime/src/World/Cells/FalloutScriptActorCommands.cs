@@ -33,8 +33,8 @@ internal static class FalloutScriptActorCommands
 
     private static readonly HashSet<string> Owned =
     [
-        "setghost", "resurrect", "resurrectactor", "sendassaultalarm", "sendtrespassalarm", "setpcenemyoffaction",
-        "clearfactionplayerenemyflag", "removefromallfactions", "getdetected", "damageobject", "do", "cleardestruction",
+        "setghost", "resurrectactor", "sendassaultalarm", "sendtrespassalarm", "setpcenemyoffaction",
+        "clearfactionplayerenemyflag", "removefromallfactions", "getdetected", "damageobject", "cleardestruction",
         "setnpcradio", "alwaysshowactorsubtitles", "pushactoraway", "forceflee",
     ];
 
@@ -73,7 +73,7 @@ internal static class FalloutScriptActorCommands
         {
             "setghost" => Command([Kind.Number], arguments => world().SetGhost(subject(), Flag(arguments[0].Number))),
             // The optional animate flag selects a get-up animation only.
-            "resurrect" or "resurrectactor" => Command([Kind.OptionalNumber], arguments =>
+            "resurrectactor" => Command([Kind.OptionalNumber], arguments =>
             {
                 if (arguments.Count == 1) _ = Flag(arguments[0].Number);
                 world().Resurrect(subject());
@@ -102,8 +102,7 @@ internal static class FalloutScriptActorCommands
             "clearfactionplayerenemyflag" => Command([Kind.Value], arguments =>
                 world().SetPlayerEnemyOfFaction(Faction(arguments[0]), false)),
             "removefromallfactions" => Command([], _ => world().RemoveFromAllFactions(subject())),
-            // "do" is DamageObject's short name (retail trap script: "; do = DamageObject").
-            "damageobject" or "do" => Command([Kind.Number], arguments =>
+            "damageobject" => Command([Kind.Number], arguments =>
             {
                 var amount = (float)arguments[0].Number;
                 world().DamageObject(subject(), amount);

@@ -1,4 +1,5 @@
 using Function = OpenNV.Runtime.Content.Definitions.FalloutConditionFunction;
+using Parameter = OpenNV.Runtime.Content.Definitions.FalloutConditionParameter;
 
 namespace OpenNV.Runtime.Content;
 
@@ -17,27 +18,18 @@ internal sealed partial class FalloutConditionRuntime
             return Evaluate(new FalloutConditionQuery(new(declaration, 0, 0, (ushort)function, number, second, 0, 0), argument, secondForm),
                 new(scoped ? subject() : declaration.FormKey));
         }
-        FalloutFormKey FormValue(FalloutScriptArgument argument) => argument.Value.Kind == FalloutScriptValueKind.Number
-            ? records.RuntimeFormKey(Index(argument.Number)) : argument.Value.FormKey(records);
-        static uint Index(double value) => double.IsFinite(value) && value >= 0 && value <= uint.MaxValue && value == Math.Truncate(value)
-            ? (uint)value : throw new InvalidDataException("Script function index is not an unsigned integer.");
         FalloutScriptFunction None(Function id, bool scoped = true) => new([], _ => Call(id, scoped: scoped)) { ReadOnly = id != Function.GetRandomPercent };
         FalloutScriptFunction Form(Function id, bool scoped = true) => new([FalloutScriptArgumentKind.Value],
-            arguments => Call(id, FormValue(arguments[0]), scoped: scoped))
+            arguments => Call(id, ScriptForm(arguments[0]), scoped: scoped))
         { ReadOnly = true };
         FalloutScriptFunction Quest(Function id) => new([FalloutScriptArgumentKind.Identifier],
             arguments => Call(id, form(arguments[0].Identifier!), scoped: false))
         { ReadOnly = true };
         FalloutScriptFunction IndexedQuest(Function id) => new([FalloutScriptArgumentKind.Identifier, FalloutScriptArgumentKind.Number],
-            arguments => Call(id, form(arguments[0].Identifier!), second: Index(arguments[1].Number), scoped: false))
+            arguments => Call(id, form(arguments[0].Identifier!), second: ScriptIndex(arguments[1].Number), scoped: false))
         { ReadOnly = true };
         FalloutScriptFunction Sex(Function id, bool scoped) => new([FalloutScriptArgumentKind.Identifier], arguments =>
-            Call(id, number: arguments[0].Identifier!.ToLowerInvariant() switch
-            {
-                "male" or "0" => 0,
-                "female" or "1" => 1,
-                _ => throw new InvalidDataException("Script sex argument is not Male or Female."),
-            }, scoped: scoped))
+            Call(id, number: SexIndex(arguments[0].Identifier!), scoped: scoped))
         { ReadOnly = true };
         return operation switch
         {
@@ -59,7 +51,7 @@ internal sealed partial class FalloutConditionRuntime
             "getheadingangle" => Form(Function.GetHeadingAngle),
             "getisuseditem" => Form(Function.GetIsUsedItem, false),
             "getisuseditemtype" => new([FalloutScriptArgumentKind.Number], arguments =>
-                Call(Function.GetIsUsedItemType, number: Index(arguments[0].Number), scoped: false))
+                Call(Function.GetIsUsedItemType, number: ScriptIndex(arguments[0].Number), scoped: false))
             { ReadOnly = true },
             "getuseditemlevel" => None(Function.GetUsedItemLevel, false),
             "getuseditemactivate" => None(Function.GetUsedItemActivate, false),
@@ -71,25 +63,19 @@ internal sealed partial class FalloutConditionRuntime
             "getforcehitreaction" => None(Function.GetForceHitReaction),
             "getdialogueemotion" => None(Function.GetDialogueEmotion),
             "getpos" => new([FalloutScriptArgumentKind.Identifier], arguments =>
-                Call(Function.GetPos, number: arguments[0].Identifier!.ToUpperInvariant() switch
-                {
-                    "X" => 'X',
-                    "Y" => 'Y',
-                    "Z" => 'Z',
-                    _ => throw new InvalidDataException("GetPos axis is not X, Y or Z."),
-                }))
+                Call(Function.GetPos, number: AxisIndex(arguments[0].Identifier!)))
             { ReadOnly = true },
             "getinsamecell" => Form(Function.GetInSameCell),
             "getincell" => Form(Function.GetInCell),
             "getinworldspace" => Form(Function.GetInWorldspace),
             "getiscreature" => None(Function.GetIsCreature),
             "getiscreaturetype" => new([FalloutScriptArgumentKind.Number], arguments =>
-                Call(Function.GetIsCreatureType, number: Index(arguments[0].Number)))
+                Call(Function.GetIsCreatureType, number: ScriptIndex(arguments[0].Number)))
             { ReadOnly = true },
             "getinzone" => Form(Function.GetInZone),
             "getissex" => Sex(Function.GetIsSex, true),
             "getpcissex" => Sex(Function.GetPCIsSex, false),
-            "getactorvalue" or "getav" => new([FalloutScriptArgumentKind.Identifier], arguments =>
+            "getactorvalue" => new([FalloutScriptArgumentKind.Identifier], arguments =>
                 Call(Function.GetActorValue, number: ScriptActorValueIndex(arguments[0].Identifier!)))
             { ReadOnly = true },
             "getsitting" => None(Function.GetSitting),
@@ -103,8 +89,8 @@ internal sealed partial class FalloutConditionRuntime
             "getvatsvalue" => new([FalloutScriptArgumentKind.Number, FalloutScriptArgumentKind.OptionalNumber], arguments =>
             {
                 if (arguments.Count > 2) throw new InvalidDataException("GetVATSValue accepts one selector and one optional value.");
-                var selector = Index(arguments[0].Number);
-                var second = arguments.Count == 2 ? Index(arguments[1].Number) : 0;
+                var selector = ScriptIndex(arguments[0].Number);
+                var second = arguments.Count == 2 ? ScriptIndex(arguments[1].Number) : 0;
                 // The native command still takes an optional integer. For form
                 // selectors that integer is a runtime identity, not a raw ID
                 // in the script declaration's plugin. Defer its resolution so
@@ -154,6 +140,77 @@ internal sealed partial class FalloutConditionRuntime
         };
     }
 
+    // Every other condition function a script names reaches the same evaluator
+    // through its CTDA parameter shape, with the calling reference as subject.
+    // Executors consult this last, so a specialized script owner always wins.
+    internal FalloutScriptFunction? ConditionScriptFunction(string operation, FalloutPluginRecord declaration,
+        Func<FalloutFormKey> subject, Func<string, FalloutFormKey> form, bool explicitReceiver)
+    {
+        if (!Definitions.FalloutConditionScriptNames.TryParse(operation, out var function)) return null;
+        var shape = Definitions.FalloutConditionParameters.For(function);
+        var kinds = new FalloutScriptArgumentKind[shape.Count];
+        for (var index = 0; index < shape.Count; ++index)
+        {
+            switch (shape[index])
+            {
+                case Parameter.Form: kinds[index] = FalloutScriptArgumentKind.Value; break;
+                // A trailing integer is optional in source; a source compiler
+                // rejects every call that omits one the function requires.
+                case Parameter.Integer: kinds[index] = index == 0 ? FalloutScriptArgumentKind.Number : FalloutScriptArgumentKind.OptionalNumber; break;
+                case Parameter.Named when index == 0: kinds[index] = FalloutScriptArgumentKind.Identifier; break;
+                case Parameter.Axis or Parameter.Sex or Parameter.ActorValue when index == 0:
+                    kinds[index] = FalloutScriptArgumentKind.Identifier; break;
+                default: return null;
+            }
+        }
+        return new(kinds, arguments =>
+        {
+            FalloutFormKey? argument = null;
+            FalloutScriptValue? secondForm = null;
+            uint number = 0, second = 0;
+            for (var index = 0; index < arguments.Count; ++index)
+            {
+                var value = arguments[index];
+                switch (shape[index])
+                {
+                    case Parameter.Form when index == 0: argument = ScriptForm(value); break;
+                    case Parameter.Form: secondForm = FalloutScriptValue.Form(records.RuntimeFormId(ScriptForm(value))); break;
+                    case Parameter.Integer when index == 0: number = ScriptIndex(value.Number); break;
+                    case Parameter.Integer: second = ScriptIndex(value.Number); break;
+                    case Parameter.Named: argument = form(value.Identifier!); break;
+                    case Parameter.Axis: number = AxisIndex(value.Identifier!); break;
+                    case Parameter.Sex: number = SexIndex(value.Identifier!); break;
+                    case Parameter.ActorValue: number = ScriptActorValueIndex(value.Identifier!); break;
+                    default: throw new InvalidOperationException("Condition script parameter shape changed after binding.");
+                }
+            }
+            var resolved = false;
+            var result = Evaluate(new FalloutConditionQuery(new(declaration, 0, 0, (ushort)function, number, second, 0, 0),
+                argument, secondForm), new(ScriptCaller: () => { resolved = true; return subject(); }));
+            // A receiver the function ignores must still name a reference.
+            if (explicitReceiver && !resolved) RequireReference(subject());
+            return result;
+        })
+        { ReadOnly = function != Function.GetRandomPercent };
+    }
+
+    private FalloutFormKey ScriptForm(FalloutScriptArgument argument) => argument.Value.Kind == FalloutScriptValueKind.Number
+        ? records.RuntimeFormKey(ScriptIndex(argument.Number)) : argument.Value.FormKey(records);
+    private static uint ScriptIndex(double value) => double.IsFinite(value) && value >= 0 && value <= uint.MaxValue && value == Math.Truncate(value)
+        ? (uint)value : throw new InvalidDataException("Script function index is not an unsigned integer.");
+    private static uint AxisIndex(string axis) => axis.ToUpperInvariant() switch
+    {
+        "X" => 'X',
+        "Y" => 'Y',
+        "Z" => 'Z',
+        _ => throw new InvalidDataException("Script axis argument is not X, Y or Z."),
+    };
+    private static uint SexIndex(string sex) => sex.ToLowerInvariant() switch
+    {
+        "male" or "0" => 0,
+        "female" or "1" => 1,
+        _ => throw new InvalidDataException("Script sex argument is not Male or Female."),
+    };
     private static uint ScriptActorValueIndex(string name) =>
         checked((uint)Definitions.FalloutActorValueNames.Parse(name));
 }

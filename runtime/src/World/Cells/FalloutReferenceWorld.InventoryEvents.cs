@@ -71,7 +71,7 @@ internal sealed partial class FalloutReferenceWorld
                         ? FalloutScriptFunction.Typed([], _ => FalloutScriptValue.Form(records.RuntimeFormId(recipient)), readOnly: true) : null,
                     (name, arguments) =>
                     {
-                        if (name.Equals("AddCardToPlayer", StringComparison.OrdinalIgnoreCase) || name.Equals("addcard", StringComparison.OrdinalIgnoreCase))
+                        if (name.Equals("AddCardToPlayer", StringComparison.OrdinalIgnoreCase))
                         {
                             if (arguments.Count != 0) throw new NotSupportedException("Card addition arguments are unowned.");
                             stagedCards.Add(instance.Base); return;

@@ -18,7 +18,7 @@ internal partial class RuntimeNativeOpeningStageDriver
         var player = _pluginStack.RuntimeFormId(target) == 0x14;
         switch (operation)
         {
-            case "cios" or "castimmediateonself" when arguments.Count == 1:
+            case "castimmediateonself" when arguments.Count == 1:
                 if (!player)
                 {
                     FalloutScriptCommandDeferral.Warn("castimmediateonself", "npc-actor-effect-owner-unbound");
@@ -39,7 +39,7 @@ internal partial class RuntimeNativeOpeningStageDriver
             case "dispelallspells" when player && arguments.Count == 0:
                 _ = _ingestibles.Dispel(_ => true);
                 return true;
-            case "saa" or "setactoralpha" when arguments.Count == 1:
+            case "setactoralpha" when arguments.Count == 1:
                 var alpha = float.Parse(arguments[0], NumberStyles.Float, CultureInfo.InvariantCulture);
                 if (player)
                 {
@@ -54,7 +54,7 @@ internal partial class RuntimeNativeOpeningStageDriver
                 return true;
             // Membranes attach to the resident presentation only; a reference
             // that streams in later does not replay a retained shader yet.
-            case "pms" or "playmagicshadervisuals" when arguments.Count is 1 or 2:
+            case "playmagicshadervisuals" when arguments.Count is 1 or 2:
                 var effect = FalloutEffectShader.Read(_pluginStack, bindings.Form(arguments[0]).FormKey);
                 float? duration = arguments.Count == 2 ? float.Parse(arguments[1], NumberStyles.Float, CultureInfo.InvariantCulture) : null;
                 var content = RuntimeLiveContentSource.Current ?? throw new InvalidOperationException("Owned source is absent.");
@@ -68,7 +68,7 @@ internal partial class RuntimeNativeOpeningStageDriver
                 if (!effect.HasMembrane) FalloutScriptCommandDeferral.Warn("playmagicshadervisuals", "effect-shader-particles-unbound");
                 else if (attached == 0) FalloutScriptCommandDeferral.Warn("playmagicshadervisuals", player ? "player-self-visibility-owner-unbound" : "target-not-resident");
                 return true;
-            case "sms" or "stopmagicshadervisuals" when arguments.Count == 1:
+            case "stopmagicshadervisuals" when arguments.Count == 1:
                 var stopped = bindings.Form(arguments[0]).FormKey;
                 foreach (var node in ResidentPresentation(target))
                     foreach (var membrane in node.GetChildren().OfType<NativeEffectShaderMembrane>().Where(item => item.Shader == stopped))
@@ -76,11 +76,11 @@ internal partial class RuntimeNativeOpeningStageDriver
                 return true;
             // The sky owner commits weather without a transition clock, so the
             // ordinary transition request currently matches ForceWeather.
-            case "setweather" or "sw" when arguments.Count is 1 or 2:
+            case "setweather" when arguments.Count is 1 or 2:
                 (_skyLighting ?? throw new InvalidOperationException("Sky state owner is absent."))
                     .ForceWeather(bindings.Form(arguments[0]).FormKey, FalloutSkyLightingState.ReadForceWeatherOverride(arguments));
                 return true;
-            case "setglobaltimemultiplier" or "sgtm" when arguments.Count == 1:
+            case "setglobaltimemultiplier" when arguments.Count == 1:
                 Engine.TimeScale = double.Parse(arguments[0], NumberStyles.Float, CultureInfo.InvariantCulture);
                 return true;
             // Left is the low-frequency motor; each call replaces the last.
