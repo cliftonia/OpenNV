@@ -20,7 +20,7 @@ internal partial class RuntimeNativeReferencePresentation : Node
     private readonly Dictionary<FalloutFormKey, FalloutPlacedReference> _referencesByKey = [];
     private readonly HashSet<FalloutFormKey> _unresolvable = [];
     private readonly Dictionary<FalloutFormKey, bool> _enabled;
-    private long _publishedStateRevision = -1, _publishedAppearanceRevision = -1;
+    private long _publishedStateRevision = -1, _publishedAppearanceRevision = -1, _publishedFaceRevision = -1;
     private readonly Dictionary<FalloutFormKey, GeometryInstance3D[]> _fadeGeometry = [];
     private readonly Dictionary<FalloutFormKey, float> _publishedOpacity = [];
     private readonly FalloutReferenceFadeSettings _fadeSettings;
@@ -250,6 +250,7 @@ internal partial class RuntimeNativeReferencePresentation : Node
         GamebryoReferenceEnableRuntime.Apply(node, _world.IsEnabled(key));
         ApplyImposterVisibility(key, node);
         PublishOpacity(key);
+        ApplySecuritronFace(key, node);
     }
 
     private void RefreshGeometry(FalloutFormKey key, Node3D node)
@@ -328,6 +329,7 @@ internal partial class RuntimeNativeReferencePresentation : Node
             using var childrenOwner = (Godot.Collections.Array)children;
             foreach (var motion in children.OfType<RuntimeNativeDoorMotion>()) motion.Synchronize();
         }
+        PublishSecuritronFaces();
         var appearanceRevision = _world.AppearanceRevision;
         if (_publishedAppearanceRevision != appearanceRevision)
         {
@@ -374,15 +376,7 @@ internal partial class RuntimeNativeReferencePresentation : Node
         if (meshes.Length == 0) throw new NotSupportedException($"Texture node {name} has no native geometry binding.");
         if (reference.FindChildren("*", "", true, false).OfType<RuntimeNifControllerPlayer>().Any())
             throw new NotSupportedException("Texture replacement on controller-owned materials requires shared mutation binding.");
-        var logical = "textures/" + path.Replace('\\', '/') + ".dds";
-        if (!_textures.TryGetValue(logical, out var texture))
-        {
-            var content = RuntimeLiveContentSource.Current ?? throw new InvalidOperationException("Owned resources are absent.");
-            if (!content.TryRead(logical, null, out var payload, out var source)) throw new FileNotFoundException($"Texture replacement {logical} is absent.");
-            texture = NativeDdsTexture.Load(payload, source);
-            texture.SetMeta("opennv_source_texture", source); texture.SetMeta("opennv_logical_texture", logical);
-            _textures.Add(logical, texture);
-        }
+        var texture = Texture("textures/" + path.Replace('\\', '/') + ".dds");
         var changes = new List<(MeshInstance3D Mesh, int Surface, Material Material)>();
         foreach (var mesh in meshes)
         {
@@ -390,18 +384,35 @@ internal partial class RuntimeNativeReferencePresentation : Node
             {
                 var original = mesh.GetActiveMaterial(surface) ?? throw new InvalidDataException("Texture node has no source material.");
                 var material = (Material)original.Duplicate();
-                switch (material)
-                {
-                    case StandardMaterial3D standard: standard.AlbedoTexture = texture; break;
-                    case ShaderMaterial shader when shader.ResourceName == NativeNifLightingMaterial.ResourceIdentity:
-                        shader.SetShaderParameter("base_map", texture); shader.SetShaderParameter("use_base_map", true); break;
-                    case ShaderMaterial shader when shader.ResourceName == NativeNifEffectMaterial.ResourceIdentity:
-                        shader.SetShaderParameter("source_texture", texture); shader.SetShaderParameter("source_has_texture", true); break;
-                    default: throw new NotSupportedException($"Texture material {material.ResourceName} has no diffuse owner.");
-                }
+                SetDiffuse(material, texture);
                 changes.Add((mesh, surface, material));
             }
         }
         foreach (var change in changes) change.Mesh.SetSurfaceOverrideMaterial(change.Surface, change.Material);
+    }
+
+    private Texture2D Texture(string logical)
+    {
+        if (_textures.TryGetValue(logical, out var texture)) return texture;
+        var content = RuntimeLiveContentSource.Current ?? throw new InvalidOperationException("Owned resources are absent.");
+        if (!content.TryRead(logical, null, out var payload, out var source)) throw new FileNotFoundException($"Texture replacement {logical} is absent.");
+        texture = NativeDdsTexture.Load(payload, source);
+        texture.SetMeta("opennv_source_texture", source); texture.SetMeta("opennv_logical_texture", logical);
+        _textures.Add(logical, texture);
+        return texture;
+    }
+
+    // Replaces only the base (diffuse) texture; null selects no texture.
+    private static void SetDiffuse(Material material, Texture2D? texture)
+    {
+        switch (material)
+        {
+            case StandardMaterial3D standard: standard.AlbedoTexture = texture; break;
+            case ShaderMaterial shader when shader.ResourceName == NativeNifLightingMaterial.ResourceIdentity:
+                shader.SetShaderParameter("base_map", texture!); shader.SetShaderParameter("use_base_map", texture is not null); break;
+            case ShaderMaterial shader when shader.ResourceName == NativeNifEffectMaterial.ResourceIdentity:
+                shader.SetShaderParameter("source_texture", texture!); shader.SetShaderParameter("source_has_texture", texture is not null); break;
+            default: throw new NotSupportedException($"Texture material {material.ResourceName} has no diffuse owner.");
+        }
     }
 }

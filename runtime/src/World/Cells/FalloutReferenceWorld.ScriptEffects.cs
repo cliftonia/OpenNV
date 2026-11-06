@@ -91,11 +91,16 @@ internal static class FalloutScriptEffectCommands
                 if (rumble.Any(value => !double.IsFinite(value) || value < 0))
                     throw new InvalidDataException("Rumble motor strengths and duration must be finite and non-negative.");
                 return rumble.Select(Literal).ToArray();
-            // Personality and emotion names are compiled enum tokens, not forms.
+            // Personality and emotion are plain strings, not forms. A reference
+            // without loaded 3D ignores the command; otherwise the pair is kept
+            // on the reference and its resident screen re-applies it.
             case "setsecuritronexpression" or "setsecexp" when global && arguments.Count == 3:
-                if (records.GetEffective(resolve.Reference(arguments[0])).Signature is not ("ACHR" or "ACRE"))
+                var securitron = resolve.Reference(arguments[0]);
+                if (records.GetEffective(securitron).Signature is not ("ACHR" or "ACRE"))
                     throw new InvalidDataException("Securitron expression target is not a placed actor.");
-                FalloutScriptCommandDeferral.Warn("setsecuritronexpression", "securitron-face-presentation-unbound");
+                var personality = FalloutSecuritronFace.Word(PlainString(arguments[1]));
+                var emotion = FalloutSecuritronFace.Word(PlainString(arguments[2]));
+                if (world.IsResident(securitron)) world.SetSecuritronFace(securitron, personality, emotion);
                 return null;
             default:
                 throw new InvalidDataException($"{operation} has an invalid target or argument count ({arguments.Count}).");
@@ -104,6 +109,9 @@ internal static class FalloutScriptEffectCommands
 
     private static FalloutFormKey Require(FalloutPluginRecord record, string signature) => record.Signature == signature
         ? record.FormKey : throw new InvalidDataException($"Script effect argument is {record.Signature}, not {signature}.");
+
+    private static string PlainString(string argument) =>
+        argument.Length >= 2 && argument[0] == '"' && argument[^1] == '"' ? argument[1..^1] : argument;
 
     private static string Literal(double value) => value.ToString("R", CultureInfo.InvariantCulture);
 }

@@ -308,6 +308,7 @@ internal partial class RuntimeNativeOpeningStageDriver
             PlayerNotes = _scripts.References.PlayerNotes.Capture(),
             PlayerCaravanCards = _scripts.References.PlayerCaravanCards.Capture(),
             CasinoWinnings = _scripts.References.CasinoWinnings.Capture(),
+            SecuritronFaces = _scripts.References.CaptureSecuritronFaces(),
             DroppedItems = _scripts.References.CaptureDroppedItems(),
             DynamicMines = _scripts.References.CaptureDynamicMines(),
             RuntimeReferences = _scripts.References.RuntimeReferences.Capture(),

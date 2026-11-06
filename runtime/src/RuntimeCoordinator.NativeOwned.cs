@@ -717,6 +717,7 @@ public partial class RuntimeCoordinator
             _nativeReferences.PlayerNotes.Restore(restore.State.PlayerNotes);
             _nativeReferences.PlayerCaravanCards.Restore(restore.State.PlayerCaravanCards);
             _nativeReferences.CasinoWinnings.Restore(restore.State.CasinoWinnings);
+            _nativeReferences.RestoreSecuritronFaces(restore.State.SecuritronFaces);
             _nativeReferences.RestoreDroppedItems(restore.State.DroppedItems);
         }
         else if (_nativeBootstrap is null)

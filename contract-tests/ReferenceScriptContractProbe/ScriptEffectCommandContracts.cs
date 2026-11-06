@@ -24,7 +24,9 @@ internal static class ScriptEffectCommandContracts
                 Record("WTHR", 0x153, Field("EDID", Name("SyntheticWeather"))),
                 Record("CELL", 0x154, Field("EDID", Name("SyntheticCell"))),
                 Record("IMGS", 0x155, Field("EDID", Name("SyntheticImage")), Field("DNAM", new byte[132])),
-                Record("ACHR", 0x156, Field("EDID", Name("SyntheticActor")), Field("NAME", BitConverter.GetBytes(0x150u))),
+                Record("CELL", 0x157, Field("DATA", [1])),
+                Group(0x157, Record("ACHR", 0x156, Field("EDID", Name("SyntheticActor")), Field("NAME", BitConverter.GetBytes(0x150u)),
+                    Field("DATA", new byte[24]))),
                 Record("SCPT", 0x900, Field("SCRO", BitConverter.GetBytes(0x151u)), Field("SCRO", BitConverter.GetBytes(0x152u)),
                     Field("SCRO", BitConverter.GetBytes(0x153u)), Field("SCRO", BitConverter.GetBytes(0x154u)),
                     Field("SCRO", BitConverter.GetBytes(0x155u)), Field("SCRO", BitConverter.GetBytes(0x156u)))));
@@ -69,7 +71,7 @@ internal static class ScriptEffectCommandContracts
 
             _ = Execute(world, "triggerscreensplatter", "50", "25", "2.0", "2.0");
             _ = Execute(world, "triggerscreensplatter", "50", "25", "2.0", "2.0");
-            Check(Execute(world, "setsecexp", "SyntheticActor", "Infantry", "Neutral") is null, "SetSecuritronExpression requested a native owner.");
+            CheckSecuritronFaces(records, world, actor, Execute);
             Check(warnings.Count(line => line.Contains("name=triggerscreensplatter", StringComparison.Ordinal)) == 1,
                 "Deferred command warning was not emitted exactly once.");
             var native = new List<(FalloutFormKey Target, string Command, string[] Arguments)>();
@@ -86,12 +88,59 @@ internal static class ScriptEffectCommandContracts
                 "Object-script dispatch did not hand resolved effect remainders to the native owner.");
             Console.WriteLine("OPENNV_SCRIPT_EFFECT_COMMAND_PASS spells=true cold=true shaders=true weather=true clock=true alpha=true " +
                 "rumble=true imageSpace=true deferredOnce=true presentation=unverified");
+            Console.WriteLine("OPENNV_SECURITRON_FACE_PASS unloadedIgnored=true stored=true plainStrings=true path=true emptyNoTexture=true " +
+                "pathWordsRefused=true cold=true schemaAdmission=true");
         }
         finally
         {
             FalloutScriptCommandDeferral.Sink = previousSink;
             directory.Delete(true);
         }
+    }
+
+    // SetSecuritronExpression <ref> <Personality> <Emotion>: ignored without
+    // loaded 3D, otherwise kept on the reference and persisted in saves.
+    private static void CheckSecuritronFaces(FalloutPluginStack records, FalloutReferenceWorld world, FalloutFormKey actor,
+        Func<FalloutReferenceWorld, string, string[], IReadOnlyList<string>?> execute)
+    {
+        Check(execute(world, "setsecexp", ["SyntheticActor", "Infantry", "Neutral"]) is null && world.SecuritronFace(actor) is null,
+            "SetSecuritronExpression changed a reference without loaded 3D.");
+        world.LoadCell(FalloutCellSceneReader.Read(records, new("Effects.esm", 0x157)));
+        var revision = world.SecuritronFaceRevision;
+        Check(execute(world, "setsecuritronexpression", ["SyntheticActor", "Infantry", "Alert"]) is null &&
+            world.SecuritronFace(actor)?.TexturePath == "textures\\creatures\\securitron\\infantry_alert.dds" &&
+            world.SecuritronFaceRevision > revision, "SetSecuritronExpression did not keep the face on the loaded reference.");
+        _ = execute(world, "setsecexp", ["SyntheticActor", "\"Victor\"", "\"Neutral\""]);
+        Check(world.SecuritronFace(actor) is { Personality: "Victor", Emotion: "Neutral" } victor &&
+            victor.TexturePath == "textures\\creatures\\securitron\\victor_neutral.dds", "SetSecExp did not read plain string words.");
+        Reject(() => execute(world, "setsecexp", ["SyntheticActor", "..\\Victor", "Neutral"]));
+        using var cold = new FalloutReferenceWorld(records);
+        cold.RestoreSecuritronFaces(JsonSerializer.Deserialize<FalloutSecuritronFacesSnapshot>(JsonSerializer.Serialize(world.CaptureSecuritronFaces())));
+        Check(cold.SecuritronFace(actor)?.TexturePath == "textures\\creatures\\securitron\\victor_neutral.dds",
+            "Securitron face did not survive a cold save.");
+        try { cold.RestoreSecuritronFaces(world.CaptureSecuritronFaces()); throw new InvalidDataException("Securitron faces restored twice."); }
+        catch (InvalidOperationException) { }
+        _ = execute(world, "setsecexp", ["SyntheticActor", "\"\"", "Neutral"]);
+        Check(world.SecuritronFace(actor) is { Personality: "", TexturePath: null }, "An empty Securitron word did not select no texture.");
+        using var duplicated = new FalloutReferenceWorld(records);
+        var face = world.SecuritronFace(actor)!;
+        Reject(() => duplicated.RestoreSecuritronFaces(new([face, face])));
+        Reject(() => duplicated.RestoreSecuritronFaces(new([face with { Reference = new("Effects.esm", 0x152) }])));
+        var previous = new FalloutNativeCampaignState(FalloutNativeCampaignSave.BeforeSecuritronFacesSchema,
+            "source", actor, "quest", 0, "Player", null!, null!, [], [], [], [], [], [], [], References: []);
+        Check(FalloutNativeCampaignSave.AdmitPreviousOwnerSchema(previous).Schema == FalloutNativeCampaignSave.ExpectedSchema,
+            "The previous campaign schema was not admitted without Securitron faces.");
+        Reject(() => FalloutNativeCampaignSave.AdmitPreviousOwnerSchema(previous with { SecuritronFaces = new([face]) }));
+        Reject(() => FalloutNativeCampaignSave.AdmitPreviousOwnerSchema(previous with
+        { Schema = FalloutNativeCampaignSave.ExpectedSchema, References = null, SecuritronFaces = new([face]) }));
+    }
+
+    private static byte[] Group(uint cell, params byte[][] children)
+    {
+        var data = Join(children); var bytes = new byte[24 + data.Length]; Encoding.ASCII.GetBytes("GRUP").CopyTo(bytes, 0);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), checked((uint)bytes.Length));
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(8), cell);
+        BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(12), 6); data.CopyTo(bytes, 24); return bytes;
     }
 
     private static void Check(bool valid, string message) { if (!valid) throw new InvalidDataException(message); }
