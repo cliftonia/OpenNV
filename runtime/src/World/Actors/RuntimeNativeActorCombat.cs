@@ -182,11 +182,10 @@ internal sealed partial class RuntimeNativeActorCombat : Node
             var perks = _world.PerkEntries(_state.Reference).ToArray();
             var critical = explosionDamage || Dead ? default : FalloutCriticalHits.Roll(_records, damage.Critical,
                 chance => FalloutWeaponDamageResolver.Apply(perks, 36, chance, null), SneakAttack(attacker), nextWeaponRandomUnit);
-            var defense = _world.Defense(_state.Reference, level, globals);
+            var (defense, resistance) = _world.HitDefense(_state.Reference, damage.ResistanceActorValue, level, globals);
             var amount = defense.Mitigate(_records, damage with { Amount = damage.Amount + critical.Damage }, new(
                 _state.PlayerTeammate ? FalloutHitTarget.CompanionScale(PlayerCharisma()) : 1,
-                FalloutWeaponDamageResolver.Apply(perks, 56, 0, null),
-                damage.ResistanceActorValue >= 0 ? _world.EffectPoolValue(_state.Reference, damage.ResistanceActorValue, level, globals) : 0));
+                FalloutWeaponDamageResolver.Apply(perks, 56, 0, null), resistance));
             var health = _world.Health(_state.Reference);
             var bodyPart = _world.BodyParts(_state.Reference).Parts.Single(value => value.Type == part);
             if (!Dead && amount * bodyPart.DamageMultiplier >= health.Current) PrepareDeath();

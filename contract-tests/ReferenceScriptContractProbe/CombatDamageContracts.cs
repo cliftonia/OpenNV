@@ -31,7 +31,10 @@ internal static class CombatDamageContracts
             inventory.Publish([new(Key(0x20), 0x20, "Pistol", "WEAP", 1, 1, 1), new(Key(0x21), 0x21, "Ripper", "WEAP", 1, 1, 1)]);
             var vats = false;
             FalloutPerkEntry Entry(byte entry, byte function, float value) => new(entry, function, value, []);
-            var perks = new[] { Entry(0, 3, 1.5f), Entry(58, 2, 5), Entry(1, 2, 10), Entry(2, 3, 2) };
+            // A weapon-tab conditional entry (like Shotgun Surgeon) without a tab evaluator is skipped, not fatal.
+            var weaponTab = new FalloutCondition(records.GetEffective(Key(0x20)), 0, 1, 72, 0x20, 0, 0, 0);
+            var perks = new[] { Entry(0, 3, 1.5f), Entry(58, 2, 5), Entry(1, 2, 10), Entry(2, 3, 2),
+                new FalloutPerkEntry(58, 1, 99, [], new Dictionary<byte, IReadOnlyList<FalloutCondition>> { [1] = [weaponTab] }) };
             var resolver = new FalloutWeaponDamageResolver(records, inventory,
                 value => value switch { 41 => 50, 38 => 50, 14 => 5, 17 => 4, _ => throw new InvalidDataException($"Unexpected attacker AV {value}.") },
                 () => perks, new(() => (1, .5f), () => 1, () => vats));
@@ -79,6 +82,10 @@ internal static class CombatDamageContracts
             Require(outcome.EffectFor(false) is null && outcome.EffectFor(true) == Key(0x30) &&
                 (outcome with { OnDeath = false }).EffectFor(false) == Key(0x30), "On Death critical effects were cast on nonlethal hits.");
             Reject(() => FalloutCriticalHits.Roll(records, critical, Fixed, false, null));
+            // Explosion hits on the player carry no random owner and never roll.
+            Require(hit.ForExplosion.Critical is null && hit.ForExplosion with { Critical = hit.Critical } == hit &&
+                !FalloutCriticalHits.Roll(records, hit.ForExplosion.Critical, Fixed, false, null).Critical,
+                "Explosion damage kept a critical roll that needs a weapon random owner.");
             // VATS stealth: x0.5 before the 95% cap, cancelled by improved detection.
             var stealth = FalloutVatsRangedChance.StealthMultiplier(records, true, false);
             var melee95 = new FalloutVatsMeleeChance(records);

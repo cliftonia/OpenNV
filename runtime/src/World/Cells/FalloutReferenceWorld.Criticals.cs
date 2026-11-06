@@ -9,9 +9,9 @@ internal sealed partial class FalloutReferenceWorld
     private bool IsActorReference(FalloutFormKey reference) =>
         reference == _enginePlayer || records.GetEffective(Get(reference).Base).Signature is "NPC_" or "CREA";
 
-    // A non-actor reference has no stage; IsInCriticalStage reads it as None.
-    internal byte CriticalStage(FalloutFormKey reference) =>
-        IsActorReference(reference) ? _actorOverrides.GetValueOrDefault(reference)?.CriticalStage ?? 0 : FalloutCriticalStage.None;
+    // A non-actor reference has no stage, so IsInCriticalStage is 0 for any argument.
+    internal byte? CriticalStage(FalloutFormKey reference) =>
+        IsActorReference(reference) ? _actorOverrides.GetValueOrDefault(reference)?.CriticalStage ?? FalloutCriticalStage.None : null;
 
     internal void SetCriticalStage(FalloutFormKey reference, byte stage)
     {

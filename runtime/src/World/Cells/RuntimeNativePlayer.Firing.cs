@@ -38,7 +38,7 @@ internal partial class RuntimeNativePlayer
     {
         _damage = new(records, _presentationInventory!, actorValue, perks, new(
             () => ArmConditions(_limbVitals?.Invoke() ?? throw new InvalidOperationException("Player attack arms have no limb state.")),
-            () => 1, () => VatsExecuting), evaluateCondition);
+            () => 1, () => VatsExecuting), VatsPerkCondition);
         _combatActorValue = actorValue;
         _combatPerks = perks;
         _combatCondition = evaluateCondition;

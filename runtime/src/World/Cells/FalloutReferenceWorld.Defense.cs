@@ -28,7 +28,7 @@ internal readonly record struct FalloutActorDefense(float Threshold, float Resis
             !float.IsFinite(target.ThresholdBonus) || !float.IsFinite(target.WeaponResistance) ||
             !float.IsFinite(target.VatsMultiplier) || target.VatsMultiplier < 0)
             throw new InvalidDataException("Hit mitigation input is invalid.");
-        var minimum = damage * FalloutGameSettingFloats.Read(records, "fMinDamMultiplier");
+        var minimum = damage * Setting(records, "fMinDamMultiplier");
         var resistance = Math.Min(Resistance, 100) * target.TeammateScale;
         var threshold = Math.Max(Threshold, 0) * target.TeammateScale;
         foreach (var effect in hit.AmmoEffects ?? [])
@@ -36,7 +36,7 @@ internal readonly record struct FalloutActorDefense(float Threshold, float Resis
             if (effect.Type == FalloutAmmoEffect.DamageResistance) resistance = effect.Apply(resistance);
             else if (effect.Type == FalloutAmmoEffect.DamageThreshold) threshold = effect.Apply(threshold);
         }
-        damage *= 1 - Math.Clamp(resistance, 0, FalloutGameSettingFloats.Read(records, "fMaxArmorRating")) / 100;
+        damage *= 1 - Math.Clamp(resistance, 0, Setting(records, "fMaxArmorRating")) / 100;
         threshold = Math.Max(threshold - hit.ThresholdReduction + target.ThresholdBonus, 0);
         damage = hit.AutomaticMeleeRounds > 0 ? damage * Math.Max(0, 1 - threshold / hit.AutomaticMeleeRounds) : damage - threshold;
         damage = Math.Max(hit.AfterThreshold(damage), minimum);
@@ -45,15 +45,31 @@ internal readonly record struct FalloutActorDefense(float Threshold, float Resis
         damage *= target.VatsMultiplier;
         return float.IsFinite(damage) ? damage : throw new InvalidDataException("Mitigated hit damage is not finite.");
     }
+
+    private static float Setting(FalloutPluginStack records, string name)
+    {
+        var value = FalloutGameSettingFloats.Read(records, name);
+        return float.IsFinite(value) && value >= 0 ? value : throw new InvalidDataException($"Mitigation setting {name} is invalid.");
+    }
 }
 
 internal sealed partial class FalloutReferenceWorld
 {
     private readonly FalloutActorDefenseResolver _actorDefense = new(records);
-    internal FalloutActorDefense Defense(FalloutFormKey reference, int level, FalloutGlobalState globals)
+    internal FalloutActorDefense Defense(FalloutFormKey reference, int level, FalloutGlobalState globals) =>
+        Defense(reference, EquippedArmor(reference, level, globals));
+
+    // One hit reads the worn armor once for both DR/DT and the weapon's resistance type.
+    internal (FalloutActorDefense Defense, float WeaponResistance) HitDefense(FalloutFormKey reference, int resistanceActorValue,
+        int level, FalloutGlobalState globals)
+    {
+        var equipped = EquippedArmor(reference, level, globals);
+        return (Defense(reference, equipped), resistanceActorValue >= 0 ? EffectPoolValue(reference, resistanceActorValue, equipped) : 0);
+    }
+
+    private FalloutActorDefense Defense(FalloutFormKey reference, IReadOnlyList<FalloutFormKey> equipped)
     {
         var actor = Actor(reference);
-        var equipped = EquippedArmor(reference, level, globals);
         var result = _actorDefense.Read(actor.Base, actor.Inventory!.Contents, equipped, actor.Templates);
         // DamageResist is AV18; AV12 is ActionPoints and cannot add armor.
         return new(result.Threshold + AcquiredModifier(reference, 76), result.Resistance + AcquiredModifier(reference, 18));
@@ -61,11 +77,14 @@ internal sealed partial class FalloutReferenceWorld
 
     // Weapon resistance types (EMP, fire...) and Chameleon have an empty base pool;
     // abilities, worn enchantments, acquired perks and script modifiers fill it.
-    internal float EffectPoolValue(FalloutFormKey reference, int actorValue, int level, FalloutGlobalState globals)
+    internal float EffectPoolValue(FalloutFormKey reference, int actorValue, int level, FalloutGlobalState globals) =>
+        EffectPoolValue(reference, actorValue, EquippedArmor(reference, level, globals));
+
+    private float EffectPoolValue(FalloutFormKey reference, int actorValue, IReadOnlyList<FalloutFormKey> equipped)
     {
         var actor = Actor(reference);
         var pool = actor.ActorValues.GetValueOrDefault(FalloutActorValue.SourceSlot(actorValue));
-        return _actorDefense.Modifier(actor.Base, EquippedArmor(reference, level, globals), actor.Templates, actorValue) +
+        return _actorDefense.Modifier(actor.Base, equipped, actor.Templates, actorValue) +
             AcquiredModifier(reference, actorValue) + (pool is null ? 0 : pool.Current - pool.Base);
     }
 

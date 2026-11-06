@@ -114,18 +114,23 @@ internal partial class RuntimeNativeOpeningStageDriver : Node
         _scripts.References?.BeforeActorHit(_pluginStack.RuntimeFormKey(0x14));
         var perks = _playerSkills.PerkEntries;
         var critical = Vitals.HitPoints == 0 ? default : FalloutCriticalHits.Roll(_pluginStack, damage.Critical,
-            chance => FalloutWeaponDamageResolver.Apply(perks, 36, chance, PlayerExperienceCondition), false, random);
+            chance => FalloutWeaponDamageResolver.Apply(perks, 36, chance, PlayerDefenderCondition), false, random);
         var amount = ReadSharedPlayerDefense().Mitigate(_pluginStack, damage with { Amount = damage.Amount + critical.Damage }, new(
-            ThresholdBonus: FalloutWeaponDamageResolver.Apply(perks, 56, 0, PlayerExperienceCondition),
+            ThresholdBonus: FalloutWeaponDamageResolver.Apply(perks, 56, 0, PlayerDefenderCondition),
             WeaponResistance: damage.ResistanceActorValue >= 0 ? _playerSkills.WeaponResistance(damage.ResistanceActorValue) : 0,
             VatsMultiplier: _player.VatsMenuActive || _player.VatsExecuting
                 ? FalloutGameSettingFloats.Read(_pluginStack, "fVATSPlayerDamageMult") : 1));
         var limb = amount * damage.LimbMultiplier * FalloutGameSettingFloats.Read(_pluginStack, "fCombatPlayerLimbDamageMult");
-        limb = FalloutWeaponDamageResolver.Apply(perks, 6, limb, PlayerExperienceCondition);
+        limb = FalloutWeaponDamageResolver.Apply(perks, 6, limb, PlayerDefenderCondition);
         _vitals.Damage(amount, part, amount > 0 ? Math.Max(limb, 0) / amount : 0);
         if (critical.EffectFor(Vitals.HitPoints == 0) is not null)
             FalloutScriptCommandDeferral.WarnCombat("critical-effect", "player-actor-effect-owner-unbound");
     }
+    // Defender entries evaluate the player's own tab; the attacker's weapon and
+    // actor tabs have no context in this sink and skip visibly.
+    private float PlayerDefenderCondition(byte tab, FalloutCondition condition) => tab == 0
+        ? PlayerExperienceCondition(condition)
+        : throw new NotSupportedException("Player defender perk conditions have no attacker context.");
     internal object? SpeechState => _speech?.State;
     internal FalloutSpeechSubtitle? Subtitle => _speech?.Subtitle;
     internal bool SpeechActive => _speech?.Active == true;

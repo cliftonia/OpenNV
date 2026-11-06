@@ -254,7 +254,8 @@ internal sealed partial class FalloutConditionRuntime(FalloutPluginStack records
                     Required(world, "faction player-enemy state").IsPlayerEnemyOfFaction(pair.Key)) ? 1 : 0;
             case Function.IsInCriticalStage:
                 SecondUnused(condition);
-                return Required(world, "critical stage").CriticalStage(subject) == FalloutCriticalStage.Require(condition.Argument1) ? 1 : 0;
+                var criticalStage = FalloutCriticalStage.Require(condition.Argument1);
+                return Required(world, "critical stage").CriticalStage(subject) == criticalStage ? 1 : 0;
             case Function.GetPlayerTeammate:
                 NoArguments(condition);
                 return subject != records.RuntimeFormKey(0x14) && Required(world, "teammate state").Get(subject).PlayerTeammate ? 1 : 0;

@@ -95,9 +95,11 @@ internal static class ScriptActorCommandContracts
             Execute(0x93, "SetCriticalStage GooEnd");
             Execute(0x93, "if IsInCriticalStage GooEnd\nSetGhost 1\nendif\nif IsInCriticalStage DisintegrateEnd\nSetGhost 0\nendif");
             Execute(0x94, "SetCriticalStage DisintegrateStart");
+            // A non-actor is in no stage, not even None.
+            Execute(0x94, "if IsInCriticalStage None\nSetVATSTarget 0\nendif");
             Reject(() => Execute(0x93, "SetCriticalStage Melted"));
             Require(world.CriticalStage(Key(0x93)) == FalloutCriticalStage.GooEnd && world.IsGhost(Key(0x93)) &&
-                world.CriticalStage(Key(0x94)) == FalloutCriticalStage.None && world.CriticalStage(Key(0x92)) == FalloutCriticalStage.None,
+                world.CriticalStage(Key(0x94)) is null && world.CriticalStage(Key(0x92)) == FalloutCriticalStage.None,
                 "SetCriticalStage/IsInCriticalStage lost the actor stage or staged a non-actor.");
             var staged = JsonSerializer.Deserialize<FalloutActorOverrides[]>(JsonSerializer.Serialize(world.CaptureActorOverrides()))!;
             using var stagedCold = new FalloutReferenceWorld(records);

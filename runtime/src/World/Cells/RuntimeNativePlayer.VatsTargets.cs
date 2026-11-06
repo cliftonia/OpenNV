@@ -126,6 +126,9 @@ internal partial class RuntimeNativePlayer
             var diameter = bound.Radius * 2 / UnitsToMeters;
             var source = records.GetEffective(world.Get(actor.Reference).Base);
             var name = world.ActorDisplayName(actor.Reference);
+            // Concealment and improved detection belong to the actors, not the part.
+            var stealth = candidate.Parts.Count == 0 ? 1 :
+                VatsStealthMultiplier(weapon.Form, actor.Reference, source.FormKey, candidate.Parts[0].ActorValue);
             foreach (var part in candidate.Parts)
             {
                 RequireCurrent();
@@ -146,8 +149,7 @@ internal partial class RuntimeNativePlayer
                 if (!ActorAvailable(actor)) throw new InvalidOperationException("VATS visibility target retired during source sampling.");
                 ++_vatsPreparationMeasured;
                 var chance = chanceOwner.Calculate(shot.ResolvedMinimumSpread, spread + _playerProjectileLaunch!.AimChaseRadians,
-                    distance, diameter, fraction, part.HitChance,
-                    VatsStealthMultiplier(weapon.Form, actor.Reference, source.FormKey, part.ActorValue));
+                    distance, diameter, fraction, part.HitChance, stealth);
                 chance = VatsPerkChance(weapon.Form, actor.Reference, source.FormKey, part.ActorValue, chance);
                 targets.Add(new(actor.Reference, part.Type, name, part.Name.Length == 0 ? "Part " + part.Type : part.Name,
                     Math.Clamp(chance, 0, 100), cost, fraction > 0, source.FormKey, part.ActorValue));

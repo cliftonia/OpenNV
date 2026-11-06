@@ -52,6 +52,16 @@ is false. SCDA instruction execution, remaining source failures, all quest
 branches, dialogue/combat/effects, housing CELL ownership and complete cold
 continuation remain open. Passing selected tests is not whole-game acceptance.
 
+Combat damage now follows one ordered owner: the attacker formula (attack-arm,
+skill, MeleeDamage/UnarmedDamage, companion Charisma), then target mitigation
+(DR capped by fMaxArmorRating, DT with entries 58/56, ammo and entry-0 damage,
+the minimum floor, weapon resistance type, VATS player multiplier) and the
+per-mille critical roll with entries 1/2/36. Critical stages, SetVATSTarget and
+the Agility PushActorAway force are owned and saved (schema v74). Still open and
+visible: critical effect spells (no actor active-effect owner), ash piles,
+Meltdown, sneak-attack detection, blocking, split beam, disarm/stagger, scripted
+FireWeapon, flee destinations, the player ragdoll knockdown and VATS special moves.
+
 ## Next owner and publication
 
 The complete required runtime gate passes: Release/Debug, formatting/analyzers,

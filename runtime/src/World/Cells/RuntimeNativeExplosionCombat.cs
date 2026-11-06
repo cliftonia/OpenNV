@@ -107,7 +107,7 @@ internal static partial class RuntimeNativeExplosionCombat
         // All source effect declarations and selected target conditions have
         // passed before the first value, exposure or health mutation.
         player?.ReceiveExplosionExposure(explosion, point);
-        if (playerPart is { } hitPart) damagePlayer!(damage, hitPart, null);
+        if (playerPart is { } hitPart) damagePlayer!(damage.ForExplosion, hitPart, null);
 
         var actorHits = new List<object>();
         foreach (var target in actorContacts)
