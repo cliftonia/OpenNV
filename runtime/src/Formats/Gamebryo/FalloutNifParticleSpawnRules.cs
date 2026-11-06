@@ -1,7 +1,8 @@
+using System.Numerics;
+
 namespace OpenNV.Runtime.Formats.Gamebryo;
 
-// The declaration supplies the generation limit, probability and inclusive
-// copy-count range. Variation equations require a separate engine contract.
+// NiPSysSpawnModifier: eligibility, copy count, child speed/direction and life.
 internal static class FalloutNifParticleSpawnRules
 {
     internal static void Validate(FalloutNifParticleSpawn source)
@@ -13,23 +14,37 @@ internal static class FalloutNifParticleSpawnRules
             throw new InvalidDataException($"Particle spawn modifier {source.Block.Index} has invalid source ranges.");
     }
 
-    internal static void RequireExecutionOwner(FalloutNifParticleSpawn source)
-    {
-        Validate(source);
-        if (source.Generations == 0 || source.Probability == 0 || source.Maximum == 0) return;
-        if (source.SpeedVariation != 0 || source.DirectionVariation != 0 || source.LifeVariation != 0)
-            throw new NotSupportedException($"Particle spawn modifier {source.Block.Index} requires its source variation equations.");
-        if (source.Life == 0)
-            throw new NotSupportedException($"Particle spawn modifier {source.Block.Index} requires instantaneous birth/death ordering.");
-    }
-
+    // Eligible below the generation limit when the sample is within the
+    // spawn percentage; the count rounds half up and is at least one.
     internal static int Copies(FalloutNifParticleSpawn source, ushort generation, double probabilitySample, double countSample)
     {
-        RequireExecutionOwner(source);
-        if (!double.IsFinite(probabilitySample) || probabilitySample is < 0 or >= 1 ||
-            !double.IsFinite(countSample) || countSample is < 0 or >= 1)
+        if (!double.IsFinite(probabilitySample) || probabilitySample is < 0 or > 1 ||
+            !double.IsFinite(countSample) || countSample is < 0 or > 1)
             throw new InvalidDataException("Particle spawn random sample is outside its unit interval.");
-        if (generation >= source.Generations || probabilitySample >= source.Probability || source.Maximum == 0) return 0;
-        return source.Minimum + (int)(countSample * (source.Maximum - source.Minimum + 1));
+        if (generation >= source.Generations || probabilitySample > source.Probability) return 0;
+        var extra = (source.Maximum - source.Minimum) * countSample;
+        var whole = Math.Floor(extra);
+        return Math.Max(1, source.Minimum + (int)whole + (extra - whole > .5 ? 1 : 0));
     }
+
+    // Speed chaos only ever increases speed. The direction is a cone of
+    // half-angle DirectionVariation * pi around the parent's direction.
+    internal static Vector3 ChildVelocity(FalloutNifParticleSpawn source, Vector3 parent, float speedSample,
+        float declinationSample, float planarSample)
+    {
+        var speed = parent.Length();
+        if (speed == 0) return Vector3.Zero;
+        var axis = parent / speed;
+        var declination = source.DirectionVariation * MathF.PI * declinationSample;
+        var planar = MathF.Tau * planarSample;
+        var local = new Vector3(MathF.Sin(declination) * MathF.Cos(planar), MathF.Sin(declination) * MathF.Sin(planar), MathF.Cos(declination));
+        Quaternion rotation;
+        var dot = Vector3.Dot(Vector3.UnitZ, axis);
+        if (dot >= 1 - 1e-6f) rotation = Quaternion.Identity;
+        else if (dot <= -1 + 1e-6f) rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitX, MathF.PI);
+        else rotation = Quaternion.CreateFromAxisAngle(Vector3.Normalize(Vector3.Cross(Vector3.UnitZ, axis)), MathF.Acos(dot));
+        return Vector3.Transform(local, rotation) * (speed * (1 + source.SpeedVariation * speedSample));
+    }
+
+    internal static float ChildLife(FalloutNifParticleSpawn source, float sample) => source.Life + (sample - .5f) * source.LifeVariation;
 }

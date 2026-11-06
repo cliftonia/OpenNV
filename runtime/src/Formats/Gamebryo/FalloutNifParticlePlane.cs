@@ -54,15 +54,16 @@ internal static class FalloutNifParticlePlane
         return before > 0 ? point + normal * distance : point - normal * distance;
     }
 
-    // An ordinary response damps the entire reflected velocity. At frame-end
-    // contact, native low normal speed removes only the normal component.
-    internal static Vector3 Respond(Vector3 velocity, Vector3 normal, float bounce, bool frameEnd,
+    // An ordinary response scales the entire reflected velocity by the bounce.
+    // An immediate (already touching) contact moving into the plane slides:
+    // only the normal component is removed.
+    internal static Vector3 Respond(Vector3 velocity, Vector3 normal, float bounce, bool immediate,
         float velocityTolerance = .001f)
     {
         if (!float.IsFinite(bounce) || bounce < 0 || !float.IsFinite(velocityTolerance) || velocityTolerance <= 0)
             throw new InvalidDataException("Particle plane response has an invalid bounce or unit owner.");
         var incoming = Vector3.Dot(velocity, normal);
-        return frameEnd && incoming < velocityTolerance
+        return immediate && incoming < velocityTolerance
             ? velocity - normal * incoming
             : (velocity - 2 * normal * incoming) * bounce;
     }

@@ -520,6 +520,7 @@ internal static partial class RuntimeNativeNifMeshBuilder
                         Skeleton = new NodePath("../.."),
                     };
                     rendered.SetMeta("opennv_nif_geometry_block", blockIndex);
+                    PreserveMaterialName(rendered, geometry);
                     rendered.SetMeta("opennv_nif_source_name", geometry.Name);
                     PreserveExtraDataMetadata(rendered, geometry.ExtraData);
                     rendered.SetMeta("opennv_nif_skin_instance", instance.Block.Index);
@@ -587,6 +588,7 @@ internal static partial class RuntimeNativeNifMeshBuilder
                             Skeleton = new NodePath("../.."),
                         };
                         rendered.SetMeta("opennv_nif_geometry_block", blockIndex);
+                    PreserveMaterialName(rendered, geometry);
                         rendered.SetMeta("opennv_nif_source_name", geometry.Name);
                         PreserveExtraDataMetadata(rendered, geometry.ExtraData);
                         rendered.SetMeta("opennv_nif_skin_instance", instance.Block.Index);
@@ -1669,6 +1671,7 @@ internal static partial class RuntimeNativeNifMeshBuilder
                 // default material must not turn it into a visible solid.
                 result.Layers = material.HasMeta("opennv_nif_no_render_shader") ? 0u : 1u;
                 result.SetMeta("opennv_nif_geometry_block", source.Block.Index);
+                PreserveMaterialName(result, source);
                 result.SetMeta("opennv_nif_nonfinite_uv_components", prepared.Uv.Sum(uv =>
                     (float.IsFinite(uv.X) ? 0 : 1) + (float.IsFinite(uv.Y) ? 0 : 1)));
                 if (geometryMorph is not null) RegisterManagedMorph(source, geometryMorph, result);
@@ -1891,6 +1894,17 @@ internal static partial class RuntimeNativeNifMeshBuilder
                     throw new InvalidDataException(
                         $"NIF editor-marker child {childReference} has empty geometry.");
             }
+        }
+
+        // Effect shaders with the skin-only flag select geometry by this name.
+        private void PreserveMaterialName(Node node, FalloutNifGeometry geometry)
+        {
+            foreach (var property in geometry.Properties)
+                if (_source.ReadObject(property) is FalloutNifMaterialProperty material)
+                {
+                    node.SetMeta(Presentation.Rendering.NativeEffectShader.SourceMaterialNameMeta, material.Name);
+                    return;
+                }
         }
 
         private void PreserveExtraDataMetadata(Node3D node, IReadOnlyList<int> references)

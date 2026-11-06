@@ -72,7 +72,6 @@ internal sealed partial class RuntimeNifParticleSystem
             if (file.ReadObject(index) is not FalloutNifParticleSpawn source)
                 throw new InvalidDataException($"Particle {declaringOwner} does not reference a spawn modifier.");
             Register(source);
-            if (required) FalloutNifParticleSpawnRules.RequireExecutionOwner(source);
         }
         void Register(FalloutNifParticleSpawn source)
         {
@@ -89,20 +88,23 @@ internal sealed partial class RuntimeNifParticleSystem
         }
     }
 
-    private void AgeAndRetire(FalloutNifParticleAgeDeath owner, float delta)
+    private void AgeAndRetire(FalloutNifParticleAgeDeath owner)
     {
         // Snapshot the prior index range: descendants born by this event are
-        // not aged again by the same modifier invocation.
+        // not aged again by the same modifier invocation. A particle dies
+        // once its age strictly exceeds its life.
         for (var index = ActiveCount - 1; index >= 0; index--)
         {
-            _particles[index].Age += delta;
-            if (_particles[index].Age < _particles[index].Life) continue;
+            _particles[index].Age += _particles[index].MotionSeconds;
+            if (_particles[index].Age <= _particles[index].Life) continue;
             var parent = RetireParticle(index, owner.Block.Index, "age-death");
-            if (owner.SpawnOnDeath) Spawn(parent, owner.Spawn, owner.Block.Index, "age-death", delta);
+            if (owner.SpawnOnDeath) Spawn(parent, owner.Spawn, owner.Block.Index, "age-death", parent.Age - parent.Life);
         }
     }
 
-    private void Spawn(Particle parent, int sourceIndex, int declaringOwner, string cause, float motionSeconds,
+    // Children start at their parent's state; `elapsed` is the time since the
+    // death or contact, which becomes both their age and their pending motion.
+    private void Spawn(Particle parent, int sourceIndex, int declaringOwner, string cause, float elapsed,
         Queue<long>? collisionWork = null)
     {
         if (!_spawnOwners.TryGetValue(sourceIndex, out var source))
@@ -112,6 +114,7 @@ internal sealed partial class RuntimeNifParticleSystem
         var copies = FalloutNifParticleSpawnRules.Copies(source, parent.Generation, _random.NextDouble(), _random.NextDouble());
         var available = Math.Min(copies, _particles.Length - ActiveCount);
         SpawnCapacityRefusals = checked(SpawnCapacityRefusals + copies - available);
+        var velocity = new System.Numerics.Vector3(parent.Velocity.X, parent.Velocity.Y, parent.Velocity.Z);
         for (var copy = 0; copy < available; copy++)
         {
             var child = parent;
@@ -119,9 +122,11 @@ internal sealed partial class RuntimeNifParticleSystem
             child.ParentIdentity = parent.Identity;
             child.Generation = checked((ushort)(parent.Generation + 1));
             child.SourceBirth = source.Block.Index;
-            child.Age = 0;
-            child.Life = source.Life;
-            child.MotionSeconds = motionSeconds;
+            var spawned = FalloutNifParticleSpawnRules.ChildVelocity(source, velocity, _random.NextSingle(), _random.NextSingle(), _random.NextSingle());
+            child.Velocity = new(spawned.X, spawned.Y, spawned.Z);
+            child.Age = elapsed;
+            child.Life = Math.Max(float.Epsilon, FalloutNifParticleSpawnRules.ChildLife(source, _random.NextSingle()));
+            child.MotionSeconds = elapsed;
             AppendParticle(child, true, declaringOwner, cause);
             collisionWork?.Enqueue(_particles[ActiveCount - 1].Identity);
         }
@@ -172,22 +177,6 @@ internal sealed partial class RuntimeNifParticleSystem
         _collisionWork.Clear(); _nextParticleIdentity = _stepOrdinal = 0;
         PrimaryBirthCount = SpawnBirthCount = SpawnAttempts = SpawnCapacityRefusals = EmitterCapacityRefusals = 0;
         LifecycleEventsWithoutSink = 0;
-    }
-
-    private void EmitScheduled(FalloutNifParticleModifier modifier, float delta)
-    {
-        var births = _remainders[modifier.Name] + (double)_rates[modifier.Name] * delta;
-        if (!double.IsFinite(births) || births < 0 || births >= long.MaxValue)
-            throw new InvalidDataException("Particle emission count exceeds its numeric lifecycle owner.");
-        var count = (long)Math.Floor(births);
-        _remainders[modifier.Name] = births - count;
-        var available = (int)Math.Min(count, _particles.Length - ActiveCount);
-        EmitterCapacityRefusals = checked(EmitterCapacityRefusals + count - available);
-        for (var birth = 0; birth < available; birth++)
-        {
-            Emit(modifier);
-            _particles[ActiveCount - 1].MotionSeconds = delta;
-        }
     }
 }
 

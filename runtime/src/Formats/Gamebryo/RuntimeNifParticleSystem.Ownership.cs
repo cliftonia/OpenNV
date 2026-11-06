@@ -56,10 +56,9 @@ internal sealed partial class RuntimeNifParticleSystem
     {
         // Only generated owners belong here; material, source and siblings remain external.
         ReleaseParticleDraw(freeVisual: true);
-        _turbulence?.Dispose(); _turbulence = null;
-        _active.Clear(); _rates.Clear(); _speeds.Clear(); _lifespans.Clear(); _gravityStrengths.Clear(); _remainders.Clear();
+        _active.Clear(); _emitters.Clear(); _speeds.Clear(); _lifespans.Clear(); _gravityStrengths.Clear();
         _meshes.Clear(); _particleMeshSources.Clear(); _emissionError = null; _colliders.Clear(); _keyColors.Clear(); _spawnOwners.Clear(); _particleIndices.Clear(); _stepTransforms.Clear();
-        _particles = []; _drawBuffer = []; _drawOrder = []; _modifiers = []; _drawModifiers = []; _activeDrawModifiers = []; _colliderPoses = [];
+        _particles = []; _drawBuffer = []; _drawOrder = []; _modifiers = []; _emitterModifiers = []; _updateModifiers = []; _drawModifiers = []; _activeDrawModifiers = []; _colliderPoses = [];
         _source = null!; _data = null!; _nodes = null!;
         _pendingShader = null; _sourceFile = null; _configured = false;
     }
@@ -103,13 +102,6 @@ internal sealed partial class RuntimeNifParticleSystem
         }
     }
 
-    private FastNoiseLite CreateParticleTurbulence()
-    {
-        var noise = new FastNoiseLite();
-        try { noise.Seed = _random.Next(); return noise; }
-        catch { noise.Dispose(); throw; }
-    }
-
     private void ReleaseParticleDraw(bool freeVisual)
     {
         if (_visual is not null && GodotObject.IsInstanceValid(_visual))
@@ -145,11 +137,10 @@ internal sealed partial class RuntimeNifParticleSystem
             // Removing and reattaching a scene is not destruction. Predelete,
             // rather than ExitTree, closes this object's native capability.
             ReleaseParticleDraw(freeVisual: false);
-            _turbulence?.Dispose(); _turbulence = null;
-            _collisionWork.Clear(); _particleIndices.Clear();
-            _active.Clear(); _rates.Clear(); _speeds.Clear(); _lifespans.Clear(); _gravityStrengths.Clear(); _remainders.Clear();
+                _collisionWork.Clear(); _particleIndices.Clear();
+            _active.Clear(); _emitters.Clear(); _speeds.Clear(); _lifespans.Clear(); _gravityStrengths.Clear();
             _meshes.Clear(); _particleMeshSources.Clear(); _emissionError = null; _colliders.Clear(); _keyColors.Clear(); _spawnOwners.Clear(); _stepTransforms.Clear();
-            _particles = []; _drawBuffer = []; _drawOrder = []; _modifiers = []; _colliderPoses = [];
+            _particles = []; _drawBuffer = []; _drawOrder = []; _modifiers = []; _emitterModifiers = []; _updateModifiers = []; _colliderPoses = [];
             _nodes = null!; LifecycleEvent = null; _configured = false;
             _sourceFile = null; _pendingShader = null;
         }
