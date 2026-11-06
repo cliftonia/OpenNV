@@ -243,6 +243,16 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
         world.ResidentInstances.Where(instance => instance.Script is not null)
             .Select(instance => Dispatch(instance.Reference, "GameMode", elapsedSeconds: seconds)).ToArray();
 
+    // Whether a resident reference's object script declares a block for an
+    // event; a script whose source cannot be decoded reports through dispatch.
+    internal bool HasEventBlock(FalloutFormKey reference, string eventName)
+    {
+        var instance = world.Get(reference);
+        if (instance.Script is null) return false;
+        try { return Program(instance).Events.Any(block => block.Event.Equals(eventName, StringComparison.OrdinalIgnoreCase)); }
+        catch (Exception error) when (error is InvalidDataException or NotSupportedException) { return true; }
+    }
+
     internal void UnloadCell(FalloutFormKey cell)
     {
         foreach (var key in _programs.Keys.Where(key => world.Get(key).Cell == cell).ToArray()) _programs.Remove(key);

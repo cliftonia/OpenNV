@@ -14,10 +14,16 @@ internal partial class RuntimeNativeOpeningStageDriver
     private RuntimeNativeReferenceEvents? _restReferenceEvents;
     private Action? _releaseRestInput;
     private IDisposable? _restBackground;
-    private bool _restWasPaused, _restOwnsPause, _restInBed, _restUnboundReported;
+    private bool _restWasPaused, _restOwnsPause, _restInBed;
     private FalloutRestKind _restKind;
     private int _restHoursRun;
-    internal object? RestState => _restMenu?.State;
+    private string _restUnbound = "", _restHealingUnbound = "";
+    internal object? RestState => _scripts is null ? null : new
+    {
+        menu = _restMenu?.State, sleeping = _scripts.Session.PlayerSleeping, hours = _scripts.Session.PlayerSleepHours,
+        controlsEnabled = PlayerControls == FalloutPlayerControlState.AllEnabled, unbound = _restUnbound,
+        healingUnbound = _restHealingUnbound,
+    };
 
     private bool PlayerInteractionBusy => _moviePlaying || _levelUpMenu is not null || _restMenu is not null || _repairServicesMenu is not null ||
         _player.FurnitureActive || _recipeMenu is not null || _barterMenu is not null || _caravanMenu is not null || _casinoMenu is not null ||
@@ -47,17 +53,20 @@ internal partial class RuntimeNativeOpeningStageDriver
     {
         // HUD notices resolve their source record; the engine player is the
         // player base record, as the quicksave notice uses.
-        var notice = new FalloutHudEvent(FalloutHudEventKind.ExecutableNotice, _raceSexContract.Player, 0, Text: refusal);
-        _inventory.Notifications.RequirePublish([notice]);
-        _inventory.Notifications.Publish([notice]);
-        GD.Print($"OPENNV_REST_REFUSED kind={kind} bed={bed?.ToString() ?? "none"} reason={refusal}");
+        _inventory.Notifications.Publish([new(FalloutHudEventKind.ExecutableNotice, _raceSexContract.Player, 0, Text: refusal)]);
+        GD.Print($"OPENNV_REST_REFUSED kind={kind} bed={bed?.ToString() ?? "none"} reason={refusal} unbound={_restUnbound}");
     }
 
+    // Original admission inputs that read player states OpenNV does not model
+    // yet admit the request; each request names them in its telemetry.
     private FalloutRestCircumstances RestCircumstances(FalloutFormKey? bed)
     {
         var world = _scripts.References ?? throw new InvalidOperationException("Rest has no reference-world owner.");
         var player = _pluginStack.RuntimeFormKey(0x14);
-        ReportRestUnbound();
+        // An unowned or public cell is never trespassed in; elsewhere the
+        // trespass state has no owner yet.
+        var unowned = world.HasUnownedCell(player, SharedConditions.PlayerPlacement?.Invoke(), _player.UnitsToMeters);
+        _restUnbound = (unowned ? "" : "trespass,") + "alarm,underwater,radiation,conversation-target-distance";
         var limit = FalloutGameSettingFloats.Read(_pluginStack,
             IsInInterior(player) ? "fHostileActorInteriorDistance" : "fHostileActorExteriorDistance");
         var factions = world.ActorFactions(player);
@@ -91,7 +100,7 @@ internal partial class RuntimeNativeOpeningStageDriver
         {
             _scripts.Session.PlayerSleepHours = hours;
             _scripts.Session.PlayerSleeping = kind == FalloutRestKind.Sleep;
-        }, RestHourStep, () => _scripts.Session.PlayerSleepHours, CloseRestMenu);
+        }, MenuRestHourStep, () => _scripts.Session.PlayerSleepHours, CloseRestMenu);
         _restLayer = layer; _restMenu = menu; _restKind = kind; _restInBed = bed is not null; _restHoursRun = 0;
         _restReferenceEvents = GetTree().Root.FindChildren("*", "", true, false).OfType<RuntimeNativeReferenceEvents>()
             .SingleOrDefault(owner => owner.IsProcessing());
@@ -113,7 +122,8 @@ internal partial class RuntimeNativeOpeningStageDriver
             if (!layer.IsInsideTree()) layer.Free();
             throw;
         }
-        GD.Print($"OPENNV_REST_MENU_OPEN kind={kind} bed={bed?.ToString() ?? "none"} hour={clock.Hour:R} source=sleep_wait_menu.xml parity=unverified");
+        GD.Print($"OPENNV_REST_MENU_OPEN kind={kind} bed={bed?.ToString() ?? "none"} hour={clock.Hour:R} unbound={_restUnbound} " +
+            "source=sleep_wait_menu.xml parity=unverified");
     }
 
     // Resident object scripts run their MenuMode blocks while the menu is open
@@ -123,15 +133,16 @@ internal partial class RuntimeNativeOpeningStageDriver
         if (_restReferenceEvents is { } events && GodotObject.IsInstanceValid(events)) events.DispatchMenuMode(delta);
     }
 
-    // Original rest inputs that read player states OpenNV does not model yet:
-    // the admission checks admit the request and the hourly heal uses only
-    // the sleeping base rate. They stay visible, reported once per session.
-    private void ReportRestUnbound()
+    // A failed hour stays visible as driver divergence; the menu then closes.
+    private int MenuRestHourStep()
     {
-        if (_restUnboundReported) return;
-        _restUnboundReported = true;
-        GD.PushWarning("OPENNV_REST_UNBOUND admission=trespass,alarm,underwater,radiation,conversation-target-distance " +
-            "healing=heal-rate,recovered-health-perk hour=actor-process-catch-up");
+        try { return RestHourStep(); }
+        catch (Exception error) when (error is InvalidDataException or NotSupportedException or InvalidOperationException)
+        {
+            RetainDriverFailure(error);
+            GD.PushError($"OPENNV_REST_FAIL {error.Message}");
+            throw;
+        }
     }
 
     private string RestClockText()
@@ -154,9 +165,8 @@ internal partial class RuntimeNativeOpeningStageDriver
         _ingestibles.Advance(seconds);
         _playerActorValues.AdvanceFatigue(seconds);
         _deliveredEffects.Advance(seconds);
-        ReportRestUnbound();
         var state = FalloutPlayerRest.Heal(_vitals.State,
-            FalloutPlayerRest.HourHealing(_pluginStack, 0, _restInBed && session.PlayerSleeping, seconds));
+            FalloutPlayerRest.HourHealing(_pluginStack, PlayerHealRate(), _restInBed && session.PlayerSleeping, seconds));
         if (session.Hardcore && session.PlayerSleeping) state = _needs.RestoreSleep(state);
         _vitals.Publish(state);
         _restHoursRun++;
@@ -175,9 +185,27 @@ internal partial class RuntimeNativeOpeningStageDriver
         return session.PlayerSleepHours;
     }
 
+    // The HealRate actor value has no player owner yet, and the Modify
+    // Recovered Health perk term none at all: the hour then heals only by
+    // the sleeping base rate, and the rest names both as unbound.
+    private float PlayerHealRate()
+    {
+        try
+        {
+            var rate = (float)ReadPlayerActorValue("HealRate", World.Actors.FalloutActorValueRead.Current);
+            _restHealingUnbound = "recovered-health-perk";
+            return rate;
+        }
+        catch (NotSupportedException)
+        {
+            _restHealingUnbound = "heal-rate,recovered-health-perk";
+            return 0;
+        }
+    }
+
     private void ReportRest(bool natural) =>
         GD.Print($"OPENNV_REST_COMPLETE kind={(_restMenu is null ? FalloutRestKind.Sleep : _restKind)} hours={_restHoursRun} natural={natural} " +
-            $"hour={_gameTime?.Hour:R} health={_vitals.State.HitPoints}/{_vitals.State.MaximumHitPoints}");
+            $"hour={_gameTime?.Hour:R} health={_vitals.State.HitPoints}/{_vitals.State.MaximumHitPoints} healingUnbound={_restHealingUnbound}");
 
     private bool TryApplyRestCommand(FalloutFormKey target, string[] parts, string operation, IReadOnlyList<string> arguments)
     {
@@ -187,7 +215,11 @@ internal partial class RuntimeNativeOpeningStageDriver
             case "showsleepwaitmenu" when parts.Length == 1:
                 if (arguments.Count > 2 || arguments.Any(argument => argument is not ("0" or "1")))
                     throw new InvalidDataException("ShowSleepWaitMenu takes an optional sleep flag and an optional zero/one check flag.");
-                if (_vitals.State.ExactHitPoints <= 0 || PlayerInteractionBusy && _restMenu is null) return true;
+                if (_vitals.State.ExactHitPoints <= 0 || PlayerInteractionBusy && _restMenu is null)
+                {
+                    GD.Print($"OPENNV_REST_SHOW_MENU_DROPPED reason={(_vitals.State.ExactHitPoints <= 0 ? "dead" : "interaction-busy")}");
+                    return true;
+                }
                 if (arguments.Count > 1 && arguments[1] == "1")
                 {
                     // The checked form runs the Wait chain, then opens Sleep.
@@ -218,8 +250,9 @@ internal partial class RuntimeNativeOpeningStageDriver
                 session.PlayerSleepHours = Math.Max(remaining, 0);
                 if (session.PlayerSleepHours == 0)
                 {
-                    if (_restMenu is not null) CloseRestMenu();
-                    else { ReportRest(natural: false); session.PlayerSleeping = false; }
+                    ReportRest(natural: false);
+                    session.PlayerSleeping = false;
+                    CloseRestMenu();
                 }
                 return true;
             default:

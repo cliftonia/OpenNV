@@ -17,8 +17,9 @@ internal partial class RuntimeNativeOpeningStageDriver
     {
         _needs = new(_pluginStack);
         _playerSkills.NeedStageSpells = () => _vitals is { } vitals ? _needs.ConstantSpells(vitals.StoredNeed) : [];
-        _vitals.NeedsChanged += ApplyNeedStages;
+        // The stored values select the stages, so this reset needs no notices.
         if (!_scripts.Session.Hardcore && _vitals.State.HasNeeds) SetHardcore(false);
+        _vitals.NeedsChanged += ApplyNeedStages;
     }
 
     // Crippled limbs are the six limb conditions (not the brain) at zero.
@@ -29,9 +30,10 @@ internal partial class RuntimeNativeOpeningStageDriver
         {
             if (_vitals is null) return null;
             var vitals = Vitals;
-            var player = _pluginStack.RuntimeFormKey(0x14);
-            var crippled = Enumerable.Range((int)FalloutActorValueId.PerceptionCondition, 6)
-                .Count(limb => DialogueActorValue(player, limb) <= 0);
+            var parts = PlayerBodyParts;
+            var crippled = 0;
+            for (var limb = (int)FalloutActorValueId.PerceptionCondition; limb <= (int)FalloutActorValueId.RightMobilityCondition; limb++)
+                if (parts.LimbCondition(limb, vitals.MaximumHitPoints, vitals.LimbDamage) <= 0) crippled++;
             return new(_scripts.Session.Hardcore, vitals.Dehydration, vitals.Hunger, vitals.SleepDeprivation, vitals.RadiationRads, crippled);
         }
     }
@@ -43,7 +45,9 @@ internal partial class RuntimeNativeOpeningStageDriver
     }
 
     // Runs once per player update while the game runs in Hardcore. Disabling
-    // the Pip-Boy control skips it without moving the anchors.
+    // the Pip-Boy control skips it without moving the anchors. Anchors reset
+    // only on load or new game, so re-enabling Hardcore later in a session
+    // catches up the time since the last Hardcore update (open spec question).
     private void AdvanceHardcoreNeeds()
     {
         if (!_scripts.Session.Hardcore || !PlayerControls.PipBoy || _vitals.State.ExactHitPoints <= 0) return;
@@ -62,9 +66,7 @@ internal partial class RuntimeNativeOpeningStageDriver
         foreach (var change in changes)
         {
             if (change.Current?.Spell is { } spell && _needs.EntryHealthDamage(spell) is { } damage) _vitals.Damage(damage);
-            var notices = FalloutHardcoreNeeds.Notices(change, _raceSexContract.Player);
-            _inventory.Notifications.RequirePublish(notices);
-            _inventory.Notifications.Publish(notices);
+            _inventory.Notifications.Publish(FalloutHardcoreNeeds.Notices(change, _raceSexContract.Player));
             GD.Print($"OPENNV_HARDCORE_NEED_STAGE av={change.ActorValue} stage={change.Current?.Form.ToString() ?? "none"} " +
                 $"previous={change.Previous?.Form.ToString() ?? "none"} value={after.Need(change.ActorValue):R}");
         }

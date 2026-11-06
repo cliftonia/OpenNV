@@ -11,6 +11,8 @@ internal partial class RuntimeNativeOpeningStageDriver
 {
     private RuntimeNativeConversation? _conversation;
     private FalloutBodyPartData? _dialoguePlayerBodyParts;
+    private FalloutBodyPartData PlayerBodyParts =>
+        _dialoguePlayerBodyParts ??= FalloutBodyPartData.Read(_pluginStack.GetEffective(_pluginStack.RuntimeFormKey(0x1d)));
     private FalloutReferenceScripts? _resultScripts;
     private FalloutQuestStages? _stageResults;
     private OpenNV.Runtime.Gameplay.State.FalloutPipBoyState? _pipBoy;
@@ -193,8 +195,8 @@ internal partial class RuntimeNativeOpeningStageDriver
                 return Vitals.Need(value);
             if (FalloutActorValueNames.IsLimb(id))
             {
-                _dialoguePlayerBodyParts ??= FalloutBodyPartData.Read(_pluginStack.GetEffective(_pluginStack.RuntimeFormKey(0x1d)));
-                return _dialoguePlayerBodyParts.LimbCondition(value, Vitals.MaximumHitPoints, Vitals.LimbDamage);
+                var vitals = Vitals;
+                return PlayerBodyParts.LimbCondition(value, vitals.MaximumHitPoints, vitals.LimbDamage);
             }
             return FalloutPlayerActorValues.HasPool(value) ? _playerActorValues.ReadCurrent(value) : _playerSkills.Value(value);
         }

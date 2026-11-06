@@ -31,7 +31,12 @@ internal static class FalloutPlayerRest
         "sNoSleepHostileActorsNear", "sNoSleepInRadiation", "sNoSleepTakingHealthDamage",
     };
 
-    internal static bool IsRefusalNotice(string? setting) => setting is not null && RefusalSettings.Contains(setting);
+    // Saves from before the original chains may still hold these pending
+    // notices; they remain displayable but no admission produces them.
+    private static readonly HashSet<string> LegacyRefusalSettings = new(StringComparer.Ordinal) { "sNoSleepCombat", "sNoWaitInCombat" };
+
+    internal static bool IsRefusalNotice(string? setting) =>
+        setting is not null && (RefusalSettings.Contains(setting) || LegacyRefusalSettings.Contains(setting));
 
     // The Wait control (and ShowSleepWaitMenu with its check flag). The first
     // matching circumstance names the refusal; null admits the request.

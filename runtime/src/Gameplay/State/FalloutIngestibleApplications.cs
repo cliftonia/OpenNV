@@ -26,7 +26,8 @@ internal static class FalloutIngestibleApplications
     }
 
     // The Limb Condition archetype restores every limb condition and leaves
-    // Health untouched.
+    // Health untouched. Its magnitude is applied as condition points, the
+    // limb half of Value and Parts; that scale is unverified.
     internal const uint LimbCondition = 35;
 
     // Radiation and the Hardcore needs accumulate: "Damage" raises them and

@@ -381,6 +381,8 @@ def test_rest() -> str:
         game.dismiss_popups(3)
         # VCG01 keeps fighting disabled inside the house; any disabled control
         # makes the Wait key do nothing.
+        rest = ((game.gameplay().get("opening") or {}).get("rest") or {})
+        require(rest.get("controlsEnabled") is False, f"expected a disabled player control in Doc's house: {rest}")
         game.tap("T")
         time.sleep(3)
         require("OPENNV_REST_MENU_OPEN" not in game.log_text(), "Wait opened while a player control was disabled")
@@ -411,13 +413,17 @@ def test_rest() -> str:
         for _ in range(2):
             game.tap("Right")
             time.sleep(0.3)
+        divergences = game.log_text().count("OPENNV_NATIVE_REFERENCE_EVENT_DIVERGENCE")
         started = time.time()
         require(game.press("Wait"), "Wait button is not offered")
         done = game.wait_log("OPENNV_REST_COMPLETE", 60)
         elapsed = time.time() - started
         require("kind=Wait hours=3 natural=True" in done, f"wait did not run the chosen hours to completion: {done}")
-        require(elapsed >= 2.5, f"three waited hours took {elapsed:.1f}s, not one real second per hour")
+        require(2.5 <= elapsed <= 15, f"three waited hours took {elapsed:.1f}s, not one real second per hour")
         game.wait(lambda: not game.state()["sceneTreePaused"], 30, "gameplay to resume")
+        # MenuMode frames must not latch a script fault on any resident reference.
+        require(game.log_text().count("OPENNV_NATIVE_REFERENCE_EVENT_DIVERGENCE") == divergences,
+                "a reference script diverged while the Wait menu ran its MenuMode frames")
         require(not game.fatal_errors(), f"fatal errors: {game.fatal_errors()[:3]}")
         return done.split("OPENNV_REST_COMPLETE")[1].strip() + f"; {elapsed:.1f}s; owned bed refused; disabled-control wait ignored"
 

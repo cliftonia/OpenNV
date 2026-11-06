@@ -232,6 +232,7 @@ public partial class RuntimeCoordinator
                 blockingError = _nativeOpeningStageDriver.BlockingExecutionError,
                 stageResults = _nativeOpeningStageDriver.StageResultState,
                 saveRequest = _nativeOpeningStageDriver.SaveRequestState,
+                rest = _nativeOpeningStageDriver.RestState,
             },
             movies = GetChildren().OfType<NativeGamebryoMovie>()
                 .Concat(_nativeOpeningStageDriver?.GetChildren().OfType<NativeGamebryoMovie>() ?? [])

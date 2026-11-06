@@ -73,8 +73,10 @@ internal static class PlayerRestContracts
                 FalloutPlayerRest.SleepRefusal(new(TakingHealthDamage: true)) == "sNoSleepTakingHealthDamage" &&
                 FalloutPlayerRest.SleepRefusal(new(WaitDisabled: true, Airborne: true, RadiationRate: true, AlarmSounding: true, Underwater: true)) is null,
                 "Bed refusals differ from their original chain.");
-            Require(waits.Append("sNoSleepInOwnedBed").All(FalloutPlayerRest.IsRefusalNotice) &&
-                !FalloutPlayerRest.IsRefusalNotice("sNoSleepCombat") && !FalloutPlayerRest.IsRefusalNotice("sQuickSaving"),
+            // The combat strings are never produced, but saved pending notices stay displayable.
+            Require(waits.Append("sNoSleepInOwnedBed").Append("sNoSleepCombat").Append("sNoWaitInCombat").All(FalloutPlayerRest.IsRefusalNotice) &&
+                !FalloutPlayerRest.IsRefusalNotice("sQuickSaving") &&
+                waits.Concat([FalloutPlayerRest.SleepRefusal(all)]).All(refusal => refusal is not ("sNoSleepCombat" or "sNoWaitInCombat")),
                 "Rest refusal notices are not the original declared HUD notices.");
             Require(!FalloutPlayerRest.CantWait(records, Key(0x600)) && FalloutPlayerRest.CantWait(records, Key(0x601)),
                 "The cell Can't Wait record flag was not read.");

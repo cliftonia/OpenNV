@@ -19,6 +19,7 @@ internal partial class RuntimeNativeReferenceEvents : Node
         internal FalloutActivationRelayDelivery? PendingRelay;
         internal Node3D? Node = Presentation;
         internal bool ActorScriptStarted;
+        internal bool? MenuModeBlocks;
     }
 
     private FalloutPluginStack _records = null!;
@@ -390,14 +391,20 @@ internal partial class RuntimeNativeReferenceEvents : Node
         }
     }
 
-    // MenuMode frames for resident object scripts. The tree is paused while a
-    // menu is open, so the menu's owner drives these frames.
+    // MenuMode frames for resident object scripts that declare a MenuMode
+    // block. The tree is paused while a menu is open, so the menu's owner
+    // drives these frames. Actors run only after their scripts started.
     internal void DispatchMenuMode(double delta)
     {
-        foreach (var binding in _bindings.Values.ToArray())
-            if (binding.Instance.Script is not null && _world.IsResident(binding.Reference.FormKey) &&
-                _world.IsEnabled(binding.Reference.FormKey))
-                Report(binding, _scripts.DispatchFrame(binding.Reference.FormKey, [new("MenuMode")], delta));
+        foreach (var binding in _bindings.Values)
+        {
+            if (!IsProcessing()) return;
+            if (binding.Instance.Script is null || binding.Instance.ScriptError is not null) continue;
+            binding.MenuModeBlocks ??= _scripts.HasEventBlock(binding.Reference.FormKey, "MenuMode");
+            if (binding.MenuModeBlocks != true || !_world.IsEnabled(binding.Reference.FormKey) ||
+                binding.Signature is "NPC_" or "CREA" && !binding.ActorScriptStarted) continue;
+            Report(binding, _scripts.DispatchFrame(binding.Reference.FormKey, [new("MenuMode")], delta));
+        }
     }
 
     private void ProcessBinding(Binding binding, SceneTree tree, double delta)
