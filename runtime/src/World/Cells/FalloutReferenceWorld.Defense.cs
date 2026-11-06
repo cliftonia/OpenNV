@@ -59,9 +59,9 @@ internal sealed partial class FalloutReferenceWorld
         return new(result.Threshold + AcquiredModifier(reference, 76), result.Resistance + AcquiredModifier(reference, 18));
     }
 
-    // The weapon resistance types (EMP, fire, energy...) have an empty base pool;
+    // Weapon resistance types (EMP, fire...) and Chameleon have an empty base pool;
     // abilities, worn enchantments, acquired perks and script modifiers fill it.
-    internal float WeaponResistance(FalloutFormKey reference, int actorValue, int level, FalloutGlobalState globals)
+    internal float EffectPoolValue(FalloutFormKey reference, int actorValue, int level, FalloutGlobalState globals)
     {
         var actor = Actor(reference);
         var pool = actor.ActorValues.GetValueOrDefault(FalloutActorValue.SourceSlot(actorValue));

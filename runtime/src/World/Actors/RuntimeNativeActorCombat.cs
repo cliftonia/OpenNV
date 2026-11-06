@@ -186,7 +186,7 @@ internal sealed partial class RuntimeNativeActorCombat : Node
             var amount = defense.Mitigate(_records, damage with { Amount = damage.Amount + critical.Damage }, new(
                 _state.PlayerTeammate ? FalloutHitTarget.CompanionScale(PlayerCharisma()) : 1,
                 FalloutWeaponDamageResolver.Apply(perks, 56, 0, null),
-                damage.ResistanceActorValue >= 0 ? _world.WeaponResistance(_state.Reference, damage.ResistanceActorValue, level, globals) : 0));
+                damage.ResistanceActorValue >= 0 ? _world.EffectPoolValue(_state.Reference, damage.ResistanceActorValue, level, globals) : 0));
             var health = _world.Health(_state.Reference);
             var bodyPart = _world.BodyParts(_state.Reference).Parts.Single(value => value.Type == part);
             if (!Dead && amount * bodyPart.DamageMultiplier >= health.Current) PrepareDeath();

@@ -78,6 +78,7 @@ internal sealed partial class FalloutPlayerSkills
         if (!_evaluating.Add(value)) throw new NotSupportedException("Actor ability conditions have a recursive value dependency.");
         try
         {
+            if (value is 48 or 49) return EffectPool(value); // Invisibility, Chameleon
             if (value == 46)
             {
                 if (_weightRevision != _inventory.Revision || _weightQuestObjectRevision != _records.QuestObjects.Revision || _weightHardcore != _hardcore())
@@ -123,12 +124,13 @@ internal sealed partial class FalloutPlayerSkills
 
     // A weapon's resistance type reads an empty base pool filled by the
     // player's constant effects; RadResist keeps its Endurance-derived base.
-    internal float WeaponResistance(int actorValue)
+    internal float WeaponResistance(int actorValue) => actorValue == 20 ? Value(20) : EffectPool(actorValue);
+
+    private float EffectPool(int actorValue)
     {
-        if (actorValue == 20) return Value(20);
         var amount = new[] { FalloutActorValuePool.Temporary, FalloutActorValuePool.Permanent, FalloutActorValuePool.Damage }
             .Sum(pool => Modifiers(actorValue, pool).Sum(effect => effect.Amount));
-        return float.IsFinite(amount) ? amount : throw new InvalidDataException("Player weapon resistance is not finite.");
+        return float.IsFinite(amount) ? amount : throw new InvalidDataException("Player effect actor value is not finite.");
     }
 
     internal IReadOnlyList<FalloutAbilityModifier> Modifiers(int actorValue, FalloutActorValuePool pool) =>ConstantEffects()

@@ -146,7 +146,8 @@ internal partial class RuntimeNativePlayer
                 if (!ActorAvailable(actor)) throw new InvalidOperationException("VATS visibility target retired during source sampling.");
                 ++_vatsPreparationMeasured;
                 var chance = chanceOwner.Calculate(shot.ResolvedMinimumSpread, spread + _playerProjectileLaunch!.AimChaseRadians,
-                    distance, diameter, fraction, part.HitChance);
+                    distance, diameter, fraction, part.HitChance,
+                    VatsStealthMultiplier(weapon.Form, actor.Reference, source.FormKey, part.ActorValue));
                 chance = VatsPerkChance(weapon.Form, actor.Reference, source.FormKey, part.ActorValue, chance);
                 targets.Add(new(actor.Reference, part.Type, name, part.Name.Length == 0 ? "Part " + part.Type : part.Name,
                     Math.Clamp(chance, 0, 100), cost, fraction > 0, source.FormKey, part.ActorValue));
@@ -164,6 +165,23 @@ internal partial class RuntimeNativePlayer
             using var context = _hitReferences!.VatsConditions.BeginPreview(new(weapon, reference, source, partActorValue));
             return Math.Max(chance, FalloutPlayerPerkNumericEffects.ApplyContext(8, chance / 100,
                 _combatPerks?.Invoke() ?? [], VatsPerkCondition) * 100);
+        }
+        finally { _vatsConditionTarget = null; }
+    }
+
+    // A Chameleon target or an invisible player halves the chance unless perk
+    // entry 69 (Has Improved Detection) applies to the previewed action.
+    private float VatsStealthMultiplier(FalloutFormKey weapon, FalloutFormKey reference, FalloutFormKey source, int partActorValue)
+    {
+        var concealed = _hitReferences!.EffectPoolValue(reference, 49, _combatLevel!(), _combatGlobals!) > 0 ||
+            (_combatActorValue ?? throw new InvalidOperationException("VATS actor values are absent."))(48) > 0;
+        if (!concealed) return 1;
+        _vatsConditionTarget = reference;
+        try
+        {
+            using var context = _hitReferences.VatsConditions.BeginPreview(new(weapon, reference, source, partActorValue));
+            return FalloutVatsRangedChance.StealthMultiplier(_presentationRecords!, true,
+                FalloutPlayerPerkNumericEffects.ApplyContext(69, 0, _combatPerks?.Invoke() ?? [], VatsPerkCondition) > 0);
         }
         finally { _vatsConditionTarget = null; }
     }

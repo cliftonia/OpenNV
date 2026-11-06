@@ -22,7 +22,9 @@ internal static class CombatDamageContracts
                 Setting(4, "fDamageArmConditionBase", .2f), Setting(5, "fDamageArmConditionMult", .8f),
                 Setting(6, "fMinDamMultiplier", .2f), Setting(7, "fMaxArmorRating", 70),
                 Setting(8, "fVATSCriticalChanceBonus", 5), Setting(9, "fCombatSneakAttackBonusMult", 100),
-                Setting(10, "fCombatUnarmedCritDamageMult", 1)));
+                Setting(10, "fCombatUnarmedCritDamageMult", 1), Setting(11, "fVATSStealthMult", .5f),
+                Setting(12, "fVATSMeleeArmConditionBase", 1), Setting(13, "fVATSMeleeArmConditionMult", 0),
+                Setting(14, "fVATSMeleeChanceMult", 1.5f), Setting(15, "fVATSMaxChance", 95)));
             using var records = FalloutPluginStack.Load(directory, ["Combat.esm"]);
             FalloutFormKey Key(uint id) => new("Combat.esm", id);
             var inventory = new FalloutPlayerInventory();
@@ -77,10 +79,17 @@ internal static class CombatDamageContracts
             Require(outcome.EffectFor(false) is null && outcome.EffectFor(true) == Key(0x30) &&
                 (outcome with { OnDeath = false }).EffectFor(false) == Key(0x30), "On Death critical effects were cast on nonlethal hits.");
             Reject(() => FalloutCriticalHits.Roll(records, critical, Fixed, false, null));
+            // VATS stealth: x0.5 before the 95% cap, cancelled by improved detection.
+            var stealth = FalloutVatsRangedChance.StealthMultiplier(records, true, false);
+            var melee95 = new FalloutVatsMeleeChance(records);
+            Require(stealth == .5f && FalloutVatsRangedChance.StealthMultiplier(records, true, true) == 1 &&
+                FalloutVatsRangedChance.StealthMultiplier(records, false, false) == 1 &&
+                melee95.Calculate(1, 1, 1) == 95 && melee95.Calculate(1, 1, stealth) == 75,
+                "VATS stealth penalty did not precede the cap or ignored improved detection.");
             vats = true;
             Require(resolver.Resolve(Key(0x20), 20).Critical!.Vats, "VATS state did not reach the critical data.");
             Console.WriteLine("OPENNV_COMBAT_DAMAGE_CONTRACT_PASS armFactor=true companion=true resistanceCap=fMaxArmorRating70 " +
-                "order=DR,DT,ammo,perk,floor,resistance,vats automaticMelee=true critical=per-mille onDeath=true");
+                "order=DR,DT,ammo,perk,floor,resistance,vats automaticMelee=true critical=per-mille onDeath=true vatsStealth=pre-cap");
         }
         finally { Directory.Delete(directory, true); }
     }

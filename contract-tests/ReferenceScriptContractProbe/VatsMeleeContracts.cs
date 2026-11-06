@@ -21,10 +21,10 @@ internal static class VatsMeleeContracts
                 Weapon(0x50, 1, null), Weapon(0x51, 2, 40)));
             using var records = FalloutPluginStack.Load(directory.FullName, ["VatsMelee.esm"]);
             var chance = new FalloutVatsMeleeChance(records);
-            Require(chance.Calculate(1, 1) == 95 && Near(chance.Calculate(0, 1), 60) && Near(chance.Calculate(0, 0), 20) &&
-                Near(chance.Calculate(.5f, .5f), 60), "Melee VATS chance lost its cap or arm-condition weighting.");
-            Reject(() => chance.Calculate(1.5f, 1));
-            Reject(() => chance.Calculate(float.NaN, 1));
+            Require(chance.Calculate(1, 1, 1) == 95 && Near(chance.Calculate(0, 1, 1), 60) && Near(chance.Calculate(0, 0, 1), 20) &&
+                Near(chance.Calculate(.5f, .5f, 1), 60), "Melee VATS chance lost its cap or arm-condition weighting.");
+            Reject(() => chance.Calculate(1.5f, 1, 1));
+            Reject(() => chance.Calculate(float.NaN, 1, 1));
             const float units = .0142875f;
             Require(Near(chance.Range(128 * units, units), 256 * units) && Near(chance.Range(200 * units, units), 300 * units),
                 "Melee VATS range lost its reach multiplier or absolute engage cap.");

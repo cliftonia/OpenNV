@@ -6,11 +6,12 @@ namespace OpenNV.Runtime.Content;
 internal sealed class FalloutVatsRangedChance(FalloutPluginStack records)
 {
     internal float Calculate(float minimumSpread, float actorWobbleDegrees, float distance,
-        float targetDiameter, float visibleScreenFraction, byte partToHit)
+        float targetDiameter, float visibleScreenFraction, byte partToHit, float stealthMultiplier)
     {
         if (!float.IsFinite(minimumSpread) || minimumSpread < 0 || !float.IsFinite(actorWobbleDegrees) ||
             !float.IsFinite(distance) || distance < 0 || !float.IsFinite(targetDiameter) ||
-            targetDiameter <= 0 || !float.IsFinite(visibleScreenFraction) || visibleScreenFraction is < 0 or > 1)
+            targetDiameter <= 0 || !float.IsFinite(visibleScreenFraction) || visibleScreenFraction is < 0 or > 1 ||
+            !float.IsFinite(stealthMultiplier) || stealthMultiplier < 0)
             throw new InvalidDataException("VATS ranged geometry or spread input is invalid.");
         float Setting(string name)
         {
@@ -29,8 +30,17 @@ internal sealed class FalloutVatsRangedChance(FalloutPluginStack records)
         if (targetDiameter < radius * 2) targetArea = (float)(radius * 2 / (double)targetDiameter * targetArea);
         // Native explicitly leaves the initialized ratio zero for area <= 0.
         var ratio = spreadArea > 0 ? Math.Min(targetArea / spreadArea, Setting("fVATSRangeSpreadMax")) : 0;
-        var chance = Setting("fVATSHitChanceMult") * screenFactor * ratio * partToHit;
+        var chance = Setting("fVATSHitChanceMult") * screenFactor * ratio * partToHit * stealthMultiplier;
         var maximum = Setting("fVATSMaxChance");
         return Math.Clamp(Math.Min(chance, maximum), 0, 100);
+    }
+
+    // A concealed target (Chameleon) or attacker (Invisibility) scales every
+    // VATS chance before the cap, unless the attacker has improved detection.
+    internal static float StealthMultiplier(FalloutPluginStack records, bool concealed, bool improvedDetection)
+    {
+        if (!concealed || improvedDetection) return 1;
+        var value = FalloutGameSettingFloats.Read(records, "fVATSStealthMult");
+        return float.IsFinite(value) && value >= 0 ? value : throw new InvalidDataException("VATS setting is invalid: fVATSStealthMult");
     }
 }
