@@ -24,6 +24,7 @@ if (args is ["cell-review", var reviewSource, var reviewSnapshot]) return CellRe
 if (args.Length >= 5 && args[0] == "weapon-loadout") return WeaponLoadout.Run(args[1], args[2], args[3], args[4..]);
 if (args.Length >= 1 && args[0] == "cell-graph") return CellGraphAudit.RunCommand(args[1..]);
 if (args.Length >= 1 && args[0] == "corpus") return CorpusInventory.RunCommand(args[1..]);
+if (args.Length >= 1 && args[0] == "completeness") return CompletenessReport.RunCommand(args[1..]);
 
 if (args.Length < 2 || args.Length < 3 && args[0] is not ("classic-movement" or "caravan-source" or "creature-sound-graph" or "find-target-graph" or "sandbox-capability-graph" or "light-graph" or "item-events" or "menu-audit" or "menu-graph") || args[0] is not ("route" or "classic-items" or "classic-campaign-start" or "classic-script" or "classic-item-systems" or "classic-inventory" or "classic-resource" or "classic-frm" or "classic-assets" or "classic-scenery" or "classic-movement" or "classic-player" or "cells" or "exterior" or "actors" or "script" or "record" or "record-find" or "record-layout" or "caravan-source" or "creature-sound-graph" or "find-target-graph" or "sandbox-capability-graph" or "light-graph" or "item-events" or "menu-audit" or "menu-graph" or "menu-source-events" or "settings" or "dialogue" or "dialogue-voice-topic" or "replay" or "lifecycle" or "corpus" or "quest-graph" or "resources" or "resource" or "nif" or "menu"))
 {
@@ -59,6 +60,7 @@ if (args.Length < 2 || args.Length < 3 && args[0] is not ("classic-movement" or 
         "lifecycle <installation-or-source-stack> <CELL editor ID> [...] (or --all)\n" +
         "corpus <installation-or-source-stack> <fresh-output-directory> [--selection-variants] [source options]\n" +
         "quest-graph <installation-or-source-stack> <fresh-output-directory> [source options]\n" +
+        "completeness --data-root <installation> [--out <private report.md>] [--repository <OpenNV checkout>] [source options]\n" +
         "item-events <installation-or-source-stack> [source options]\n" +
         "menu-audit <installation-or-source-stack> [source options]\n" +
         "menu-graph <installation-or-source-stack> [source options]\n" +

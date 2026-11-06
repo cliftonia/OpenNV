@@ -2081,6 +2081,7 @@ WeaponHandlingContracts.Run();
 WeaponFiringContracts.Run();
 VatsMeleeContracts.Run();
 DestructionContracts.Run();
+CompletenessReportContracts.Run();
 var disabledControls = new FalloutPlayerControlState(false, false, false, false, false, false, false);
 Require(new FalloutPlayerControlCommand(true, []).Apply(disabledControls) == FalloutPlayerControlState.AllEnabled,
     "EnablePlayerControls without arguments did not enable all controls.");

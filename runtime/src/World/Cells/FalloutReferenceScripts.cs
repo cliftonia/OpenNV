@@ -328,12 +328,22 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
 
     internal IReadOnlyList<FalloutScriptStatementInspection> Inspect(FalloutPluginRecord owner,
         FalloutPluginRecord source, IEnumerable<FalloutPluginSubrecord> fields,
-        FalloutGameModeProgram program, Action<string> inspectValue)
+        FalloutGameModeProgram program, Action<string> inspectValue, Action<string, bool>? observeFunction = null)
     {
         IReadOnlyList<FalloutScriptStatementInspection>? result = null;
         // Metadata-only binding never admits a reference to world/save state.
+        // The observer sees each name the real function dispatch was asked to
+        // resolve and whether a runtime owner admitted it.
         _ = Steps(owner.FormKey, new(records, owner, source, fields), program, null, 0,
-            inspectProgram: context => result = program.Inspect(context, inspectValue));
+            inspectProgram: context => result = program.Inspect(observeFunction is null ? context : context with
+            {
+                Function = name =>
+                {
+                    var function = context.Function(name);
+                    observeFunction(name, function is not null);
+                    return function;
+                }
+            }, inspectValue));
         return result ?? throw new InvalidOperationException("Script inspection did not publish its coverage.");
     }
 
