@@ -25,12 +25,13 @@ internal sealed record FalloutReferenceLockState(string ReferenceSha256, int Lev
     }
 }
 
-internal sealed record FalloutReferenceOwnershipOverride(string ReferenceSha256, FalloutFormKey Owner)
+// A null owner is ClearOwnership: the reference's own ownership data is removed.
+internal sealed record FalloutReferenceOwnershipOverride(string ReferenceSha256, FalloutFormKey? Owner)
 {
     internal void Validate()
     {
-        if (!FalloutReferenceLockState.Hash(ReferenceSha256) || string.IsNullOrWhiteSpace(Owner.OwnerPlugin) ||
-            Owner.ObjectId is 0 or > FalloutFormKey.ObjectIdMask)
+        if (!FalloutReferenceLockState.Hash(ReferenceSha256) || Owner is { } owner && (string.IsNullOrWhiteSpace(owner.OwnerPlugin) ||
+            owner.ObjectId is 0 or > FalloutFormKey.ObjectIdMask))
             throw new InvalidDataException("Saved reference ownership override is invalid.");
     }
 }

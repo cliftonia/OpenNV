@@ -319,6 +319,9 @@ internal sealed partial class FalloutReferenceInstance
     internal FalloutActorProjectileLaunch? ProjectileLaunch { get; set; }
     internal FalloutReferenceGrabEvents? GrabEvents { get; set; }
     internal FalloutDoorMotionState? DoorMotion { get; set; }
+    // OnOpen/OnClose for a finished door motion, consumed by the next native
+    // reference frame. Frame-transient like other contact admissions.
+    internal string? PendingDoorEvent { get; set; }
     private FalloutActivationRelaySnapshot? _activationRelay;
     internal FalloutActivationRelaySnapshot? ActivationRelay
     {
@@ -777,6 +780,7 @@ internal sealed partial class FalloutReferenceWorld(FalloutPluginStack records,
             var remaining = _residentReferences[instance.Reference] - 1;
             if (remaining > 0) { _residentReferences[instance.Reference] = remaining; continue; }
             _residentReferences.Remove(instance.Reference);
+            RetireTransientPresentation(instance.Reference);
             RetireOutgoingWeaponTarget(instance.Reference);
             if (instance.DeletePending) { instance.Deleted = true; instance.DeletePending = false; }
         }
