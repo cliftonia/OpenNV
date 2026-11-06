@@ -108,7 +108,7 @@ public partial class NativeActorPerformanceAudit
 
             var context = new NativeActorCombatContext(() => null,
                 () => throw new InvalidOperationException("Marker Travel fixture queried player vitals."),
-                (_, _) => throw new InvalidOperationException("Marker Travel fixture attacked the player."),
+                (_, _, _) => throw new InvalidOperationException("Marker Travel fixture attacked the player."),
                 (from, to) => navigation.FindPath(Source(from), Source(to)).Select(Native).ToArray(),
                 _ => true, () => 1, globals, .4f, 9.81f, PlayerCell: () => cell.Cell.FormKey,
                 RouteRegion: SourceRoute);

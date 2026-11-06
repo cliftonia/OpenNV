@@ -26,7 +26,7 @@ internal sealed partial class FalloutReferenceWorld
     // combat target, or the player outside combat, until that flee completes.
     internal void ForceFlee(FalloutFormKey reference)
     {
-        if (reference == _enginePlayer) throw new NotSupportedException("ForceFlee requires an actor caller.");
+        if (reference == _enginePlayer) return; // The player has no flee procedure.
         var actor = Actor(reference);
         if (actor.Injury?.Dead == true || actor.Unconscious || !IsEnabled(reference)) return;
         var current = actor.Engagement ?? new(_enginePlayer);

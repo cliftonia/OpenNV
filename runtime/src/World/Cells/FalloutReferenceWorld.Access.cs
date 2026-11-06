@@ -311,8 +311,9 @@ internal sealed partial class FalloutReferenceWorld
         if (global is { } condition && records.GetEffective(condition).Signature != "GLOB")
             throw new InvalidDataException("Reference ownership global is not a GLOB form.");
         if (source.Record.Signature == "CELL" && CellOwnershipOverride(source.Record.FormKey) is { } cellOwner) owner = cellOwner;
-        return new((_instances.TryGetValue(source.Record.FormKey, out var instance) ? instance.OwnershipOverride?.Owner : null) ?? owner,
-            rank.IsEmpty ? null : BinaryPrimitives.ReadInt32LittleEndian(rank.Span), global);
+        var replaced = _instances.TryGetValue(source.Record.FormKey, out var instance) ? instance.OwnershipOverride : null;
+        if (replaced is { Owner: null }) return new(null, null, null);
+        return new(replaced?.Owner ?? owner, rank.IsEmpty ? null : BinaryPrimitives.ReadInt32LittleEndian(rank.Span), global);
     }
 
     private static FalloutFormKey? OptionalAccessForm(AccessSource source, string name)
@@ -329,6 +330,14 @@ internal sealed partial class FalloutReferenceWorld
         RequireCommandOwner(selected);
         _ = Ownership(reference);
         Get(reference).OwnershipOverride = new(Access(reference).Sha256, selected);
+    }
+
+    // ClearOwnership removes the reference's own ownership data; it then
+    // inherits from its cell or encounter zone like any unowned reference.
+    internal void ClearOwnership(FalloutFormKey reference)
+    {
+        _ = Ownership(reference);
+        Get(reference).OwnershipOverride = new(Access(reference).Sha256, null);
     }
 
     private void RequireCommandOwner(FalloutFormKey owner)
@@ -363,7 +372,7 @@ internal sealed partial class FalloutReferenceWorld
         {
             if (!ownership.ReferenceSha256.Equals(source.Sha256, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException("Saved ownership differs from its winning reference declaration.");
-            RequireCommandOwner(ownership.Owner);
+            if (ownership.Owner is { } owner) RequireCommandOwner(owner);
             instance.OwnershipOverride = ownership;
             // Validate the saved combination. Querying before staging this
             // override can reach an inherited owner that no longer applies.

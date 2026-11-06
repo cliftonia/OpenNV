@@ -22,6 +22,40 @@ retail campaign.
   is not implemented.
 - Flat play is ahead of OpenXR. Physical-headset acceptance is pending.
 
+## Mac, iPad and iPhone
+
+This fork runs Fallout: New Vegas natively on Apple Silicon Macs, iPad and
+iPhone from your own copy of the game. Everything is played from the start
+menu with ordinary saves, quests, dialogue, radio, crafting, VATS and mods.
+
+| Device | Tested on | Notes |
+| --- | --- | --- |
+| Mac | Apple Silicon (M-series) | Keyboard and mouse or a gamepad; quality profiles chosen per GPU |
+| iPad | iPad mini (A17 Pro) | Touch controls or a paired controller |
+| iPhone | iPhone 14 Pro (A16) | Menus stay inside the Dynamic Island safe area |
+
+Screenshots:
+<!-- Mac, iPad and iPhone screenshots are hosted on GitHub, not committed. -->
+
+### Mac
+
+`scripts/macos/update-from-upstream.sh` syncs with the original project, builds
+and installs the release app into `/Applications/OpenNV.app`.
+
+### iPad and iPhone
+
+Requires Xcode, a free or paid Apple developer account, and the device in
+Developer Mode.
+
+```zsh
+DEVICE=<udid> scripts/ios/build.sh --install      # udid: xcrun devicectl list devices
+DEVICE=<udid> scripts/ios/push-data.sh ~/Games/FalloutNV [mod folders...]
+```
+
+`push-data.sh` copies your installation and `scripts/ios/launch-args.example.txt`
+into the app's Documents folder. Edit the launch arguments to choose mods,
+the save slot and the 3D render scale. The game data never leaves your devices.
+
 ## Classic Fallout dioramas
 
 Fallout 1 and Fallout 2 share one source-driven hex world. MAP/PRO/FRM identity,

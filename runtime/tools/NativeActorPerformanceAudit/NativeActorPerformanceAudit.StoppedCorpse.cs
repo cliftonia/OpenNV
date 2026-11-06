@@ -65,7 +65,7 @@ public partial class NativeActorPerformanceAudit
             var vitals = campaign.Vitals ?? throw new InvalidDataException("Reached save has no player vitals.");
             var level = vitals.Level;
             var context = new NativeActorCombatContext(() => null, () => vitals,
-                (_, _) => throw new InvalidDataException("Corpse fixture attempted player damage."),
+                (_, _, _) => throw new InvalidDataException("Corpse fixture attempted player damage."),
                 (_, _) => throw new InvalidDataException("Corpse fixture restarted living route planning."),
                 _ => true, () => level, globals, config.Player.StepHeightMeters,
                 config.Simulation.GravityMetersPerSecondSquared);

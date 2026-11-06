@@ -11,7 +11,7 @@ namespace OpenNV.Runtime.InputSystem;
 internal sealed partial class NativeTouchControls : Control
 {
     internal const int PauseControl = -1;
-    private const float StickRadiusFraction = .12f, LookPixelScale = 1f;
+    private const float StickRadiusFraction = .12f;
 
     private sealed record TouchButton(string Label, int Control, Vector2 Fraction, float Radius);
 
@@ -27,7 +27,7 @@ internal sealed partial class NativeTouchControls : Control
 
     private readonly Dictionary<int, int> _buttonFingers = [];
     private int _stickFinger = -1, _lookFinger = -1;
-    private Vector2 _stickOrigin, _stickPosition, _lookDelta;
+    private Vector2 _stickOrigin, _lookDelta;
     private bool _pauseTapped;
 
     internal Vector2 Stick { get; private set; }
@@ -36,7 +36,7 @@ internal sealed partial class NativeTouchControls : Control
 
     internal Vector2 ConsumeLook()
     {
-        var delta = _lookDelta * LookPixelScale;
+        var delta = _lookDelta;
         _lookDelta = Vector2.Zero;
         return delta;
     }
@@ -86,7 +86,7 @@ internal sealed partial class NativeTouchControls : Control
                 else if (touch.Position.X < size.X * .45f && _stickFinger < 0)
                 {
                     _stickFinger = touch.Index;
-                    _stickOrigin = _stickPosition = touch.Position;
+                    _stickOrigin = touch.Position;
                     Stick = Vector2.Zero;
                 }
                 else if (_lookFinger < 0) _lookFinger = touch.Index;
@@ -97,9 +97,7 @@ internal sealed partial class NativeTouchControls : Control
                 if (release.Index == _lookFinger) _lookFinger = -1;
                 break;
             case InputEventScreenDrag drag when drag.Index == _stickFinger:
-                _stickPosition = drag.Position;
-                var radius = size.Y * StickRadiusFraction;
-                var offset = (_stickPosition - _stickOrigin) / radius;
+                var offset = (drag.Position - _stickOrigin) / (size.Y * StickRadiusFraction);
                 Stick = offset.Length() > 1 ? offset.Normalized() : offset;
                 break;
             case InputEventScreenDrag look when look.Index == _lookFinger:

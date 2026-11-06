@@ -19,7 +19,7 @@ internal static class ScriptEffectCommandContracts
                 Record("TES4", 0),
                 Record("NPC_", 0x7, Field("EDID", Name("Player"))),
                 Record("NPC_", 0x150, Field("EDID", Name("SyntheticBase"))),
-                Record("SPEL", 0x151, Field("EDID", Name("SyntheticAbility"))),
+                Record("SPEL", 0x151, Field("EDID", Name("SyntheticAbility")), Field("SPIT", new byte[16])),
                 Record("EFSH", 0x152, Field("EDID", Name("SyntheticShader"))),
                 Record("WTHR", 0x153, Field("EDID", Name("SyntheticWeather"))),
                 Record("CELL", 0x154, Field("EDID", Name("SyntheticCell"))),
@@ -50,16 +50,14 @@ internal static class ScriptEffectCommandContracts
             Check(cold.ScriptSpell(actor, spell) == false, "Script spell change did not survive a cold save.");
             Reject(() => Execute(world, "addspell", "SyntheticShader"));
 
-            Check(Execute(world, "pms", "SyntheticShader", "2") is ["SyntheticShader", "2"], "PMS lost its native membrane arguments.");
-            Check(world.MagicShaders(actor).SequenceEqual([new FalloutFormKey("Effects.esm", 0x152)]), "PMS did not retain its shader request.");
-            Check(Execute(world, "sms", "SyntheticShader") is ["SyntheticShader"], "SMS lost its native membrane argument.");
-            Check(world.MagicShaders(actor).Count == 0, "SMS did not stop its shader request.");
+            // Visual commands need the receiver's loaded 3D; this actor is not resident.
+            Check(Execute(world, "pms", "SyntheticShader", "2") is null && world.MagicShaders(actor).Count == 0,
+                "PMS played on a receiver without loaded 3D.");
 
             Check(Execute(world, "setweather", "SyntheticWeather", "1") is ["SyntheticWeather", "1"], "SetWeather lost its native arguments.");
             Check(Execute(world, "sgtm", "0.5") is ["0.5"], "SGTM lost its resolved multiplier.");
             Reject(() => Execute(world, "sgtm", "0"));
-            Check(Execute(world, "saa", "1.5") is ["1"] && world.ActorAlpha(actor) == 1, "SetActorAlpha did not clamp.");
-            Check(Execute(world, "saa", "0.4") is not null && Math.Abs(world.ActorAlpha(actor) - 0.4f) < 1e-6, "SetActorAlpha lost its value.");
+            Check(Execute(world, "saa", "0.4") is null && world.ActorAlpha(actor) == 1, "SetActorAlpha changed a receiver without loaded 3D.");
             Check(Execute(world, "setrumble", "1", "0.5", "0.1") is ["1", "0.5", "0.1"], "SetRumble lost its motor arguments.");
             Reject(() => Execute(world, "setrumble", "1", "-1", "0.1"));
             Check(Execute(world, "cios", "SyntheticAbility") is ["SyntheticAbility"], "CIOS lost its native spell owner.");
@@ -69,10 +67,10 @@ internal static class ScriptEffectCommandContracts
             Check(world.CellImageSpace(new("Effects.esm", 0x154))?.Form == new FalloutFormKey("Effects.esm", 0x155),
                 "SetCellImageSpace did not replace the cell's image space.");
 
-            _ = Execute(world, "triggerscreensplatter", "50", "25", "2.0", "2.0");
-            _ = Execute(world, "triggerscreensplatter", "50", "25", "2.0", "2.0");
+            _ = Execute(world, "setscreensplatterfade", "0.5", "1");
+            _ = Execute(world, "setscreensplatterfade", "0.5", "1");
             CheckSecuritronFaces(records, world, actor, Execute);
-            Check(warnings.Count(line => line.Contains("name=triggerscreensplatter", StringComparison.Ordinal)) == 1,
+            Check(warnings.Count(line => line.Contains("name=setscreensplatterfade", StringComparison.Ordinal)) == 1,
                 "Deferred command warning was not emitted exactly once.");
             var native = new List<(FalloutFormKey Target, string Command, string[] Arguments)>();
             var scripts = new FalloutReferenceScripts(records, world, new(records), new((_, _) => false, _ => { },
@@ -83,9 +81,15 @@ internal static class ScriptEffectCommandContracts
             program = FalloutGameModeProgram.Read("begin GameMode\nSyntheticActor.SAA 0\nsgtm 0.25\nSyntheticActor.CIOS SyntheticAbility\nend");
             native.Clear();
             scripts.ExecuteProgram(records.GetEffective(actor), script, program, 0);
-            Check(native.Count == 3 && native.All(call => call.Target == actor) && native[0] is (_, "saa", ["0"]) &&
-                native[1] is (_, "sgtm", ["0.25"]) && native[2] is (_, "cios", ["SyntheticAbility"]),
+            // The unloaded actor's SAA is a silent no-op with no native remainder.
+            Check(native.Count == 2 && native.All(call => call.Target == actor) &&
+                native[0] is (_, "sgtm", ["0.25"]) && native[1] is (_, "cios", ["SyntheticAbility"]),
                 "Object-script dispatch did not hand resolved effect remainders to the native owner.");
+            program = FalloutGameModeProgram.Read("begin GameMode\nSAA 0.5\nend");
+            native.Clear();
+            scripts.ExecuteProgram(script, script, program, 0);
+            Check(native is [(var receiver, "saa", ["0.5"])] && records.RuntimeFormId(receiver) == 0x14,
+                "SetActorAlpha without a calling reference did not act on the player.");
             Console.WriteLine("OPENNV_SCRIPT_EFFECT_COMMAND_PASS spells=true cold=true shaders=true weather=true clock=true alpha=true " +
                 "rumble=true imageSpace=true deferredOnce=true presentation=unverified");
             Console.WriteLine("OPENNV_SECURITRON_FACE_PASS unloadedIgnored=true stored=true plainStrings=true path=true emptyNoTexture=true " +
@@ -120,8 +124,10 @@ internal static class ScriptEffectCommandContracts
             "Securitron face did not survive a cold save.");
         try { cold.RestoreSecuritronFaces(world.CaptureSecuritronFaces()); throw new InvalidDataException("Securitron faces restored twice."); }
         catch (InvalidOperationException) { }
-        _ = execute(world, "setsecexp", ["SyntheticActor", "\"\"", "Neutral"]);
+        Reject(() => execute(world, "setsecexp", ["SyntheticActor", "\"\"", "Neutral"]));
+        world.SetSecuritronFace(actor, "", "Neutral");
         Check(world.SecuritronFace(actor) is { Personality: "", TexturePath: null }, "An empty Securitron word did not select no texture.");
+        world.UnloadCell(new("Effects.esm", 0x157));
         using var duplicated = new FalloutReferenceWorld(records);
         var face = world.SecuritronFace(actor)!;
         Reject(() => duplicated.RestoreSecuritronFaces(new([face, face])));

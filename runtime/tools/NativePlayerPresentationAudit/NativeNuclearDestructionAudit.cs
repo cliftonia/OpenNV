@@ -24,7 +24,7 @@ public partial class NativePlayerPresentationAudit
         prototype.Scene.Root.Free(); AddChild(car);
         try
         {
-            var context = new NativeActorCombatContext(() => player, () => vitals.State, (_, _) => { }, (_, _) => [], _ => true,
+            var context = new NativeActorCombatContext(() => player, () => vitals.State, (_, _, _) => { }, (_, _) => [], _ => true,
                 () => 1, FalloutGlobalState.Read(records), .3f, 9.8f);
             var destructible = RuntimeNativeDestructible.Attach(car, state, records, content, .0142875f, uint.MaxValue, context)!;
             CheckDestructionOwner(car, destructible);

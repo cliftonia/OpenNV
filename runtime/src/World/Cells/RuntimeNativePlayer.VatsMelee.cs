@@ -32,7 +32,7 @@ internal partial class RuntimeNativePlayer
         var owner = new FalloutVatsMeleeChance(records);
         _vatsPreparationCandidates = 1;
         if (!_vatsActors.TryGetValue(reference, out var actor) || !ActorAvailable(actor) ||
-            VatsMeleeDistance(actor) > owner.Range(PlayerMeleeReach(weapon), UnitsToMeters))
+            VatsMeleeDistance(actor) > VatsMeleeRange(weapon))
         { _vatsPreparationSkipped = 1; return []; }
         var torso = world.BodyParts(reference).Parts.SingleOrDefault(part => part.Type == 0) ??
             throw new NotSupportedException("VATS melee target has no source torso part.");
@@ -40,7 +40,8 @@ internal partial class RuntimeNativePlayer
         var cost = owner.ActionPointCost(FalloutVatsWeaponCost.Read(records, weapon.Form)
             .ApplyPerks(_combatPerks?.Invoke() ?? [], VatsPerkCondition));
         var arms = ArmConditions(_vatsVitals!.State);
-        var chance = VatsPerkChance(weapon.Form, reference, source.FormKey, torso.ActorValue, owner.Calculate(arms.Left, arms.Right));
+        var chance = VatsPerkChance(weapon.Form, reference, source.FormKey, torso.ActorValue, owner.Calculate(arms.Left, arms.Right,
+            VatsStealthMultiplier(weapon.Form, reference, source.FormKey, torso.ActorValue)));
         var visible = VatsActorLineOfSight(reference);
         _vatsPreparationMeasured = 1;
         _vatsTargetMeasurements.Add(new { reference = reference.ToString(), part = torso.Type, melee = true, visible, chance });

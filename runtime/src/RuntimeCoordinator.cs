@@ -1086,66 +1086,34 @@ public partial class RuntimeCoordinator : Node3D
         var viewport = GetViewport();
         _quality = RuntimePresentationQuality.Resolve(_options, _configuration.Renderer.QualityProfiles);
         var profile = _quality.Profile;
-        var scale = _options.TryGetValue("render-scale", out var text) &&
-            float.TryParse(text, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var parsed)
-            ? Math.Clamp(parsed, .25f, 1f) : profile.RenderScale;
+        var scale = _quality.RenderScale;
         if (scale < 1f)
         {
             viewport.Scaling3DMode = Viewport.Scaling3DModeEnum.Fsr;
             viewport.Scaling3DScale = scale;
         }
         RenderingServer.DirectionalShadowAtlasSetSize(profile.DirectionalShadowAtlasPixels, true);
-        GD.Print($"OPENNV_PRESENTATION_SCALE scale={scale:0.00} mode={viewport.Scaling3DMode}");
         GD.Print($"OPENNV_QUALITY profile={_quality.Kind.ToString().ToLowerInvariant()} source={_quality.Source} " +
-            $"processor=\"{OS.GetProcessorName()}\" renderScale={scale:0.00} sunShadowSplits={profile.SunShadowSplits} " +
-            $"sunShadowDistanceScale={profile.SunShadowDistanceScale:0.00} directionalShadowAtlas={profile.DirectionalShadowAtlasPixels} " +
-            $"grassStartFadeScale={profile.GrassStartFadeScale:0.00} treeGeometryDistanceScale={profile.TreeGeometryDistanceScale:0.00}");
-        if (_frameHitches is null && OpenNV.Runtime.Diagnostics.RuntimeFrameHitches.FromEnvironment() is { } hitches) AddChild(_frameHitches = hitches);
-        if (!_options.ContainsKey("show-fps") || _fpsLabel is not null) return;
-        var layer = new CanvasLayer { Layer = 126 };
-        _fpsLabel = new Label { Position = new Vector2(12, 8), MouseFilter = Control.MouseFilterEnum.Ignore };
-        _fpsLabel.AddThemeColorOverride("font_color", new Color(.35f, 1f, .55f));
-        layer.AddChild(_fpsLabel);
-        AddChild(layer);
-        // GPU against CPU frame time tells whether a scene is fill- or script-bound;
-        // the periodic log line lets a device run be read back afterwards.
-        var viewportRid = viewport.GetViewportRid();
-        RenderingServer.ViewportSetMeasureRenderTime(viewportRid, true);
-        var ticks = 0;
-        var timer = new Godot.Timer { WaitTime = .5, Autostart = true, ProcessMode = ProcessModeEnum.Always };
-        timer.Timeout += () =>
-        {
-            var gpu = RenderingServer.ViewportGetMeasuredRenderTimeGpu(viewportRid);
-            var cpu = Performance.GetMonitor(Performance.Monitor.TimeProcess) * 1000;
-            _fpsLabel.Text = $"{Engine.GetFramesPerSecond():0} FPS  gpu {gpu:0.0}ms  cpu {cpu:0.0}ms  {scale:0.00}x";
-            if (++ticks % 10 == 0)
-                GD.Print($"OPENNV_FPS fps={Engine.GetFramesPerSecond():0} gpuMs={gpu:0.0} processMs={cpu:0.0} " +
-                    $"drawCalls={Performance.GetMonitor(Performance.Monitor.RenderTotalDrawCallsInFrame):0} " +
-                    $"primitives={Performance.GetMonitor(Performance.Monitor.RenderTotalPrimitivesInFrame):0}");
-        };
-        layer.AddChild(timer);
+            $"processor=\"{OS.GetProcessorName()}\" renderScale={scale:0.00} scalingMode={viewport.Scaling3DMode} " +
+            $"sunShadowSplits={profile.SunShadowSplits} sunShadowDistanceScale={profile.SunShadowDistanceScale:0.00} " +
+            $"directionalShadowAtlas={profile.DirectionalShadowAtlasPixels} grassStartFadeScale={profile.GrassStartFadeScale:0.00} " +
+            $"treeGeometryDistanceScale={profile.TreeGeometryDistanceScale:0.00}");
+        if (_frameHitches is null && Diagnostics.RuntimeFrameHitches.FromEnvironment() is { } hitches) AddChild(_frameHitches = hitches);
+        if (_options.ContainsKey("show-fps") && _frameRateOverlay is null) AddChild(_frameRateOverlay = new(scale));
     }
 
-    private Label? _fpsLabel;
-    private OpenNV.Runtime.Diagnostics.RuntimeFrameHitches? _frameHitches;
+    private Diagnostics.RuntimeFrameRateOverlay? _frameRateOverlay;
+    private Diagnostics.RuntimeFrameHitches? _frameHitches;
     private RuntimePresentationQuality _quality = null!;
 
-    // Platforms without a command line (iOS) read the same arguments, one per
-    // line, from Documents/OpenNV/launch-args.txt. {documents} expands to the
-    // sandboxed Documents folder, whose absolute path changes per install.
     private static string[] LaunchArguments()
     {
         var arguments = OS.GetCmdlineUserArgs();
         if (arguments.Length != 0) return arguments;
         var documents = System.Environment.GetFolderPath(System.Environment.SpecialFolder.MyDocuments);
-        var file = Path.Combine(documents, "OpenNV", "launch-args.txt");
-        if (string.IsNullOrEmpty(documents) || !File.Exists(file)) return arguments;
-        // An option line may also carry its value ("--render-scale 0.6").
-        return File.ReadAllLines(file).Select(line => line.Trim())
-            .Where(line => line.Length != 0 && !line.StartsWith('#'))
-            .SelectMany(line => line.StartsWith("--", StringComparison.Ordinal) && line.IndexOfAny([' ', '\t']) is > 0 and var split
-                ? new[] { line[..split], line[(split + 1)..].Trim() } : [line])
-            .Select(line => line.Replace("{documents}", documents, StringComparison.Ordinal)).ToArray();
+        if (string.IsNullOrEmpty(documents)) return arguments;
+        var file = RuntimeLaunchArgumentsFile.PathIn(documents);
+        return File.Exists(file) ? RuntimeLaunchArgumentsFile.Parse(File.ReadAllLines(file), documents) : arguments;
     }
 
     private static Dictionary<string, string> ParseOptions(string[] arguments)

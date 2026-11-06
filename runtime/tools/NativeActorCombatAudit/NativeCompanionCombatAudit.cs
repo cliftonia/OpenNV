@@ -47,7 +47,7 @@ public partial class NativeActorCombatAudit
         floorShape.SetMeta("opennv_havok_material", 0u); // Explicit stone material for this synthetic floor.
         floor.AddChild(floorShape); AddChild(floor);
         var context = new NativeActorCombatContext(() => player, () => new(1, 200, 200, 70, 70, 0, 100),
-            (_, _) => throw new InvalidOperationException("Companion fixture hit its player."), (_, to) => [to],
+            (_, _, _) => throw new InvalidOperationException("Companion fixture hit its player."), (_, to) => [to],
             _ => true, () => 1, globals, .4f, 9.81f);
         try
         {

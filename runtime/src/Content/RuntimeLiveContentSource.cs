@@ -561,7 +561,7 @@ internal sealed partial class RuntimeLiveContentSource : IDisposable
         return result;
     }
 
-    private static string ComputeLiveIdentity(
+    internal static string ComputeLiveIdentity(
         IReadOnlyList<FalloutPluginSource> plugins,
         IReadOnlyList<string> archives,
         IReadOnlyList<string> layers,

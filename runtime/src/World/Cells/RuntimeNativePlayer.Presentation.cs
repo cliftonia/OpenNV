@@ -28,6 +28,25 @@ internal partial class RuntimeNativePlayer
     private string? _presentationError;
     private bool _thirdPersonMode, _aiming;
     private FalloutWeaponSight? _weaponSight;
+
+    // The player's own first- and third-person 3D, the receiver of player
+    // SetActorAlpha and PlayMagicShaderVisuals. Script alpha belongs to the
+    // session's player process: unsaved, but kept across model rebuilds.
+    internal IEnumerable<Node3D> SelfPresentation => new Node3D?[] { _firstPerson, _thirdPerson }.OfType<Node3D>();
+    private float _scriptAlpha = 1;
+
+    internal void SetScriptAlpha(float alpha)
+    {
+        if (!float.IsFinite(alpha) || alpha is < 0 or > 1) throw new InvalidDataException("Player script alpha must be normalized.");
+        _scriptAlpha = alpha;
+        PublishScriptAlpha();
+    }
+
+    private void PublishScriptAlpha()
+    {
+        foreach (var actor in SelfPresentation)
+            RuntimeNativeReferenceOpacity.Publish(SceneGraph.NodeTraversal.SelfAndDescendants<GeometryInstance3D>(actor), _scriptAlpha);
+    }
     private bool WeaponAiming => _aiming && _weaponHandling is { Drawn: true } && FalloutWeaponSight.CanAim(_firstPerson?.Weapon);
     private readonly Godot.Collections.Array<Rid> _selfQueryBodies = [];
     private float _thirdPersonDistance = 2;
@@ -349,6 +368,7 @@ internal partial class RuntimeNativePlayer
             _firstPerson?.QueueFree(); _thirdPerson?.QueueFree();
             _firstPerson = first; _thirdPerson = third;
             first = third = null;
+            if (_scriptAlpha != 1) PublishScriptAlpha();
             _firstPerson.SetDrawn(_weaponHandling!.Drawn); _thirdPerson?.SetDrawn(_weaponHandling.Drawn);
             if (_xr is null) _firstPersonView!.AddChild(_firstPerson);
             else

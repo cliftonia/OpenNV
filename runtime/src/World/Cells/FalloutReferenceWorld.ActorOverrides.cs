@@ -78,6 +78,7 @@ internal sealed partial class FalloutReferenceWorld
                     !FormOverride(hair.Form.Value, "HAIR", 0).Sha256.Equals(hair.Sha256, StringComparison.OrdinalIgnoreCase))))
                 throw new InvalidDataException("Saved actor hair differs from its winning source.");
             if (snapshot.FaceGeometry is { } face) ValidateFaceGeometry(snapshot, face);
+            _ = FalloutCriticalStage.Require(snapshot.CriticalStage);
             if (snapshot.NpcRadio is { } radio)
             {
                 if (radio.Value != 1 || records.GetEffective(snapshot.Target).Signature is not ("ACHR" or "ACRE") ||

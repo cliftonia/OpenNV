@@ -120,7 +120,7 @@ internal static class ScriptCapabilityMap
             events.Values.Sum(group => group.Operations.Values.Sum(operation => operation.Errors)) != errors ||
             events.Values.Sum(group => group.Operations.Values.Sum(operation => operation.Uninspected)) != unknown)
             throw new InvalidDataException("Statement map does not match the source audit denominator.");
-        var dispatch = ScriptDispatchIndex.Read(Path.GetFullPath(repository));
+        var dispatch = RuntimeDispatchIndex.Strings(Path.GetFullPath(repository), RuntimeDispatchIndex.Statements);
         var failedSourceBodies = FailedSourceBodies(root, report.GetProperty("parsedSourceFailures").GetInt64());
         var output = new
         {
@@ -148,14 +148,14 @@ internal static class ScriptCapabilityMap
                             declarationSignatures = operation.Value.Declarations, controlFlow = operation.Value.ControlFlow,
                             inspectionErrors = operation.Value.Errors, reasons = operation.Value.Reasons,
                             exampleSources = operation.Value.Examples,
-                            literalDispatchSites = dispatch.Operations.TryGetValue(operation.Key, out var sites) ? sites : [] }) }),
+                            literalDispatchSites = dispatch.Names.TryGetValue(operation.Key, out var sites) ? sites : [] }) }),
             operations = groups.OrderByDescending(pair => pair.Value.Uninspected + pair.Value.Errors)
                 .ThenBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
                 .Select(pair => new { operation = pair.Key, statements = pair.Value.Statements, sourceBodies = pair.Value.Owners.Count,
                     dispatchNotInspected = pair.Value.Uninspected, declarationSignatures = pair.Value.Declarations,
                     controlFlow = pair.Value.ControlFlow, inspectionErrors = pair.Value.Errors,
                     exampleSources = pair.Value.Examples, reasons = pair.Value.Reasons,
-                    literalDispatchSites = dispatch.Operations.TryGetValue(pair.Key, out var sites) ? sites : [] })
+                    literalDispatchSites = dispatch.Names.TryGetValue(pair.Key, out var sites) ? sites : [] })
         };
         Console.WriteLine(JsonSerializer.Serialize(output));
         return 0;

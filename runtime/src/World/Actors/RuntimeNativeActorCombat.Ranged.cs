@@ -369,7 +369,7 @@ internal sealed partial class RuntimeNativeActorCombat
             {
                 healthBefore = _context!.Vitals().ExactHitPoints;
                 _world.RecordActorWeaponContact(_records.RuntimeFormKey(0x14), _state.Reference, shot.Weapon, damage.WeaponScriptInstance);
-                _context.DamagePlayer(damage, part!.Value);
+                _context.DamagePlayer(damage, part!.Value, _enemyWeaponHandling!.NextShotRandomUnit);
                 player!.ReceiveWeaponTouchEffects(_state.Reference, shot.Weapon);
                 healthAfter = _context.Vitals().ExactHitPoints;
                 _hits++;
@@ -400,7 +400,7 @@ internal sealed partial class RuntimeNativeActorCombat
 
         if (collider is not null && RuntimeNativeDestructible.Find(collider) is { } destructible)
         {
-            try { destructible.Hit(damage.Amount, _state.Reference); }
+            try { destructible.Hit(damage.Unmitigated, _state.Reference); }
             catch (Exception error)
             {
                 damageError = error.Message;
@@ -586,7 +586,7 @@ internal sealed partial class RuntimeNativeActorCombat
         if (shot.Projectile.ExplosionSource is not null) return;
         var hitReference = contact.Collider is null ? null : _context?.CollisionReference?.Invoke(contact.Collider.GetInstanceId());
         if (contact.Collider is { } objectCollider && RuntimeNativeDestructible.Find(objectCollider) is { } destructible)
-            destructible.Hit(damage.Amount, _state.Reference);
+            destructible.Hit(damage.Unmitigated, _state.Reference);
         byte? part = null;
         float? healthBefore = null;
         float? healthAfter = null;
@@ -596,7 +596,7 @@ internal sealed partial class RuntimeNativeActorCombat
             part = contact.Collider == player ? (byte)0 : player.CombatHitPart(contact.Collider!);
             healthBefore = _context!.Vitals().ExactHitPoints;
             _world.RecordActorWeaponContact(_records.RuntimeFormKey(0x14), _state.Reference, shot.Weapon, damage.WeaponScriptInstance);
-            _context.DamagePlayer(damage, part.Value);
+            _context.DamagePlayer(damage, part.Value, _enemyWeaponHandling!.NextShotRandomUnit);
             player.ReceiveWeaponTouchEffects(_state.Reference, shot.Weapon);
             healthAfter = _context.Vitals().ExactHitPoints;
             _hits++;

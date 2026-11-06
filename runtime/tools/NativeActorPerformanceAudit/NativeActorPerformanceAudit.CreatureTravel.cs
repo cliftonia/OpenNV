@@ -54,7 +54,7 @@ public partial class NativeActorPerformanceAudit
             var floor = new StaticBody3D { Position = origin - Vector3.Up * .05f };
             floor.AddChild(new CollisionShape3D { Shape = new BoxShape3D { Size = new(100, .1f, 100) } }); fixture.AddChild(floor);
             var context = new NativeActorCombatContext(() => null, () => throw new InvalidOperationException("Fixture queried player vitals."),
-                (_, _) => throw new InvalidOperationException("Fixture attacked the player."),
+                (_, _, _) => throw new InvalidOperationException("Fixture attacked the player."),
                 (from, to) => navigation.FindPath(Source(from), Source(to)).Select(Native).ToArray(),
                 _ => true, () => 1, globals, .4f, 9.81f, PlayerCell: () => cell.Cell.FormKey);
             var effects = new List<FalloutReferenceScriptEffect>();

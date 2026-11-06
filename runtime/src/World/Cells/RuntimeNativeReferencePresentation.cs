@@ -336,6 +336,10 @@ internal partial class RuntimeNativeReferencePresentation : Node
             foreach (var actor in Actors) SynchronizeActorAppearance?.Invoke(actor);
             _publishedAppearanceRevision = appearanceRevision;
         }
+        // A translucent actor's equipment can change without a revision; keep
+        // its current geometry at the script alpha.
+        foreach (var key in _world.TranslucentActors)
+            if (_nodes.ContainsKey(key)) { _publishedOpacity.Remove(key); PublishOpacity(key); }
         var stateRevision = _world.PresentationRevision;
         if (_publishedStateRevision == stateRevision) return;
         foreach (var reference in _references)
@@ -360,9 +364,16 @@ internal partial class RuntimeNativeReferencePresentation : Node
 
     private void PublishOpacity(FalloutFormKey key)
     {
-        if (!_fadeGeometry.TryGetValue(key, out var geometry)) return;
         var opacity = _world.Get(key).Opacity;
+        // Rendered actor alpha is the script alpha times the fade alpha, over
+        // the actor's whole current 3D (collected at publication, so attached
+        // or removed equipment and freed nodes are never stale).
+        var actor = _nodes.TryGetValue(key, out var node) && GodotObject.IsInstanceValid(node) &&
+            node is OpenNV.Runtime.World.Actors.RuntimeNativeNpc or OpenNV.Runtime.World.Actors.RuntimeNativeCreature;
+        if (actor) opacity *= _world.ActorAlpha(key);
+        else if (!_fadeGeometry.ContainsKey(key)) return;
         if (_publishedOpacity.TryGetValue(key, out var previous) && previous == opacity) return;
+        var geometry = actor ? SceneGraph.NodeTraversal.SelfAndDescendants<GeometryInstance3D>(node!).ToArray() : _fadeGeometry[key];
         RuntimeNativeReferenceOpacity.Publish(geometry, opacity);
         _publishedOpacity[key] = opacity;
     }

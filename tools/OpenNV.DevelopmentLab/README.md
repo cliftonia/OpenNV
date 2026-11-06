@@ -47,6 +47,19 @@ execution ownership are reported independently. Numeric values and loop counts
 are unbounded, so this is authored alternative coverage, not an exhaustive
 simulation of every possible game state. See [the audit contract](../../docs/quest-graph-audit.md).
 
+`completeness --data-root <installation> [--mod-stack <list.json>] [--out <report.md>]`
+measures how much of the selected load order the current runtime handles. Demand
+is every live winning record's script statements, expression calls, CTDA
+functions and PACK procedures, plus compiled-only programs. Expression-call
+supply is the runtime's own function dispatch, asked during static inspection.
+Statement, condition and package supply is read from the current dispatch source
+by `RuntimeDispatchIndex`, which follows guards, helpers and registries from the
+named dispatch roots and fails if a root disappears; it does not evaluate guard
+conditions or owner availability. Each quest reaches its own record, attached
+script, QSTI dialogue and one hop of referenced packages and scripts; a quest is
+blocked by any unsupported dependency. The Markdown report is owned-derived and
+is refused inside the data roots or the repository.
+
 `script-capability-map` reads a completed private quest-graph audit and joins
 its statement operations to literal dispatch guards in the current repository
 source. It verifies the statement totals, includes source hashes and reports

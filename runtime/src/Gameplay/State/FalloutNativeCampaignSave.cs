@@ -73,6 +73,7 @@ internal sealed record FalloutNativeCampaignState(
     FalloutRuntimeReferencesSnapshot? RuntimeReferences = null, IReadOnlyList<FalloutDynamicMineSnapshot>? DynamicMines = null,
     FalloutDeliveredEffectsSnapshot? DeliveredEffects = null, FalloutCellOwnershipSnapshot? CellOwnership = null,
     FalloutCasinoWinningsSnapshot? CasinoWinnings = null, FalloutActorNamesSnapshot? ActorNames = null,
+    IReadOnlyList<FalloutCellImageSpaceChange>? CellImageSpaces = null,
     FalloutSecuritronFacesSnapshot? SecuritronFaces = null);
 internal sealed record FalloutNativeCampaignRestore(
     FalloutNativeCampaignState State,
@@ -81,8 +82,11 @@ internal sealed record FalloutNativeCampaignRestore(
 
 internal static class FalloutNativeCampaignSave
 {
-    internal const string ExpectedSchema = "opennv-native-fnv-campaign-save/v74";
-    internal const string BeforeSecuritronFacesSchema = "opennv-native-fnv-campaign-save/v73";
+    internal const string ExpectedSchema = "opennv-native-fnv-campaign-save/v77";
+    internal const string BeforeSecuritronFacesSchema = "opennv-native-fnv-campaign-save/v76";
+    internal const string BeforeScriptCommandStateSchema = "opennv-native-fnv-campaign-save/v75";
+    internal const string BeforeCriticalStageSchema = "opennv-native-fnv-campaign-save/v74";
+    internal const string BeforeHardcoreNeedsSchema = "opennv-native-fnv-campaign-save/v73";
     internal const string BeforeCasinoWinningsSchema = "opennv-native-fnv-campaign-save/v72";
     internal const string BeforeDynamicMineSchema = "opennv-native-fnv-campaign-save/v71";
     internal const string BeforeMineSchema = "opennv-native-fnv-campaign-save/v70";
@@ -435,6 +439,7 @@ internal static class FalloutNativeCampaignSave
             if (state.ActorBaseFlags is { } baseFlags) references.ActorBaseFlags.Restore(baseFlags);
             references.RestoreCellOwnership(state.CellOwnership);
             references.RestoreActorNames(state.ActorNames);
+            references.RestoreCellImageSpaces(state.CellImageSpaces);
             references.RuntimeReferences.Restore(state.RuntimeReferences, state.TransientExplosions);
             references.TransientExplosions.Restore(state.TransientExplosions);
             references.RestoreDynamicMines(state.DynamicMines);
@@ -658,6 +663,22 @@ internal static class FalloutNativeCampaignSave
         if (state.SecuritronFaces is not null && state.References is null)
             throw new InvalidDataException("Saved Securitron faces have no reference world.");
         if (state.Schema == BeforeSecuritronFacesSchema) state = state with { Schema = ExpectedSchema };
+        if (state.Schema != ExpectedSchema && (state.CellImageSpaces is not null ||
+            state.References?.Any(reference => reference.OwnershipOverride is { Owner: null }) == true))
+            throw new InvalidDataException("Earlier campaign schemas cannot own cell image spaces or cleared ownership.");
+        if (state.CellImageSpaces is not null && state.References is null)
+            throw new InvalidDataException("Saved cell image spaces have no reference world.");
+        if (state.Schema == BeforeScriptCommandStateSchema) state = state with { Schema = ExpectedSchema };
+        if (state.Schema != ExpectedSchema && (state.ActorOverrides?.Any(actor => actor.CriticalStage != 0) == true ||
+            state.References?.Any(reference => reference.VatsTargetInverted) == true))
+            throw new InvalidDataException("Earlier campaign schemas cannot own critical stages or VATS target overrides.");
+        // Earlier mine damage lacks the post-threshold fields; JSON leaves them zero.
+        if (state.Schema != ExpectedSchema && state.DynamicMines is { } priorMines)
+            state = state with { DynamicMines = priorMines.Select(mine => mine with { Damage = mine.Damage.FromPriorSchema() }).ToArray() };
+        if (state.Schema == BeforeCriticalStageSchema) state = state with { Schema = ExpectedSchema };
+        if (state.Schema != ExpectedSchema && state.Vitals?.HasNeeds == true)
+            throw new InvalidDataException("Earlier campaign schemas cannot own Hardcore need values.");
+        if (state.Schema == BeforeHardcoreNeedsSchema) state = state with { Schema = ExpectedSchema };
         if (state.Schema != ExpectedSchema && state.CasinoWinnings is not null)
             throw new InvalidDataException("Earlier campaign schemas cannot own casino winnings.");
         if (state.CasinoWinnings is not null && state.References is null)

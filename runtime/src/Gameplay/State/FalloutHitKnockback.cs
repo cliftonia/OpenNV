@@ -28,28 +28,43 @@ internal sealed record FalloutHitKnockback(float RateX, float RateY, float RateZ
         return ((FalloutActorBaseFlags)BinaryPrimitives.ReadUInt32LittleEndian(acbs) & FalloutActorBaseFlags.NotPushable) != 0;
     }
 
+    private static float Setting(FalloutPluginStack records, string name)
+    {
+        var value = FalloutGameSettingFloats.Read(records, name);
+        return float.IsFinite(value) ? value : throw new InvalidDataException($"Knockback setting {name} is not finite.");
+    }
+
+    // The Agility knockback force for an integer damage/force term. Agility
+    // lowers it; a sufficiently negative term reverses its direction.
+    internal static float Force(FalloutPluginStack records, float agility, int amount)
+    {
+        if (!float.IsFinite(agility)) throw new InvalidDataException("Knockback Agility is not finite.");
+        var force = (Setting(records, "fKnockbackAgilBase") + 10 * agility * Setting(records, "fKnockbackAgilMult")) *
+            (Setting(records, "fKnockbackDamageBase") + amount * Setting(records, "fKnockbackDamageMult"));
+        return float.IsFinite(force) ? force : throw new InvalidDataException("Knockback force is not finite.");
+    }
+
     internal static FalloutHitKnockback? Request(FalloutPluginStack records, float agility, float weaponBaseDamage,
         Vector3 direction, float unitsToMeters, FalloutHitKnockback? current)
     {
         // Native hit-payload weapon damage already includes skill/condition
         // and precedes armor mitigation; it is not raw WEAP DATA damage.
-        Validate(current);
-        if (!float.IsFinite(agility) || !float.IsFinite(weaponBaseDamage) || weaponBaseDamage < 0 ||
-            weaponBaseDamage >= int.MaxValue || !float.IsFinite(direction.LengthSquared()) ||
-            !float.IsFinite(unitsToMeters) || unitsToMeters <= 0)
+        if (!float.IsFinite(weaponBaseDamage) || weaponBaseDamage < 0 || weaponBaseDamage >= int.MaxValue)
             throw new InvalidDataException("Hit knockback inputs are not finite and source-valid.");
-        float Setting(string name)
-        {
-            var value = FalloutGameSettingFloats.Read(records, name);
-            return float.IsFinite(value) ? value : throw new InvalidDataException($"Knockback setting {name} is not finite.");
-        }
-        var duration = Setting("fKnockbackTime");
-        var maximum = Setting("fKnockbackForceMax");
-        if (duration <= 0 || maximum < 0) throw new NotSupportedException("Nonpositive knockback time or negative force limit is unbound.");
-        var force = (Setting("fKnockbackAgilBase") + 10 * agility * Setting("fKnockbackAgilMult")) *
-            (Setting("fKnockbackDamageBase") + (int)weaponBaseDamage * Setting("fKnockbackDamageMult"));
-        force = Math.Min(force, maximum);
-        if (!float.IsFinite(force)) throw new InvalidDataException("Hit knockback force is not finite.");
+        var maximum = Setting(records, "fKnockbackForceMax");
+        if (maximum < 0) throw new NotSupportedException("Negative knockback force limit is unbound.");
+        return Push(records, Math.Min(Force(records, agility, (int)weaponBaseDamage), maximum), direction, unitsToMeters, current);
+    }
+
+    // Retained controller motion of the given force along the direction.
+    internal static FalloutHitKnockback? Push(FalloutPluginStack records, float force, Vector3 direction, float unitsToMeters,
+        FalloutHitKnockback? current)
+    {
+        Validate(current);
+        if (!float.IsFinite(force) || !float.IsFinite(direction.LengthSquared()) || !float.IsFinite(unitsToMeters) || unitsToMeters <= 0)
+            throw new InvalidDataException("Hit knockback inputs are not finite and source-valid.");
+        var duration = Setting(records, "fKnockbackTime");
+        if (duration <= 0) throw new NotSupportedException("Nonpositive knockback time is unbound.");
         if (direction.LengthSquared() == 0) return current;
         var rate = Vector3.Normalize(direction) * (force * unitsToMeters / duration);
         if (rate.LengthSquared() <= (current?.Rate.LengthSquared() ?? 0)) return current;

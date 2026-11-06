@@ -33,6 +33,18 @@ internal partial class RuntimeNativePlayer
             weaponBaseDamage, new(direction.X, direction.Y, direction.Z), UnitsToMeters, _hitKnockback);
     }
 
+    // Scripted PushActorAway on the player: the Agility knockback force of the
+    // integer Force, away from the caller's source-space position.
+    internal void ScriptPushAway(System.Numerics.Vector3 origin, int amount)
+    {
+        if (IsDefeated?.Invoke() == true || _knockbackNotPushable) return;
+        var records = _presentationRecords ?? throw new InvalidOperationException("Player knockback has no source owner.");
+        var direction = GlobalPosition - new Vector3(origin.X, origin.Z, -origin.Y) * UnitsToMeters;
+        var force = FalloutHitKnockback.Force(records,
+            (_combatActorValue ?? throw new InvalidOperationException("Player knockback has no actor values."))(10), amount);
+        _hitKnockback = FalloutHitKnockback.Push(records, force, new(direction.X, direction.Y, direction.Z), UnitsToMeters, _hitKnockback);
+    }
+
     private Vector3 AdvanceHitKnockback(double delta)
     {
         if (IsDefeated?.Invoke() == true) _hitKnockback = null;

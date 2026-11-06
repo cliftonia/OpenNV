@@ -11,7 +11,7 @@ internal static partial class RuntimeNativeExplosionCombat
     internal static object Detonate(Node3D owner, Node3D shooter, FalloutPluginStack records,
         FalloutExplosion explosion, FalloutWeaponDamage damage, Vector3 point, uint collisionMask,
         float unitsToMeters, FalloutFormKey attacker, int level, FalloutGlobalState globals,
-        RuntimeNativePlayer? player, Action<FalloutWeaponDamage, byte>? damagePlayer,
+        RuntimeNativePlayer? player, Action<FalloutWeaponDamage, byte, Func<float>?>? damagePlayer,
         uint? weaponOnHitBehavior = null, Func<float>? nextWeaponRandomUnit = null)
     {
         ArgumentNullException.ThrowIfNull(owner);
@@ -107,7 +107,7 @@ internal static partial class RuntimeNativeExplosionCombat
         // All source effect declarations and selected target conditions have
         // passed before the first value, exposure or health mutation.
         player?.ReceiveExplosionExposure(explosion, point);
-        if (playerPart is { } hitPart) damagePlayer!(damage, hitPart);
+        if (playerPart is { } hitPart) damagePlayer!(damage.ForExplosion, hitPart, null);
 
         var actorHits = new List<object>();
         foreach (var target in actorContacts)
@@ -144,7 +144,7 @@ internal static partial class RuntimeNativeExplosionCombat
                 using var obstruction = space.IntersectRay(ray);
                 if (obstruction.Count != 0) continue;
             }
-            var applied = destructible.Hit(damage.Amount, attacker);
+            var applied = destructible.Hit(damage.Unmitigated, attacker);
             objectHits.Add(new { damage = applied, state = destructible.Observation });
         }
         foreach (var body in rigidTargets)

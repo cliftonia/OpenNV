@@ -31,7 +31,8 @@ internal sealed partial class FalloutReferenceWorld
     private FalloutIngestible ActorIngestible(FalloutFormKey item)
     {
         if (!_actorIngestibles.TryGetValue(item, out var source))
-            _actorIngestibles.Add(item, source = FalloutIngestible.Read(records, item));
+            _actorIngestibles.Add(item, source = records.GetEffective(item).Signature == "SPEL"
+                ? FalloutIngestible.ReadActorEffect(records, item) : FalloutIngestible.Read(records, item));
         return source;
     }
 
@@ -77,30 +78,12 @@ internal sealed partial class FalloutReferenceWorld
                 throw new NotSupportedException("World food needs its exact single-reference consumption owner.");
         }
         else if (inventory.Item(item) is not { Count: > 0 }) throw new InvalidOperationException("Actor inventory contains no selected food.");
-        var effects = source.Effects.Where(effect => FalloutCondition.AllPass(effect.Conditions, condition =>
-            condition.RunOn == 0 ? condition.Function switch
-            {
-                586 when condition.Argument1 == 0 && condition.Argument2 == 0 => hardcore ? 1 : 0,
-                449 when condition.Argument2 == 0 => AcquiredPerks(reference).Contains(condition.FormArgument1) ? 1 : 0,
-                _ => throw new NotSupportedException("Actor ingestible condition is unbound.")
-            } : throw new NotSupportedException("Actor ingestible condition has an unbound subject."))).ToArray();
         var beforeValues = new Dictionary<string, FalloutActorValue>(actor.ActorValues);
-        var afterValues = new Dictionary<string, FalloutActorValue>(beforeValues);
-        var beforeInjury = actor.Injury!; var afterInjury = beforeInjury;
+        var beforeInjury = actor.Injury!;
         var before = actor.Ingestibles;
-        var active = before?.Effects.ToList() ?? [];
-        foreach (var effect in effects)
-        {
-            FalloutIngestibleApplications.Validate(effect, value => value is >= 5 and <= 11);
-            var magnitude = FalloutIngestibleApplications.Magnitude(records, source, effect,
-                value => value == 20 ? ActorRadiationResistance(reference, level, globals) :
-                    ActorValue(reference, FalloutActorValue.SourceSlot(value)), player: false);
-            if (FalloutIngestibleApplications.Reversible(effect)) Modify(effect.ActorValue, magnitude);
-            else if (effect.EffectiveDuration == 0) ApplyActorIngestibleIncrement(reference, afterValues, ref afterInjury, effect, magnitude);
-            if (effect.EffectiveDuration > 0) active.Add(new(item, effect.Index, source.Hash, effect.Hash, magnitude, 0, effect.EffectiveDuration));
-        }
+        var (afterValues, afterInjury, active) = ActorEffectOutcome(reference, actor, source, level, globals, hardcore);
         var revision = inventory.Revision; var used = false;
-        var after = new FalloutActorIngestiblesSnapshot(active.ToArray());
+        var after = active;
         return new(source.Sound, () =>
         {
             if (used || inventory.Revision != revision || !ReferenceEquals(actor.Injury, beforeInjury) ||
@@ -122,6 +105,36 @@ internal sealed partial class FalloutReferenceWorld
             return new(item, true, health.Current, afterValues["health"].Current);
         });
 
+    }
+
+    // Selected effects of one ingestible or actor effect applied to an actor:
+    // reversible modifiers and instant increments, plus the timed remainder.
+    private (Dictionary<string, FalloutActorValue> Values, FalloutActorInjury Injury, FalloutActorIngestiblesSnapshot Active)
+        ActorEffectOutcome(FalloutFormKey reference, FalloutReferenceInstance actor, FalloutIngestible source, int level,
+            FalloutGlobalState? globals, bool hardcore)
+    {
+        var effects = source.Effects.Where(effect => FalloutCondition.AllPass(effect.Conditions, condition =>
+            condition.RunOn == 0 ? condition.Function switch
+            {
+                586 when condition.Argument1 == 0 && condition.Argument2 == 0 => hardcore ? 1 : 0,
+                449 when condition.Argument2 == 0 => AcquiredPerks(reference).Contains(condition.FormArgument1) ? 1 : 0,
+                _ => throw new NotSupportedException("Actor ingestible condition is unbound.")
+            } : throw new NotSupportedException("Actor ingestible condition has an unbound subject."))).ToArray();
+        var afterValues = new Dictionary<string, FalloutActorValue>(actor.ActorValues);
+        var afterInjury = actor.Injury!;
+        var active = actor.Ingestibles?.Effects.ToList() ?? [];
+        foreach (var effect in effects)
+        {
+            FalloutIngestibleApplications.Validate(effect, value => value is >= 5 and <= 11);
+            var magnitude = FalloutIngestibleApplications.Magnitude(records, source, effect,
+                value => value == 20 ? ActorRadiationResistance(reference, level, globals) :
+                    ActorValue(reference, FalloutActorValue.SourceSlot(value)), player: false);
+            if (FalloutIngestibleApplications.Reversible(effect)) Modify(effect.ActorValue, magnitude);
+            else if (effect.EffectiveDuration == 0) ApplyActorIngestibleIncrement(reference, afterValues, ref afterInjury, effect, magnitude);
+            if (effect.EffectiveDuration > 0) active.Add(new(source.Form, effect.Index, source.Hash, effect.Hash, magnitude, 0, effect.EffectiveDuration));
+        }
+        return (afterValues, afterInjury, new(active.ToArray()));
+
         void Modify(int value, float magnitude)
         {
             var slot = FalloutActorValue.SourceSlot(value);
@@ -132,12 +145,32 @@ internal sealed partial class FalloutReferenceWorld
         }
     }
 
+    // CastImmediateOnSelf on an NPC or creature: the spell is cast by the
+    // caller on itself with no cost or aim, only while its cell is attached.
+    // Effects apply at once through the same actor effect owner as ingestion.
+    internal bool CastActorEffectOnSelf(FalloutFormKey reference, FalloutFormKey spell, int level,
+        FalloutGlobalState? globals, bool hardcore)
+    {
+        if (records.RuntimeFormId(reference) == 0x14)
+            throw new InvalidOperationException("The engine player has its own active-effect owner.");
+        if (!IsResident(reference)) return false;
+        var actor = Actor(reference);
+        if (IsDead(reference) || actor.Ingestibles?.Failure is { })
+            throw new NotSupportedException("Actor effect delivery to a dead or failed actor has no lifecycle owner.");
+        var source = ActorIngestible(spell);
+        var (values, injury, active) = ActorEffectOutcome(reference, actor, source, level, globals, hardcore);
+        PublishActorIngestibleValues(actor, values); actor.Injury = injury; actor.Ingestibles = active;
+        return true;
+    }
+
     private static void PublishActorIngestibleValues(FalloutReferenceInstance actor, Dictionary<string, FalloutActorValue> values)
     { actor.ActorValues.Clear(); foreach (var (key, value) in values) actor.ActorValues.Add(key, value); }
 
     private void ApplyActorIngestibleIncrement(FalloutFormKey reference, Dictionary<string, FalloutActorValue> values,
         ref FalloutActorInjury injury, FalloutIngestibleEffect effect, float amount)
     {
+        if (effect.Archetype == FalloutIngestibleApplications.LimbCondition || effect.ActorValue is 73 or 74 or 75)
+            throw new NotSupportedException("Actor limb-condition or Hardcore-need ingestion requires its actor pool owner.");
         if (effect.ActorValue == 54)
         {
             var previous = values.GetValueOrDefault("radiationrads", new(0));

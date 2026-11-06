@@ -94,13 +94,17 @@ internal sealed class FalloutForcedTriggerEvents
         queue.Enqueue(actor);
     }
 
-    // One enter per frame; a physical enter in the same frame keeps precedence.
-    internal FalloutReferenceScriptEvent? Take(FalloutFormKey trigger, bool contactEnterAdmitted)
+    // One entry per frame, admitting OnTriggerEnter and OnTrigger as EnterTrigger
+    // sets both. Events a physical contact already admitted this frame keep
+    // precedence; the request then waits for a later frame.
+    internal IReadOnlyList<FalloutReferenceScriptEvent> Take(FalloutFormKey trigger, IReadOnlyCollection<string> admitted)
     {
-        if (contactEnterAdmitted || !_pending.TryGetValue(trigger, out var queue)) return null;
+        if (admitted.Contains("OnTriggerEnter", StringComparer.OrdinalIgnoreCase) || !_pending.TryGetValue(trigger, out var queue)) return [];
         var actor = queue.Dequeue();
         if (queue.Count == 0) _pending.Remove(trigger);
-        return new("OnTriggerEnter", actor);
+        return admitted.Contains("OnTrigger", StringComparer.OrdinalIgnoreCase)
+            ? [new("OnTriggerEnter", actor)]
+            : [new("OnTriggerEnter", actor), new("OnTrigger", TriggerReferences: new HashSet<FalloutFormKey> { actor })];
     }
 
     internal void Clear(FalloutFormKey trigger) => _pending.Remove(trigger);

@@ -105,7 +105,14 @@ internal static class FalloutPlayerPerkCapabilities
     // points or every source ordering/context is implemented.
     internal static string? NumericOwner(byte entryPoint) => entryPoint switch
     {
-        0 => "FalloutWeaponDamageResolver.Resolve",
+        0 => "FalloutWeaponDamage.AfterThreshold",
+        1 => "FalloutWeaponDamageResolver.Critical:chance",
+        2 => "FalloutWeaponDamageResolver.Critical:damage",
+        6 => "RuntimeNativeOpeningStageDriver.DamagePlayer:limb",
+        36 => "FalloutCriticalHits.Roll:enemy-chance",
+        56 => "FalloutActorDefense.Mitigate:defender-threshold",
+        58 => "FalloutActorDefense.Mitigate:attacker-threshold",
+        69 => "RuntimeNativePlayer.VatsStealthMultiplier",
         9 => "FalloutPlayerExperience.Reward",
         10 => "FalloutLevelUpSkillBudget.ReadBudget",
         20 => "RuntimeNativeOpeningStageDriver.BeginTerminalHacking",
@@ -127,6 +134,8 @@ internal static class FalloutPlayerPerkCapabilities
         if (skillActorValues.Contains(actorValue))
             return pool == FalloutActorValuePool.Damage ? null : "FalloutPlayerSkills.ReadSkill";
         if (actorValue == 13) return "FalloutPlayerSkills.Value:CarryWeight";
+        if (actorValue is 14 or 17) return "FalloutPlayerSkills.Value:derived-combat";
+        if (actorValue is 48 or 49) return "FalloutPlayerSkills.Value:effect-pool";
         if (pool == FalloutActorValuePool.Damage) return null;
         return actorValue switch
         {

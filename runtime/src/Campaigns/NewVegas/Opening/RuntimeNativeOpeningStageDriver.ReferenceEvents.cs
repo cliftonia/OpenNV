@@ -11,6 +11,8 @@ internal partial class RuntimeNativeOpeningStageDriver
 {
     private RuntimeNativeConversation? _conversation;
     private FalloutBodyPartData? _dialoguePlayerBodyParts;
+    private FalloutBodyPartData PlayerBodyParts =>
+        _dialoguePlayerBodyParts ??= FalloutBodyPartData.Read(_pluginStack.GetEffective(_pluginStack.RuntimeFormKey(0x1d)));
     private FalloutReferenceScripts? _resultScripts;
     private FalloutQuestStages? _stageResults;
     private OpenNV.Runtime.Gameplay.State.FalloutPipBoyState? _pipBoy;
@@ -119,12 +121,13 @@ internal partial class RuntimeNativeOpeningStageDriver
                 ReadActorValue: ReadActorValue, ChangeActorValue: ChangeActorValue, Inventory: InventoryCommands, Challenges: _scripts.Challenges,
                 HeadingAngle: ReferenceHeadingAngle, ResetPlayerHealth: _vitals.ResetHealth,
                 CurrentPackage: CurrentActorPackage, Sitting: ActorSitting, TagSkills: _tagSkills, IsInCell: IsInCell, IsHardcore: () => _scripts.Session.Hardcore,
-                RewardXp: value => _experience.Reward(value), RewardKarma: RewardPlayerKarma, GameTime: _gameTime,
+                RewardXp: value => _experience.Reward(value), RewardKarma: RewardPlayerKarma, GameTime: _gameTime, Session: _scripts.Session,
                 IsDead: DialogueActorDead, HealthPercentage: ActorHealthPercentage,
                 MiscStatistic: name => _scripts.MiscStatistics.Read(FalloutMiscStatisticNames.Index(
                     RuntimeLiveContentSource.Current ?? throw new InvalidOperationException("Statistic declarations have no owned source."), name)),
                 IsSneaking: actor => _pluginStack.RuntimeFormId(actor) == 0x14 ? _player.Activity.Sneaking :
-                    throw new NotSupportedException("NPC sneaking query has no retained actor activity owner.")));
+                    throw new NotSupportedException("NPC sneaking query has no retained actor activity owner."),
+                IsImageSpaceActive: modifier => _imageSpaceState.Active.Any(active => active.Source.Form == modifier)));
         _resultScripts = results;
         _stageResults = new(_pluginStack, _quests, results.StageSteps,
             EvaluateMessageCondition, () => !_moviePlaying, evaluateRunOn: true);
@@ -189,10 +192,12 @@ internal partial class RuntimeNativeOpeningStageDriver
             if (id == FalloutActorValueId.Health) return Vitals.ExactHitPoints;
             if (id == FalloutActorValueId.ActionPoints) return Vitals.ActionPoints;
             if (id == FalloutActorValueId.RadiationRads) return Vitals.RadiationRads;
+            if (id is FalloutActorValueId.Dehydration or FalloutActorValueId.Hunger or FalloutActorValueId.SleepDeprivation)
+                return Vitals.Need(value);
             if (FalloutActorValueNames.IsLimb(id))
             {
-                _dialoguePlayerBodyParts ??= FalloutBodyPartData.Read(_pluginStack.GetEffective(_pluginStack.RuntimeFormKey(0x1d)));
-                return _dialoguePlayerBodyParts.LimbCondition(value, Vitals.MaximumHitPoints, Vitals.LimbDamage);
+                var vitals = Vitals;
+                return PlayerBodyParts.LimbCondition(value, vitals.MaximumHitPoints, vitals.LimbDamage);
             }
             return FalloutPlayerActorValues.HasPool(value) ? _playerActorValues.ReadCurrent(value) : _playerSkills.Value(value);
         }
@@ -296,7 +301,7 @@ internal partial class RuntimeNativeOpeningStageDriver
                     .Single(owner => owner.IsProcessing()).ScriptActivate(effect.Target!.Value, effect.Argument!.Value, effect.Enable);
                 break;
             case FalloutReferenceEffectKind.Hardcore:
-                _scripts.Session.Hardcore = effect.Enable;
+                SetHardcore(effect.Enable);
                 break;
             case FalloutReferenceEffectKind.AutoDisplayObjectives:
                 _scripts.Session.AutoDisplayObjectives = effect.Enable;
