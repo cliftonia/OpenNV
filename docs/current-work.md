@@ -120,3 +120,23 @@ shader particles, ShowTutorialMenu, SetPCCanUsePowerArmor, readers of the
 SetNoAvoidance/SetAllVisible flags, and the OnStartCombat, OnReset,
 ScriptEffectUpdate, OnDestructionStageChange, OnMagicEffectHit, OnSell and
 OnActorEquip events.
+
+## AI package coverage
+
+All PKDT general flags are admitted by every package reader; flags without a
+runtime owner print one OPENNV_PACKAGE_DEFERRED line instead of refusing the
+actor's AI. Behaviour flags are inert and type-specific flags are masked to the
+procedure's own bits. Must Complete holds only procedures with a Done owner and
+Must Reach only those with an arrival owner, against lower-priority selections,
+until done, the schedule ends or the package's conditions lapse. Once Per Day
+records the completion day. Door flags lock or unlock the package location's
+interior CELL doors; script-changed locks are left alone (saved, schema v77).
+
+NPC Wander, UseItemAt, Ambush, FleeNotCombat and UseWeapon run as saved step
+lists over the shared movement, activation, combat-start and event owners;
+missing-target packages and CastMagic run as Travel. PackageStepContracts covers
+admission and every step transition. Still visibly deferred and holding (never
+completing): UseWeapon discharge, melee, equip and reload; UseItemAt sitting,
+use idles and consumption; ambush override radius and victim search; heading
+alignment; locations in another navigation region; and creature dispatch of
+these five types. No ordinary-play run has yet exercised them.
