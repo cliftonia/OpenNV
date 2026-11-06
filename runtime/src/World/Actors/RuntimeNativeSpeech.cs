@@ -26,6 +26,7 @@ internal partial class RuntimeNativeSpeech : Node
         internal FalloutDialogueSpeaker? Identity;
         internal FalloutDialogueVoiceBinding? Binding;
         internal FalloutUnrecordedSpeech? Unrecorded;
+        internal FalloutRecordedSpeechClock? Clock;
         internal string? LipSha256;
         internal bool Advance;
         internal bool UtteranceActive;
@@ -233,6 +234,7 @@ internal partial class RuntimeNativeSpeech : Node
         playing = voice.Player.Playing,
         voiceBinding = voice.Binding,
         unrecordedResponse = voice.Unrecorded?.State,
+        recordedClock = voice.Clock?.State,
         responseSound = voice.ResponseSound?.LastEvent,
         audioSha256 = voice.Player.Stream?.GetMeta("opennv_owned_media_sha256", "").AsString(),
         lipSha256 = voice.LipSha256,
@@ -523,7 +525,7 @@ internal partial class RuntimeNativeSpeech : Node
         if (SubtitleCandidates().Length > 1 && _unbound.Add("concurrent-subtitle-selection"))
             GD.PushWarning("OPENNV_NATIVE_SPEECH_UNBOUND concurrent-subtitle-selection candidates=retained-in-telemetry");
         RetireRadioPcm(voice);
-        voice.Binding = null; voice.Unrecorded = null; voice.LipSha256 = null; voice.Advance = false;
+        voice.Binding = null; voice.Unrecorded = null; voice.Clock = null; voice.LipSha256 = null; voice.Advance = false;
         voice.Lip = null; voice.LipWeights = [];
         ClearResponseSound(voice);
         EndListenerAnimation(voice);
@@ -597,6 +599,7 @@ internal partial class RuntimeNativeSpeech : Node
             _unbound.Add("radio-decoder-output-and-retail-mix-unmatched");
         }
         else voice.Player.Stream = NativeOwnedMediaLoader.LoadAudio(voice.Binding.AudioPath);
+        voice.Clock = new(voice.Player.Stream.GetLength(), cold is null ? 0 : cold.Samples.Position / cold.Samples.SourceRate);
         if (cold is not null)
         {
             voice.Advance = cold.Advance || !cold.Samples.Playing && !cold.Samples.StartPending;
@@ -647,6 +650,9 @@ internal partial class RuntimeNativeSpeech : Node
         // A native mixer failure cannot turn into a successful source line end.
         voice.Pcm?.RequireHealthy();
         if (!voice.Advance && voice.Unrecorded is { } unrecorded && unrecorded.Advance(delta)) voice.Advance = true;
+        var unconfirmed = !voice.Advance && voice.Clock is { } clock &&
+            clock.Advance(Engine.TimeScale > 0 ? delta / Engine.TimeScale : 0);
+        if (unconfirmed) ReportUnconfirmedAudio(voice);
         if (voice.Lip is not null)
         {
             voice.Lip.Sample(voice.Player.GetPlaybackPosition(), voice.LipWeights);
@@ -655,8 +661,9 @@ internal partial class RuntimeNativeSpeech : Node
         if (!voice.Advance) return;
         voice.UtteranceActive = false;
         voice.Advance = false;
-        var completionOwner = voice.Unrecorded is null ? "audio-finished" : "source-unrecorded-text-timer";
-        voice.Unrecorded = null;
+        var completionOwner = voice.Unrecorded is not null ? "source-unrecorded-text-timer" :
+            unconfirmed ? "clip-length-bound-audio-unconfirmed" : "audio-finished";
+        voice.Unrecorded = null; voice.Clock = null;
         ClearResponseSound(voice);
         RetireRadioPcm(voice);
         EndListenerAnimation(voice);
@@ -767,8 +774,25 @@ internal partial class RuntimeNativeSpeech : Node
                 voice.Speaker!.ClearSpeechFace(); voice.Speaker.EndResponseAnimation();
             }
             voice.Advance = false;
-            voice.Unrecorded = null;
+            voice.Unrecorded = null; voice.Clock = null;
         }
+    }
+
+    // The device never reported the clip finished within its decoded length.
+    // Stop the playback so a late Finished cannot end the next response, and
+    // keep the gap visible with the mixer's own idle time as evidence.
+    private void ReportUnconfirmedAudio(Voice voice)
+    {
+        var clock = voice.Clock!;
+        var position = voice.Player.GetPlaybackPosition();
+        voice.Player.Stop();
+        voice.Advance = true;
+        _unbound.Add("audio-device-completion-unconfirmed");
+        GD.PushWarning($"OPENNV_NATIVE_SPEECH_AUDIO_UNCONFIRMED info={voice.Info!.Record.FormKey} " +
+            $"response={voice.Info.Responses[voice.ResponseIndex].Number} speaker={voice.Reference} " +
+            $"durationSeconds={clock.DurationSeconds:0.###} elapsedSeconds={clock.ElapsedSeconds:0.###} " +
+            $"playbackSeconds={position:0.###} sinceLastMixSeconds={AudioServer.GetTimeSinceLastMix():0.###} " +
+            $"owner=clip-length-bound parity=unmeasured");
     }
 
     private void RunResults(FalloutDialogueInfo info, FalloutFormKey speaker, bool begin)
