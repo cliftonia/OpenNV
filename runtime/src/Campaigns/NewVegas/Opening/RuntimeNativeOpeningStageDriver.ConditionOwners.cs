@@ -11,6 +11,7 @@ namespace OpenNV.Runtime.Campaigns.NewVegas.Opening;
 internal partial class RuntimeNativeOpeningStageDriver
 {
     private const int MaximumProbeHits = 32;
+    private readonly Dictionary<FalloutFormKey, FalloutActiveEffect[]> _declaredEffects = [];
 
     private void BindConditionOwners()
     {
@@ -24,7 +25,8 @@ internal partial class RuntimeNativeOpeningStageDriver
     private IReadOnlyList<FalloutActiveEffect> PlayerActiveEffects()
     {
         var player = _pluginStack.RuntimeFormKey(0x14);
-        return _playerSkills.SelectedConstantEffects().SelectMany(source => FalloutActiveEffect.Declared(_pluginStack, source))
+        return _playerSkills.SelectedConstantEffects().SelectMany(source => _declaredEffects.TryGetValue(source, out var declared) ? declared :
+                _declaredEffects[source] = FalloutActiveEffect.Declared(_pluginStack, source).ToArray())
             .Concat(_ingestibles.ActiveEffects).Concat(_deliveredEffects.ActiveOn(player)).ToArray();
     }
 
@@ -71,7 +73,7 @@ internal partial class RuntimeNativeOpeningStageDriver
         var to = SceneMetres(end);
         var length = from.DistanceTo(to);
         if (length <= 0) return [];
-        var owners = ReferencePresentation().Nodes.ToDictionary(pair => pair.Value.GetInstanceId(), pair => pair.Key);
+        var presentation = ReferencePresentation();
         var space = _player.GetWorld3D().DirectSpaceState;
         var exclusions = new Godot.Collections.Array<Rid>();
         var hits = new List<FalloutCameraProbeHit>();
@@ -81,7 +83,7 @@ internal partial class RuntimeNativeOpeningStageDriver
             using var hit = space.IntersectRay(query);
             if (hit.Count == 0) break;
             var collider = hit["collider"].AsGodotObject() as Node;
-            var reference = ProbeOwner(collider, owners);
+            var reference = ProbeOwner(collider, presentation);
             hits.Add(new(reference, from.DistanceTo(hit["position"].AsVector3()) / length,
                 reference is { } owner && (owner == _pluginStack.RuntimeFormKey(0x14) ||
                     _pluginStack.GetEffective(owner).Signature is "ACHR" or "ACRE")));
@@ -90,13 +92,7 @@ internal partial class RuntimeNativeOpeningStageDriver
         return hits;
     }
 
-    private FalloutFormKey? ProbeOwner(Node? collider, IReadOnlyDictionary<ulong, FalloutFormKey> owners)
-    {
-        for (var node = collider; node is not null; node = node.GetParent())
-        {
-            if (node == _player) return _pluginStack.RuntimeFormKey(0x14);
-            if (owners.TryGetValue(node.GetInstanceId(), out var reference)) return reference;
-        }
-        return null;
-    }
+    private FalloutFormKey? ProbeOwner(Node? collider, RuntimeNativeReferencePresentation presentation) =>
+        collider is not null && (collider == _player || _player.IsAncestorOf(collider))
+            ? _pluginStack.RuntimeFormKey(0x14) : presentation.OwnerOf(collider);
 }

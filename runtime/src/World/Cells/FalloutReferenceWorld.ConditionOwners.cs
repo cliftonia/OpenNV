@@ -17,15 +17,6 @@ internal sealed partial class FalloutReferenceWorld
     internal int PlayerTeammateCount() => _instances.Values.Count(instance =>
         instance.PlayerTeammate && !instance.Deleted && instance.Injury?.Dead != true);
 
-    // Exists: a non-null placed reference that the winning source has not deleted.
-    internal bool ReferenceExists(FalloutFormKey reference)
-    {
-        if (reference == _enginePlayer) return true;
-        if (!records.TryGetWinner(reference, out var source) || source.IsDeleted ||
-            !FalloutCellSceneReader.IsReferenceType(source.Signature)) return false;
-        return !_instances.TryGetValue(reference, out var instance) || !instance.Deleted;
-    }
-
     private Func<bool>? _playerChangingSpace;
     private Func<FalloutWeatherTransition>? _weather;
     private Func<IReadOnlyList<FalloutActiveEffect>>? _playerActiveEffects;

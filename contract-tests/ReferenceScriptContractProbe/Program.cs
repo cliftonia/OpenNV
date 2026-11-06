@@ -1328,6 +1328,11 @@ if (args is ["--condition-function-contracts"])
     ConditionFunctionContracts.Run();
     return;
 }
+if (args is ["--audit-condition-sources", var conditionSourceGame])
+{
+    OwnedConditionSourceProbe.Run(conditionSourceGame);
+    return;
+}
 if (args is ["--audit-mutable-script-state", var mutableScriptRoot])
 {
     OwnedMutableScriptStateProbe.Run(mutableScriptRoot);

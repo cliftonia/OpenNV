@@ -65,8 +65,8 @@ internal static class ConditionOwnerContracts
 
             Check(Query(Function.GetDestroyed, Key(0x92)) == 0 && Query(Function.GetDestroyed, player) == 0 &&
                 Query(Function.GetDestructionStage, Key(0x92)) == -1, "Destruction queries invented destructible state.");
-            Check(Query(Function.Exists, Key(0x90), 0x92) == 1 && Query(Function.Exists, Key(0x90)) == 0 &&
-                Query(Function.Exists, Key(0x90), 0x50) == 0, "Exists accepted a null or non-reference form.");
+            Check(Query(Function.Exists, Key(0x90), 0x92) == 1 && Query(Function.Exists, Key(0x90)) == 1 &&
+                Query(Function.Exists, Key(0x90), 0x90) == 0, "Exists did not compare its subject with the parameter.");
             Check(Query(Function.IsCombatTarget, Key(0x90), 0x91) == 0, "An idle actor reported a combat target.");
             Check(Query(Function.GetActorFactionPlayerEnemy, Key(0x90)) == 0, "A player enemy faction was invented.");
             world.SetPlayerEnemyOfFaction(Key(0x30), true);

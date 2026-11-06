@@ -1371,7 +1371,7 @@ public partial class RuntimeCoordinator
     // Door loads, fast travel and MoveTo hold the door-loading flag until the
     // destination cell is attached.
     private void BindNativeSessionConditions(FalloutReferenceWorld references) => references.BindSessionConditions(
-        () => _nativeDoorLoading, () => (_nativeSkyLighting ?? throw new InvalidOperationException("Weather query has no sky owner.")).Transition);
+        () => _nativeDoorLoading, () => (_nativeSkyLighting ?? throw new NotSupportedException("Weather query has no sky owner.")).Transition);
     private void RequestNativeDoorTransition(FalloutPlacedReference reference)
     {
         if (_nativeDoorLoading || _nativeSessionTransitioning || _retiringNativeSession) return;

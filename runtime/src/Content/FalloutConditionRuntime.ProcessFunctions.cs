@@ -9,14 +9,14 @@ internal sealed partial class FalloutConditionRuntime
 {
     // Functions whose first parameter is an object or actor reference. An empty
     // CTDA parameter takes the run-on's other reference.
-    private static readonly HashSet<Function> ReferenceParameterFunctions =
-    [
+    internal static readonly IReadOnlySet<Function> ReferenceParameterFunctions = new HashSet<Function>
+    {
         Function.GetDistance, Function.GetInSameCell, Function.GetDetected, Function.GetShouldAttack, Function.GetDisposition,
         Function.GetHeadingAngle, Function.GetIsReference, Function.IsCurrentFurnitureRef, Function.Exists,
         Function.GetFactionRelation, Function.IsPlayerGrabbedRef, Function.IsCombatTarget,
         Function.GetVATSRightAreaFree, Function.GetVATSLeftAreaFree, Function.GetVATSBackAreaFree, Function.GetVATSFrontAreaFree,
         Function.GetVATSRightTargetVisible, Function.GetVATSLeftTargetVisible, Function.GetVATSFrontTargetVisible,
-    ];
+    };
 
     private const uint UnarmedSkill = 45;
     private const byte GuardPackageType = 14;
@@ -82,7 +82,7 @@ internal sealed partial class FalloutConditionRuntime
                 if ((CurrentPackage ?? Required(world, "package state").CurrentPackage)(subject) is not { } package) return -1;
                 // OpenNV runs no trespass-reaction package; a guard's warnings need their procedure.
                 return FalloutPackageData.Read(records.GetEffective(package)).Procedure == GuardPackageType
-                    ? Deferred(condition, "guard-warning-count-has-no-guard-procedure-owner") : -1;
+                    ? throw Unowned(condition, "guard warning count") : -1;
             case Function.HasMagicEffect or Function.IsSpellTarget:
                 SecondUnused(condition);
                 if (!IsActor(subject) || condition.IsNullFormArgument1(records)) return 0;
@@ -102,18 +102,19 @@ internal sealed partial class FalloutConditionRuntime
             case Function.GetIsUsedItemEquipType:
                 SecondUnused(condition); return Required(world, "used-item IDLE selection").QueryUsedItem(condition);
             case Function.GetRadiationLevel:
-                NoArguments(condition); return IsActor(subject) ? NativeValue(subject, condition) : 0;
+                // Irradiated water, hazards and regions have no exposure owner yet.
+                NoArguments(condition); return IsActor(subject) ? throw Unowned(condition, "incoming radiation rate") : 0;
             case Function.GetMajorCrimeCount:
-                NoArguments(condition); return IsActor(subject) ? Deferred(condition, "crime-system-has-no-major-crime-counter") : 0;
+                NoArguments(condition); return IsActor(subject) ? throw Unowned(condition, "major crime count") : 0;
             case Function.GetFriendHit:
-                NoArguments(condition); return IsActor(subject) ? Deferred(condition, "friendly-hit-forgiveness-has-no-hit-record-owner") : 0;
+                NoArguments(condition); return IsActor(subject) ? throw Unowned(condition, "friendly hit record") : 0;
             case Function.HasBeenEaten:
                 NoArguments(condition);
                 // Conditions stop running once the player dies, so only NPC corpses are queried.
-                return subject != player && IsActor(subject) && Dead(subject) ? Deferred(condition, "corpse-feeding-has-no-eaten-flag-owner") : 0;
+                return subject != player && IsActor(subject) && Dead(subject) ? throw Unowned(condition, "corpse eaten flag") : 0;
             case Function.GetCauseofDeath:
                 NoArguments(condition);
-                return subject != player && IsActor(subject) && Dead(subject) ? Deferred(condition, "death-record-has-no-cause-of-death-owner") : -1;
+                return subject != player && IsActor(subject) && Dead(subject) ? throw Unowned(condition, "cause of death") : -1;
             case Function.GetVATSRightAreaFree or Function.GetVATSLeftAreaFree or Function.GetVATSBackAreaFree or Function.GetVATSFrontAreaFree:
                 // The parameter is accepted and ignored.
                 if (!IsActor(subject)) return 0;
@@ -132,9 +133,6 @@ internal sealed partial class FalloutConditionRuntime
         }
     }
 
-    private static float Deferred(FalloutConditionQuery condition, string reason)
-    {
-        FalloutScriptCommandDeferral.WarnCondition(condition.Kind.ToString(), reason);
-        return FalloutCondition.EvaluationFailed;
-    }
+    private static NotSupportedException Unowned(FalloutConditionQuery condition, string state) =>
+        new($"Condition {condition.Kind} has no authoritative {state} owner.");
 }

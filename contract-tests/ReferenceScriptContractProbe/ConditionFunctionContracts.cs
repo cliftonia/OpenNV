@@ -23,9 +23,10 @@ internal static class ConditionFunctionContracts
             world.LoadCell(FalloutCellSceneReader.Read(records, Key(0x100)));
             var globals = FalloutGlobalState.Read(records);
             var package = (FalloutFormKey?)null;
+            var drawn = new HashSet<FalloutFormKey>();
             var runtime = new FalloutConditionRuntime(records, new FalloutQuestState(records), world)
             {
-                Globals = globals, CurrentPackage = _ => package,
+                Globals = globals, CurrentPackage = _ => package, WeaponOut = drawn.Contains,
             };
             var owner = records.GetEffective(Key(0x300));
             FalloutCondition Query(Function function, uint argument = 0, uint runOn = 0, byte flags = 0, float comparison = 0) =>
@@ -82,25 +83,35 @@ internal static class ConditionFunctionContracts
                     "Used-item equip type diverged.");
             Require(Eval(Query(Function.GetIsUsedItemEquipType, 10)) == 0, "No used item matched an equip type.");
 
-            // Trespass warnings: no package and non-guard packages report -1; guard warnings are deferred.
-            var messages = new List<string>();
-            var sink = FalloutScriptCommandDeferral.Sink;
-            FalloutScriptCommandDeferral.Sink = messages.Add;
-            try
+            // Trespass warnings: no package and non-guard packages report -1. State
+            // without an owner is refused, never a false or zero result.
+            Require(Eval(Query(Function.GetTrespassWarningLevel)) == -1 && Eval(Query(Function.GetTrespassWarningLevel), new(player)) == -1,
+                "Trespass warning level invented a package.");
+            package = Key(0x81);
+            Require(Eval(Query(Function.GetTrespassWarningLevel)) == -1, "A non-guard package reported a warning level.");
+            package = Key(0x80);
+            Reject(() => Eval(Query(Function.GetTrespassWarningLevel)));
+            foreach (var unowned in new[] { Function.GetMajorCrimeCount, Function.GetFriendHit, Function.GetRadiationLevel })
             {
-                Require(Eval(Query(Function.GetTrespassWarningLevel)) == -1 && Eval(Query(Function.GetTrespassWarningLevel), new(player)) == -1,
-                    "Trespass warning level invented a package.");
-                package = Key(0x81);
-                Require(Eval(Query(Function.GetTrespassWarningLevel)) == -1, "A non-guard package reported a warning level.");
-                package = Key(0x80);
-                Require(FalloutCondition.Failed(Eval(Query(Function.GetTrespassWarningLevel))) && FalloutCondition.Failed(Eval(Query(Function.GetMajorCrimeCount))) &&
-                    FalloutCondition.Failed(Eval(Query(Function.GetMajorCrimeCount))) && Eval(Query(Function.GetMajorCrimeCount), new(item)) == 0 &&
-                    Eval(Query(Function.GetCauseofDeath)) == -1,
-                    "Deferred functions did not fail closed.");
-                Require(messages.Count == 2 && messages.All(message => message.StartsWith("OPENNV_CONDITION_FUNCTION_DEFERRED", StringComparison.Ordinal)),
-                    "Deferred condition functions were not reported once per name.");
+                Reject(() => Eval(Query(unowned)));
+                Require(Eval(Query(unowned), new(item)) == 0, "A non-actor subject did not read zero.");
             }
-            finally { FalloutScriptCommandDeferral.Sink = sink; }
+            Require(Eval(Query(Function.GetCauseofDeath)) == -1 && Eval(Query(Function.HasBeenEaten)) == 0,
+                "A living actor reported a death record.");
+            // Disposition: base 50, then the target's Charisma 7 (-30 + 10 x (7 - 5)),
+            // a drawn weapon (-10) and a shared faction's self modifier (20 x 1 x 2).
+            // An empty dialogue target is the listener; without one it reads zero.
+            Require(Eval(Query(Function.GetDisposition)) == 40 && Eval(Query(Function.GetDisposition, 0x201), new(a)) == 40 &&
+                Eval(Query(Function.GetDisposition), new(a)) == 0 && Eval(Query(Function.GetDisposition, 0x202), new(a)) == 100 &&
+                Eval(Query(Function.GetDisposition, 0x206), new(a)) == 60 && Eval(Query(Function.GetDisposition, 0x203), new(a)) == 0,
+                "GetDisposition diverged from its base, Charisma, faction or identity terms.");
+            drawn.Add(b);
+            Require(Eval(Query(Function.GetDisposition)) == 30, "A drawn target weapon did not lower disposition.");
+            drawn.Clear();
+            // Exists: the subject differs from the (substituted) parameter.
+            Require(Eval(Query(Function.Exists)) == 1 && Eval(Query(Function.Exists), new(a)) == 1 &&
+                Eval(Query(Function.Exists, 0x200)) == 0 && Eval(Query(Function.Exists, 0x201)) == 1,
+                "Exists did not compare its subject with the parameter.");
 
             // Active effects: the player's owner answers by source item and base effect.
             world.BindPlayerActiveEffects(() => [new(Key(0x90), Key(0x91))]);
@@ -140,7 +151,7 @@ internal static class ConditionFunctionContracts
                 "VATS camera probes diverged from side clearance or target sight.");
             Console.WriteLine("OPENNV_CONDITION_FUNCTION_CONTRACT_PASS runOnCombatTarget=true unmappedRunOn=true emptyReference=true " +
                 "requiresReference=true evaluationFailure=true combatGroups=true weaponSkill=true activeEffects=true weather=true " +
-                "vatsCamera=true deferredOnce=true");
+                "vatsCamera=true unownedRefused=true disposition=true existsCompares=true");
         }
         finally { directory.Delete(true); }
     }
@@ -152,12 +163,19 @@ internal static class ConditionFunctionContracts
         var weapon = new byte[120]; BinaryPrimitives.WriteInt32LittleEndian(weapon.AsSpan(104), 41);
         var rainy = new byte[15]; rainy[6] = 128; rainy[7] = 128; rainy[11] = 0x04;
         var clear = new byte[15]; clear[11] = 0x01;
+        var disposition = new byte[24]; BinaryPrimitives.WriteInt16LittleEndian(disposition.AsSpan(20), 50);
+        static byte[] Special(byte charisma) => Join(BitConverter.GetBytes(100), [5, 5, 5, charisma, 5, 5, 5]);
         byte[] Package(byte type) { var data = new byte[12]; data[4] = type; return Field("PKDT", data); }
         byte[] Setting(string name, float value) => Join(Field("EDID", Text(name)), Field("DATA", BitConverter.GetBytes(value)));
         return Join(Header(),
-            Record("NPC_", 0x20, Field("ACBS", new byte[24]), Field("AIDT", aggressive)),
-            Record("NPC_", 0x21, Field("ACBS", new byte[24]), Field("AIDT", passive)),
-            Record("ACTI", 0x22), Record("WEAP", 0x71, Field("DNAM", weapon)),
+            Record("NPC_", 0x20, Field("RNAM", BitConverter.GetBytes(0x30u)), Field("ACBS", disposition), Field("AIDT", aggressive), Field("DATA", Special(5)),
+                Field("SNAM", Join(BitConverter.GetBytes(0x95u), new byte[4]))),
+            Record("NPC_", 0x21, Field("RNAM", BitConverter.GetBytes(0x30u)), Field("ACBS", new byte[24]), Field("AIDT", passive), Field("DATA", Special(7))),
+            Record("NPC_", 0x24, Field("RNAM", BitConverter.GetBytes(0x30u)), Field("ACBS", new byte[24]), Field("AIDT", passive), Field("DATA", Special(5)),
+                Field("SNAM", Join(BitConverter.GetBytes(0x95u), new byte[4]))),
+            Record("FACT", 0x95, Field("XNAM", Join(BitConverter.GetBytes(0x95u), BitConverter.GetBytes(20), BitConverter.GetBytes(2u))),
+                Field("DATA", new byte[4])),
+            Record("RACE", 0x30), Record("ACTI", 0x22), Record("WEAP", 0x71, Field("DNAM", weapon)),
             Record("ALCH", 0x75, Field("ETYP", BitConverter.GetBytes(10))),
             Record("GLOB", 0x39, Field("EDID", Text("GameDaysPassed")), Field("FNAM", [(byte)'f']), Field("FLTV", BitConverter.GetBytes(10.5f))),
             Record("PACK", 0x80, Package(14)), Record("PACK", 0x81, Package(5)),
@@ -166,13 +184,19 @@ internal static class ConditionFunctionContracts
             Record("GMST", 0x60, Setting("fVATSSmartCameraCheckHeight", 64)),
             Record("GMST", 0x61, Setting("fVATSSmartCameraCheckStepDistance", 64)),
             Record("GMST", 0x62, Setting("fVATSSmartCameraCheckStepCount", 5)),
+            Record("GMST", 0x63, Setting("fDispActorCharBase", -30)), Record("GMST", 0x64, Setting("fDispActorCharMult", 10)),
+            Record("GMST", 0x65, Setting("fDispTargetCharOffset", 5)), Record("GMST", 0x66, Setting("fDispTargetKarmaMult", .002f)),
+            Record("GMST", 0x67, Setting("fDispActorRespBase", -50)), Record("GMST", 0x68, Setting("fDispActorRespMult", 1)),
+            Record("GMST", 0x69, Setting("fDispTargetFactionMult", 1)), Record("GMST", 0x6a, Setting("fDispTargetFactionRankBase", 1)),
+            Record("GMST", 0x6b, Setting("fDispTargetWeaponBase", -10)),
             Record("PACK", 0x300),
             Record("CELL", 0x100, Field("EDID", Text("ConditionRoom")), Field("DATA", [1])), Group(0x100,
                 Record("ACHR", 0x200, Field("NAME", BitConverter.GetBytes(0x20u)), Field("DATA", new byte[24])),
                 Record("ACHR", 0x201, Field("NAME", BitConverter.GetBytes(0x21u)), Field("DATA", new byte[24])),
                 Record("ACHR", 0x202, Field("NAME", BitConverter.GetBytes(0x20u)), Field("DATA", new byte[24])),
                 Record("REFR", 0x203, Field("NAME", BitConverter.GetBytes(0x22u)), Field("XSCL", BitConverter.GetBytes(2f)), Field("DATA", new byte[24])),
-                Record("REFR", 0x204, Field("NAME", BitConverter.GetBytes(0x71u)), Field("DATA", new byte[24]))));
+                Record("REFR", 0x204, Field("NAME", BitConverter.GetBytes(0x71u)), Field("DATA", new byte[24])),
+                Record("ACHR", 0x206, Field("NAME", BitConverter.GetBytes(0x24u)), Field("DATA", new byte[24]))));
     }
 
     private static FalloutFormKey Key(uint id) => new(Master, id);

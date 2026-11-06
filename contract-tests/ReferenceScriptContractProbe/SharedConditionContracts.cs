@@ -225,9 +225,11 @@ internal static partial class SharedConditionContracts
                 runtime.Evaluate(Query(Function.GetUsedItemLevel), scope) == -1 &&
                 runtime.Evaluate(Query(Function.GetIsUsedItem, 0x01000071), scope) == 0 &&
                 runtime.Evaluate(Query(Function.IsWaterObject), scope) == 0 &&
-                // An empty actor parameter takes the other reference; without one it stays null.
                 runtime.Evaluate(Query(Function.GetDisposition), new FalloutConditionScope(Key(0x200))) == 0,
                 "Absent IDLE used-item context or null disposition target invented process values.");
+            // In the dialogue scope the empty target is the listener, so the
+            // disposition formula runs; this stack declares none of its settings.
+            Reject(() => runtime.Evaluate(Query(Function.GetDisposition), scope));
             using (world.EnterUsedItem(Key(0x71)))
             {
                 Require(runtime.Evaluate(Query(Function.GetIsUsedItem, 0x01000071), scope) == 1 &&
