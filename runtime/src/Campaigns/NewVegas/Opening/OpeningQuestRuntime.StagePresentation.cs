@@ -67,8 +67,7 @@ internal partial class OpeningQuestRuntime
                 _guideDestinationReference is { } destination)
                 _guideActor.Placement.Basis = new Basis(destination.RotationGodot);
         }
-        else if (command.Operation.Equals("evp", StringComparison.OrdinalIgnoreCase) ||
-            command.Operation.Equals("resetai", StringComparison.OrdinalIgnoreCase))
+        else if (OpenNV.Runtime.Content.Definitions.FalloutScriptCommandNames.Operation(command.Operation) is "evaluatepackage" or "resetai")
             EvaluateGuidePackage(force: true);
         else
             throw new InvalidOperationException(

@@ -533,10 +533,14 @@ internal sealed partial class FalloutQuestScripts
 
     // SetQuestDelay from any script replaces the quest script's recurrence
     // interval; the clock snapshot persists the replaced interval.
+    // A quest without a script has no recurrence for the delay to change; an
+    // unbound script would lose it silently, so that stays a visible refusal.
     internal void SetQuestDelay(FalloutFormKey quest, double seconds)
     {
-        foreach (var owner in _instances.Where(candidate => candidate.Quest.FormKey == quest))
-            owner.Clock.SetInterval((float)seconds);
+        var owners = _instances.Where(candidate => candidate.Quest.FormKey == quest).ToArray();
+        if (owners.Length == 0 && _unbound.TryGetValue(quest, out var error))
+            throw new NotSupportedException($"SetQuestDelay quest {quest} has an unbound script clock: {error}");
+        foreach (var owner in owners) owner.Clock.SetInterval((float)seconds);
     }
 
     internal void RequireQuestExecution(FalloutFormKey quest)

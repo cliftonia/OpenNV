@@ -73,3 +73,22 @@ weapon damage/repair rules, broader effects and housing access remain visible
 additional gaps. Actual ordinary-input opening-route and fresh-process save
 continuation follow the offline block; matched retail evidence is additionally
 required before parity claims.
+
+## Script name resolution (mac-play branch)
+
+Public script command aliases resolve to full command names before dispatch,
+`Ref. Command` tokenizes as one qualified command, and Else trailing text is
+admitted by inspection as the executor ignores it. Any named condition function
+is callable from scripts through the shared evaluator with the calling reference
+as subject; executors consult that bridge after every specialized owner. Bridged
+integer parameters are required unless documented optional. SetQuestDelay runs
+in the shared and fallback executors and persists in the quest clock snapshot;
+an unbound quest script refuses it. No shipped or installed-mod script local
+collides with a bridged function or alias name.
+
+Owned-stack completeness: 463 of 651 quests have no unsupported dependency
+(394 before); main lines New Vegas 25/44, Dead Money 11/15, Honest Hearts 14/27,
+Lonesome Road 9/9, Old World Blues 5/6. `Behemoth` is IsAlwaysHardcore's alias
+and needs the always-hardcore flag owner. Known pre-existing issue: quests that
+attach the same SCPT share one recurrence clock, so SetQuestDelay on one quest
+also changes the other's interval.

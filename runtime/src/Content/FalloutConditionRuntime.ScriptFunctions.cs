@@ -154,9 +154,8 @@ internal sealed partial class FalloutConditionRuntime
             switch (shape[index])
             {
                 case Parameter.Form: kinds[index] = FalloutScriptArgumentKind.Value; break;
-                // A trailing integer is optional in source; a source compiler
-                // rejects every call that omits one the function requires.
-                case Parameter.Integer: kinds[index] = index == 0 ? FalloutScriptArgumentKind.Number : FalloutScriptArgumentKind.OptionalNumber; break;
+                case Parameter.Integer: kinds[index] = FalloutScriptArgumentKind.Number; break;
+                case Parameter.OptionalInteger when index != 0: kinds[index] = FalloutScriptArgumentKind.OptionalNumber; break;
                 case Parameter.Named when index == 0: kinds[index] = FalloutScriptArgumentKind.Identifier; break;
                 case Parameter.Axis or Parameter.Sex or Parameter.ActorValue when index == 0:
                     kinds[index] = FalloutScriptArgumentKind.Identifier; break;
@@ -176,7 +175,7 @@ internal sealed partial class FalloutConditionRuntime
                     case Parameter.Form when index == 0: argument = ScriptForm(value); break;
                     case Parameter.Form: secondForm = FalloutScriptValue.Form(records.RuntimeFormId(ScriptForm(value))); break;
                     case Parameter.Integer when index == 0: number = ScriptIndex(value.Number); break;
-                    case Parameter.Integer: second = ScriptIndex(value.Number); break;
+                    case Parameter.Integer or Parameter.OptionalInteger: second = ScriptIndex(value.Number); break;
                     case Parameter.Named: argument = form(value.Identifier!); break;
                     case Parameter.Axis: number = AxisIndex(value.Identifier!); break;
                     case Parameter.Sex: number = SexIndex(value.Identifier!); break;
@@ -184,12 +183,11 @@ internal sealed partial class FalloutConditionRuntime
                     default: throw new InvalidOperationException("Condition script parameter shape changed after binding.");
                 }
             }
-            var resolved = false;
-            var result = Evaluate(new FalloutConditionQuery(new(declaration, 0, 0, (ushort)function, number, second, 0, 0),
-                argument, secondForm), new(ScriptCaller: () => { resolved = true; return subject(); }));
-            // A receiver the function ignores must still name a reference.
-            if (explicitReceiver && !resolved) RequireReference(subject());
-            return result;
+            // An explicit receiver must name a reference before any query state
+            // (such as an RNG draw) is consumed, even when the function ignores it.
+            if (explicitReceiver) RequireReference(subject());
+            return Evaluate(new FalloutConditionQuery(new(declaration, 0, 0, (ushort)function, number, second, 0, 0),
+                argument, secondForm), new(ScriptCaller: subject));
         })
         { ReadOnly = function != Function.GetRandomPercent };
     }

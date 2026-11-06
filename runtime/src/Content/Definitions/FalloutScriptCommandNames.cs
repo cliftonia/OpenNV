@@ -4,6 +4,7 @@ namespace OpenNV.Runtime.Content.Definitions;
 // Dispatchers see only full names, so an alias is supported exactly when its
 // command is. `this` stays the calling-reference token (GetSelf's alias) and
 // the ambiguous `srm` (ShowRepairMenu and ShowRouletteMenu) stays unbound.
+// Metadata: GECK wiki command pages ("Alias"), https://geckwiki.com/index.php/Category:Functions
 internal static class FalloutScriptCommandNames
 {
     private static readonly IReadOnlyDictionary<string, string> Aliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)

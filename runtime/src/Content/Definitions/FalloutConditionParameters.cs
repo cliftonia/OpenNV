@@ -1,9 +1,10 @@
 namespace OpenNV.Runtime.Content.Definitions;
 
-// How a script call spells one CTDA parameter. Form takes a form value,
-// Named a quest or global editor ID, Integer a number, and Axis, Sex and
-// ActorValue an identifier; Variable and MiscStat have no generic spelling.
-internal enum FalloutConditionParameter { Form, Named, Integer, Axis, Sex, ActorValue, Variable, MiscStat }
+// How a script call spells one CTDA parameter. Form takes a form value, Named
+// a quest or global editor ID, Integer a number (an OptionalInteger may be
+// omitted), and Axis, Sex and ActorValue an identifier; Variable and MiscStat
+// have no generic spelling. Integers are required unless documented optional.
+internal enum FalloutConditionParameter { Form, Named, Integer, OptionalInteger, Axis, Sex, ActorValue, Variable, MiscStat }
 
 // Parameter shapes of the FNV CTDA functions, keyed by function index. A
 // function absent here takes no parameters. Metadata: xEdit
@@ -18,8 +19,9 @@ internal static class FalloutConditionParameters
     private static Dictionary<ushort, FalloutConditionParameter[]> Build()
     {
         const FalloutConditionParameter F = FalloutConditionParameter.Form, N = FalloutConditionParameter.Named,
-            I = FalloutConditionParameter.Integer, A = FalloutConditionParameter.Axis, S = FalloutConditionParameter.Sex,
-            V = FalloutConditionParameter.ActorValue, L = FalloutConditionParameter.Variable, M = FalloutConditionParameter.MiscStat;
+            I = FalloutConditionParameter.Integer, O = FalloutConditionParameter.OptionalInteger, A = FalloutConditionParameter.Axis,
+            S = FalloutConditionParameter.Sex, V = FalloutConditionParameter.ActorValue, L = FalloutConditionParameter.Variable,
+            M = FalloutConditionParameter.MiscStat;
         return new()
         {
             [1] = [F],
@@ -101,7 +103,7 @@ internal static class FalloutConditionParameters
             [433] = [I],
             [438] = [I],
             [446] = [F],
-            [449] = [F, I],
+            [449] = [F, O], // HasPerk: optional teammate flag
             [450] = [F],
             [451] = [F],
             [462] = [V],

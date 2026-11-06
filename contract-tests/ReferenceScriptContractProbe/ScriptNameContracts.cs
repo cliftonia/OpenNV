@@ -74,6 +74,15 @@ internal static class ScriptNameContracts
             ScriptManualSaveContracts.Require(result.Error is null && fixture.Value(1) == 2 && fixture.Value(2) == 3,
                 "Object script did not reach the condition evaluator for bridged functions: " + result.Error);
         }
+        using (var fixture = new ScriptSaveFixture("set saved to GetIsAlignment 0 + 1\nset suffix to GetIsAlignment"))
+        {
+            // GetIsAlignment's integer is required; an omitted one is not read as zero.
+            ScriptManualSaveContracts.Require(fixture.Scripts.Activate(fixture.Caller, fixture.Player).Error is not null &&
+                fixture.Value(1) == 1 && fixture.Value(2) == 0, "A bridged required integer parameter was treated as optional.");
+        }
+        ScriptManualSaveContracts.Require(FalloutConditionParameters.For(FalloutConditionFunction.HasPerk) is [FalloutConditionParameter.Form,
+            FalloutConditionParameter.OptionalInteger] && FalloutConditionParameters.For(FalloutConditionFunction.GetReputationThreshold) is
+            [FalloutConditionParameter.Form, FalloutConditionParameter.Integer], "Bridged integer optionality is not explicit.");
         foreach (var shared in new[] { false, true })
         {
             using var fixture = new ScriptSaveFixture("", "set saved to GetPlayerTeammateCount + Exists Other + 5\n" +
@@ -119,10 +128,20 @@ internal static class ScriptNameContracts
             cold.Restore(snapshot);
             ScriptManualSaveContracts.Require(cold.Capture().Instances.Single().Clock?.Interval == 2, "Restored quest clock lost the replaced interval.");
         }
+        using (var unbound = new ScriptSaveFixture("set saved to 1\nSetQuestDelay SavesQuest 2\nset suffix to 1", "if 1", bindQuest: true))
+        {
+            var quests = new FalloutQuestState(unbound.Records);
+            var scripts = new FalloutQuestScripts(unbound.Records, quests, new HashSet<FalloutFormKey>(), new(),
+                references: unbound.World, defaultProcessingDelay: 5);
+            var executor = new FalloutReferenceScripts(unbound.Records, unbound.World, quests,
+                new((_, _) => false, _ => { }, SetQuestDelay: scripts.SetQuestDelay));
+            ScriptManualSaveContracts.Require(executor.Activate(unbound.Caller, unbound.Player).Error?.Contains("unbound script clock") == true &&
+                unbound.Value(1) == 1 && unbound.Value(2) == 0, "SetQuestDelay on an unbound quest script was silently ignored.");
+        }
         using var missing = new ScriptSaveFixture("set saved to 1\nSetQuestDelay SavesQuest 2\nset suffix to 1", bindQuest: true);
         ScriptManualSaveContracts.Require(missing.Scripts.Activate(missing.Caller, missing.Player).Error is not null && missing.Value(1) == 1 && missing.Value(2) == 0,
             "SetQuestDelay without a quest clock owner was silently ignored.");
         Console.WriteLine("OPENNV_SCRIPT_NAME_PASS aliases=true fullNameDispatch=true spacedReceiver=true elseTail=true " +
-            "conditionBridge=true questSubjectRefused=true setQuestDelay=true sharedAndFallback=true persisted=true missingOwnerRefused=true");
+            "conditionBridge=true questSubjectRefused=true setQuestDelay=true unboundQuestRefused=true sharedAndFallback=true persisted=true missingOwnerRefused=true");
     }
 }
