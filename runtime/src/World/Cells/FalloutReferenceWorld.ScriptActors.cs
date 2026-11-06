@@ -11,6 +11,12 @@ internal sealed partial class FalloutReferenceInstance
     internal Action? ScriptClearDestruction { get; set; }
 }
 
+internal sealed class FalloutAiToggles
+{
+    internal bool NoAvoidance { get; set; }
+    internal bool AllVisible { get; set; }
+}
+
 // Script-facing actor, alarm and faction commands. Persistent state lives in
 // the existing actor-override owner (ghost flag, player-enemy faction flags).
 internal sealed partial class FalloutReferenceWorld
@@ -23,6 +29,12 @@ internal sealed partial class FalloutReferenceWorld
     {
         if (reference != _enginePlayer) _ = Get(reference);
     }
+
+    internal bool IsScriptActor(FalloutFormKey reference) =>
+        reference == _enginePlayer || records.GetEffective(reference).Signature is "ACHR" or "ACRE";
+
+    // Global AI debug toggles (SetNoAvoidance, SetAllVisible): session-only.
+    internal FalloutAiToggles AiToggles { get; } = new();
 
     internal void RequireScriptActor(FalloutFormKey reference)
     {

@@ -453,6 +453,11 @@ internal partial class RuntimeNativeReferenceEvents : Node
         if (_world.ForcedTriggers.HasPending(binding.Reference.FormKey) && _world.ForcedTriggers.Take(binding.Reference.FormKey,
                 events.Any(item => item.Name.Equals("OnTriggerEnter", StringComparison.OrdinalIgnoreCase))) is { } forced)
             events.Add(forced);
+        if (binding.Instance.PendingDoorEvent is { } doorEvent)
+        {
+            events.Add(new(doorEvent));
+            binding.Instance.PendingDoorEvent = null;
+        }
         if (hasPackageEvents) events.AddRange(packageBatch!.Events);
         if (hasHitEvents) events.AddRange(hitBatch!.Events);
         if (grabBatch?.Grab > 0) events.Add(new("OnGrab", _records.RuntimeFormKey(0x14)));

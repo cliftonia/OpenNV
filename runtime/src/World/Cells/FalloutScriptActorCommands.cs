@@ -17,7 +17,6 @@ internal static class FalloutScriptActorCommands
             Kind.OptionalNumber], true, "no-scripted-attack-owner"),
         ["setpackduration"] = ([Kind.Number], true, "no-package-duration-override-owner"),
         ["setvatstarget"] = ([Kind.Number], false, "no-vats-target-owner"),
-        ["setnoavoidance"] = ([Kind.Number], true, "no-actor-avoidance-owner"),
         ["setactorsai"] = ([Kind.Number], false, "no-actor-ai-enable-owner"),
         ["setforcesneak"] = ([Kind.Number], true, "no-forced-sneak-animation-owner"),
         ["setdisposition"] = ([Kind.Value, Kind.Number], true, "no-disposition-owner"),
@@ -25,10 +24,7 @@ internal static class FalloutScriptActorCommands
         ["startcannibal"] = ([Kind.OptionalValue], true, "no-cannibal-feeding-animation-owner"),
         ["attachashpile"] = ([Kind.OptionalValue], true, "no-ash-pile-spawner"),
         ["pickidle"] = ([], true, "no-scripted-idle-selection-owner"),
-        ["setallvisible"] = ([Kind.Number], false, "no-global-detection-override-owner"),
-        ["setallreachable"] = ([Kind.Number], false, "no-global-pathing-override-owner"),
         ["setcriticalstage"] = ([Kind.Identifier], true, "no-critical-effect-stage-owner"),
-        ["dropme"] = ([], false, "no-containing-inventory-instance"),
     };
 
     private static readonly HashSet<string> Owned =
@@ -36,6 +32,7 @@ internal static class FalloutScriptActorCommands
         "setghost", "resurrect", "resurrectactor", "sendassaultalarm", "sendtrespassalarm", "setpcenemyoffaction",
         "clearfactionplayerenemyflag", "removefromallfactions", "getdetected", "damageobject", "do", "cleardestruction",
         "setnpcradio", "alwaysshowactorsubtitles", "pushactoraway", "forceflee",
+        "setnoavoidance", "setallvisible", "setallreachable", "dropme",
     ];
 
     internal static bool Supports(string name) => Owned.Contains(name) || Deferred.ContainsKey(name);
@@ -62,11 +59,9 @@ internal static class FalloutScriptActorCommands
         if (Deferred.TryGetValue(name, out var deferred))
             return Command(deferred.Arguments, arguments =>
             {
-                if (name != "dropme")
-                {
-                    if (deferred.Actor) world().RequireScriptActor(subject());
-                    else world().RequireScriptReference(subject());
-                }
+                // A receiver of the wrong kind makes the command a no-op.
+                if (deferred.Actor && !world().IsScriptActor(subject())) return;
+                if (!deferred.Actor) world().RequireScriptReference(subject());
                 FalloutScriptCommandDeferral.Warn(name, deferred.Reason);
             });
         return name switch
@@ -132,6 +127,15 @@ internal static class FalloutScriptActorCommands
                 if (arguments.Count != 0) FalloutScriptCommandDeferral.Warn("forceflee", "flee-destination-has-no-route-owner");
                 references.ForceFlee(subject());
             }),
+            // SetNoAvoidance is written with a receiver but changes one global
+            // flag; SetAllVisible is the global detection override. Neither is saved.
+            "setnoavoidance" => Command([Kind.Number], arguments => world().AiToggles.NoAvoidance = Flag(arguments[0].Number)),
+            "setallvisible" => Command([Kind.Number], arguments => world().AiToggles.AllVisible = Flag(arguments[0].Number)),
+            // The shipping engine reads the flag and does nothing else.
+            "setallreachable" => Command([Kind.Number], arguments => _ = Flag(arguments[0].Number)),
+            // Outside an inventory item's script there is no containing item: the
+            // engine does nothing and succeeds.
+            "dropme" => Command([], _ => { }),
             "getdetected" => new([Kind.Value], arguments =>
                 world().DetectsTarget(subject(), Form(arguments[0]), distance) ? 1 : 0) { ReadOnly = true },
             _ => null,

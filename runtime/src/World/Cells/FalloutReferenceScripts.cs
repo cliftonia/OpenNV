@@ -41,7 +41,8 @@ internal sealed record FalloutReferenceScriptHost(Func<FalloutFormKey, FalloutFo
     Func<FalloutFormKey, float>? HealthPercentage = null,
     Func<string, int>? MiscStatistic = null, Func<FalloutFormKey, bool>? IsSneaking = null,
     Func<FalloutFormKey, FalloutFormKey?>? InventoryContainer = null,
-    Action<FalloutFormKey, FalloutFormKey?>? RemoveInventoryInstance = null, Action<double>? RewardKarma = null);
+    Action<FalloutFormKey, FalloutFormKey?>? RemoveInventoryInstance = null, Action<double>? RewardKarma = null,
+    Func<FalloutFormKey, bool>? IsImageSpaceActive = null);
 internal sealed record FalloutReferenceScriptEventResult(FalloutFormKey Reference, string Event, int Blocks, string? Error,
     string? RecoveredError = null);
 internal sealed record FalloutReferenceScriptEvent(string Name, FalloutFormKey? ActionReference = null,
@@ -471,7 +472,19 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                 (caller, arguments) => FunctionFor("this." + name, caller)!.InvokeValue(arguments));
         }
         FalloutScriptFunction? Function(string name) => FunctionFor(name, null);
+        // A receiver variable holding no reference makes the call a no-op that
+        // returns zero; the engine reports no error and the script continues.
+        bool NullReceiver(string[] parts) => parts.Length == 2 && !FalloutScriptBindings.IsPlayer(parts[0]) &&
+            bindings.TryForm(parts[0]) is null && HasValueOwner(parts[0]) &&
+            ReadValue(parts[0]) is { Kind: FalloutScriptValueKind.Number or FalloutScriptValueKind.Form } receiver && receiver.Number == 0;
         FalloutScriptFunction? FunctionFor(string name, FalloutScriptValue? caller)
+        {
+            var function = ResolveFunction(name, caller);
+            return function is not null && caller is null && NullReceiver(name.Split('.'))
+                ? FalloutScriptFunction.Typed(function.Arguments, _ => 0, function.ReadOnly, function.Variadic)
+                : function;
+        }
+        FalloutScriptFunction? ResolveFunction(string name, FalloutScriptValue? caller)
         {
             var parts = name.Split('.');
             var operation = parts[^1].ToLowerInvariant();
@@ -514,6 +527,41 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
             if (parts.Length == 1 && operation == "getdeadcount")
                 return new([FalloutScriptArgumentKind.Value], arguments => world.GetDeadCount(arguments[0].Value.FormKey(records)))
                 { ReadOnly = true };
+            if (parts.Length == 1 && operation == "getchallengecompleted")
+                return new([FalloutScriptArgumentKind.Value], arguments =>
+                {
+                    var challenge = arguments[0].Value.FormKey(records);
+                    if (records.GetEffective(challenge).Signature != "CHAL") throw new InvalidDataException("GetChallengeCompleted argument is not CHAL.");
+                    return (host.Challenges ?? throw new NotSupportedException("GetChallengeCompleted has no shared challenge owner."))
+                        .State(challenge).Completed ? 1 : 0;
+                })
+                { ReadOnly = true };
+            // The optional strength argument is accepted and ignored.
+            if (parts.Length == 1 && operation == "isimagespaceactive")
+                return new([FalloutScriptArgumentKind.Value, FalloutScriptArgumentKind.OptionalNumber], arguments =>
+                {
+                    var modifier = arguments[0].Value.FormKey(records);
+                    if (records.GetEffective(modifier).Signature != "IMAD") throw new InvalidDataException("IsImageSpaceActive argument is not IMAD.");
+                    return (host.IsImageSpaceActive ?? throw new NotSupportedException("IsImageSpaceActive has no image-space owner."))(modifier) ? 1 : 0;
+                })
+                { ReadOnly = true };
+            if (parts.Length <= 2 && operation == "getcontainerinventorycount")
+                return new([], _ => (host.Inventory ?? throw new NotSupportedException("GetContainerInventoryCount has no shared inventory owner."))
+                    .StackCount(parts.Length == 2 ? Reference(parts[0]) : CallingReference() ??
+                        throw new InvalidDataException("GetContainerInventoryCount has no calling container.")))
+                { ReadOnly = true };
+            // Placement needs a camera pick ray and a runtime placed-reference
+            // owner for arbitrary forms; neither exists, so nothing is placed.
+            if (parts.Length <= 2 && operation == "placeatreticle")
+                return new([FalloutScriptArgumentKind.Value, FalloutScriptArgumentKind.OptionalNumber, FalloutScriptArgumentKind.OptionalNumber,
+                    FalloutScriptArgumentKind.OptionalNumber], arguments =>
+                {
+                    _ = arguments[0].Value.FormKey(records);
+                    FalloutScriptCommandDeferral.Warn("placeatreticle", "no-camera-pick-or-runtime-placement-owner;returns-zero");
+                    return 0;
+                });
+            if (parts.Length == 1 && operation is "resetallterminals" or "rat")
+                return new([], _ => { world.ResetAllTerminals(); return 0; });
             if (parts.Length == 1 && operation == "getpcmiscstat")
                 return new([FalloutScriptArgumentKind.String], arguments =>
                     (host.MiscStatistic ?? throw new NotSupportedException("Miscellaneous statistic query has no authoritative count owner."))
@@ -545,6 +593,13 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                 })
                 { ReadOnly = true };
             FalloutFormKey Target() => suppliedTarget ?? (parts.Length == 1 ? source : Reference(parts[0]));
+            if (parts.Length <= 2 && operation is "addspell" or "removespell")
+                return new([FalloutScriptArgumentKind.Value], arguments =>
+                {
+                    var spell = arguments[0].Value.FormKey(records);
+                    if (records.GetEffective(spell).Signature != "SPEL") throw new InvalidDataException($"{operation} argument is not SPEL.");
+                    return FalloutScriptEffectCommands.ChangeSpell(records, world, Target(), operation == "addspell", spell) ? 1 : 0;
+                });
             if (parts.Length <= 2 && operation == "getownerlasttarget")
                 return FalloutScriptFunction.Typed([], _ =>
                 {
@@ -768,6 +823,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
         void Call(string command, IReadOnlyList<string> arguments)
         {
             var parts = command.Split('.');
+            if (NullReceiver(parts)) return;
             var operation = parts[^1].ToLowerInvariant();
             if (parts.Length <= 2 && FalloutActorValueCommands.Operation(operation) is not null ||
                 parts.Length == 1 && FalloutScriptFormLists.Supports(operation) ||
@@ -994,10 +1050,11 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
             {
                 // The native remainder addresses the resolved caller directly,
                 // so reference-variable qualifiers need no second binding.
-                if (FalloutScriptEffectCommands.Execute(records, world, target, operation, parts.Length == 1, arguments,
+                var receiver = FalloutScriptEffectCommands.Receiver(records, target, operation, parts.Length == 1);
+                if (FalloutScriptEffectCommands.Execute(records, world, receiver, operation, parts.Length == 1, arguments,
                     new(name => bindings.Form(name), Number, Reference)) is { } native)
                 {
-                    if (host.Command is { } nativeCommand) nativeCommand(target, bindings, operation, native);
+                    if (host.Command is { } nativeCommand) nativeCommand(receiver, bindings, operation, native);
                     else FalloutScriptCommandDeferral.Warn(operation, "no-native-session-owner");
                 }
                 return;

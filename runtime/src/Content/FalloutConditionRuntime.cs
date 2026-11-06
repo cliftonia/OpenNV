@@ -121,6 +121,11 @@ internal sealed partial class FalloutConditionRuntime(FalloutPluginStack records
             case Function.Exists:
                 SecondUnused(condition);
                 return !condition.IsNullFormArgument1(records) && Required(world, "reference lifecycle").ReferenceExists(condition.FormArgument1) ? 1 : 0;
+            // Player-only queries: the caller is ignored.
+            case Function.GetXPForNextLevel:
+                NoArguments(condition); return NativeValue(records.RuntimeFormKey(0x14), condition);
+            case Function.GetPlayerControlsDisabled:
+                SecondUnused(condition); return NativeValue(records.RuntimeFormKey(0x14), condition);
             case Function.PlayerInRegion:
                 SecondUnused(condition); Form(condition, "REGN");
                 var regionPlayer = PlayerPlacement?.Invoke();
@@ -184,6 +189,30 @@ internal sealed partial class FalloutConditionRuntime(FalloutPluginStack records
                     throw new InvalidDataException("GetPos axis is not X, Y or Z.");
                 return Required(world, "spatial state").SpatialPlacement(subject, PlayerPlacement?.Invoke(), UnitsToMetres())
                     .Position[checked((int)(condition.Argument1 - 'X'))];
+            // Stored rotation in degrees, wrapped to [0, 360). The player's live
+            // facing belongs to its native owner.
+            case Function.GetAngle:
+                SecondUnused(condition);
+                if (condition.Argument1 is < 'X' or > 'Z') throw new InvalidDataException("GetAngle axis is not X, Y or Z.");
+                if (subject == records.RuntimeFormKey(0x14)) return NativeValue(subject, condition);
+                var radians = Required(world, "spatial state").SpatialPlacement(subject, PlayerPlacement?.Invoke(), UnitsToMetres(),
+                    requireFacing: true).RotationRadians[checked((int)(condition.Argument1 - 'X'))];
+                return WrappedDegrees(radians);
+            case Function.GetIsGhost: NoArguments(condition); return Required(world, "actor overrides").IsGhost(subject) ? 1 : 0;
+            case Function.HasLoaded3D:
+                NoArguments(condition);
+                return subject == records.RuntimeFormKey(0x14) || Required(world, "reference residency").IsResident(subject) ? 1 : 0;
+            // Argument2 is the script-only inclusive range end; zero is one limb.
+            case Function.IsLimbGone:
+                if (condition.Argument2 != 0 && condition.Argument2 < condition.Argument1)
+                    throw new InvalidDataException("IsLimbGone range ends before it starts.");
+                return Required(world, "actor injury").IsLimbGone(subject, condition.Argument1,
+                    condition.Argument2 == 0 ? condition.Argument1 : condition.Argument2) ? 1 : 0;
+            case Function.GetLineOfSight:
+                SecondUnused(condition);
+                if (condition.IsNullFormArgument1(records)) return 0;
+                RequireReference(condition.FormArgument1);
+                return NativeValue(subject, condition);
             case Function.GetInSameCell:
                 SecondUnused(condition); RequireReference(condition.FormArgument1);
                 return (SameCell is { } same ? same(subject, condition.FormArgument1) :
@@ -390,6 +419,12 @@ internal sealed partial class FalloutConditionRuntime(FalloutPluginStack records
     private float GlobalValue(FalloutConditionQuery condition) => Required(Global, $"global function {condition.Function}")(condition.Declaration);
     private float NativeValue(FalloutFormKey subject, FalloutConditionQuery condition) => Native is { } query
         ? query(subject, condition) : Required(world, "native process state").QueryNativeCondition(subject, condition);
+    internal static float WrappedDegrees(float radians)
+    {
+        if (!float.IsFinite(radians)) throw new InvalidDataException("Stored rotation is not finite.");
+        var degrees = radians * 180 / MathF.PI % 360;
+        return degrees < 0 ? degrees + 360 : degrees;
+    }
     private static float PhysicalPhase(int phase) => phase is >= 0 and <= 4 ? phase :
         throw new InvalidDataException("Condition physical owner returned an invalid phase.");
     private static void SecondUnused(FalloutConditionQuery condition)

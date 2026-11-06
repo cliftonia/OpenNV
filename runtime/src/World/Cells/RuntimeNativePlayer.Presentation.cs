@@ -28,6 +28,18 @@ internal partial class RuntimeNativePlayer
     private string? _presentationError;
     private bool _thirdPersonMode, _aiming;
     private FalloutWeaponSight? _weaponSight;
+
+    // The player's own first- and third-person 3D, the receiver of player
+    // SetActorAlpha and PlayMagicShaderVisuals. Alpha is transient: a rebuilt
+    // presentation is opaque until a script reasserts it.
+    internal IEnumerable<Node3D> SelfPresentation => new Node3D?[] { _firstPerson, _thirdPerson }.OfType<Node3D>();
+
+    internal void SetScriptAlpha(float alpha)
+    {
+        if (!float.IsFinite(alpha) || alpha is < 0 or > 1) throw new InvalidDataException("Player script alpha must be normalized.");
+        foreach (var actor in SelfPresentation)
+            RuntimeNativeReferenceOpacity.Publish(SceneGraph.NodeTraversal.SelfAndDescendants<GeometryInstance3D>(actor), alpha);
+    }
     private bool WeaponAiming => _aiming && _weaponHandling is { Drawn: true } && FalloutWeaponSight.CanAim(_firstPerson?.Weapon);
     private readonly Godot.Collections.Array<Rid> _selfQueryBodies = [];
     private float _thirdPersonDistance = 2;

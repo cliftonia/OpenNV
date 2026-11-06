@@ -23,6 +23,7 @@ internal partial class RuntimeNativeReferencePresentation : Node
     private long _publishedStateRevision = -1, _publishedAppearanceRevision = -1;
     private readonly Dictionary<FalloutFormKey, GeometryInstance3D[]> _fadeGeometry = [];
     private readonly Dictionary<FalloutFormKey, float> _publishedOpacity = [];
+    private readonly Dictionary<FalloutFormKey, GeometryInstance3D[]> _alphaGeometry = [];
     private readonly FalloutReferenceFadeSettings _fadeSettings;
     private readonly Dictionary<string, Texture2D> _textures = new(StringComparer.OrdinalIgnoreCase);
     internal event Action<FalloutFormKey, Node3D>? Materialized;
@@ -90,7 +91,7 @@ internal partial class RuntimeNativeReferencePresentation : Node
         {
             _nodes.Remove(key); _warmNodes.Remove(key);
             UnbindObjectAnimation(key);
-            _fadeGeometry.Remove(key); _publishedOpacity.Remove(key);
+            _fadeGeometry.Remove(key); _alphaGeometry.Remove(key); _publishedOpacity.Remove(key);
             // Free synchronously: QueueFree leaves source callbacks alive
             // until the next frame, after the replacement factory has run.
             RuntimeCoordinator.RetireNativeActorBindings(node);
@@ -122,7 +123,7 @@ internal partial class RuntimeNativeReferencePresentation : Node
         foreach (var sound in NodeTraversal.SelfAndDescendants<NativeOwnedAnimationSoundPlayer>(actor)) sound.RetirePlayback();
         GamebryoReferenceEnableRuntime.Apply(actor, false);
         UnbindObjectAnimation(key);
-        _nodes.Remove(key); _fadeGeometry.Remove(key); _publishedOpacity.Remove(key);
+        _nodes.Remove(key); _fadeGeometry.Remove(key); _alphaGeometry.Remove(key); _publishedOpacity.Remove(key);
         actor.GetParent().RemoveChild(actor);
         actor.QueueFree();
     }
@@ -177,7 +178,7 @@ internal partial class RuntimeNativeReferencePresentation : Node
                 }
                 FinishPart(ref retainMilliseconds, partStarted);
             }
-            _enabled.Remove(key); _fadeGeometry.Remove(key); _publishedOpacity.Remove(key);
+            _enabled.Remove(key); _fadeGeometry.Remove(key); _alphaGeometry.Remove(key); _publishedOpacity.Remove(key);
         }
         Mark("departing");
         if (timing is not null)
@@ -258,6 +259,13 @@ internal partial class RuntimeNativeReferencePresentation : Node
         BindObjectAnimation(key, node);
         _fadeGeometry[key] = RuntimeNativeReferenceOpacity.Collect(node);
         _publishedOpacity.Remove(key);
+        // Script actor alpha (SetActorAlpha) covers the actor's whole 3D. Freshly
+        // built actor geometry is opaque, so only a change is published.
+        if (node is OpenNV.Runtime.World.Actors.RuntimeNativeNpc or OpenNV.Runtime.World.Actors.RuntimeNativeCreature)
+        {
+            _alphaGeometry[key] = SceneGraph.NodeTraversal.SelfAndDescendants<GeometryInstance3D>(node).ToArray();
+            _publishedOpacity[key] = 1;
+        }
         PublishOpacity(key);
     }
 
@@ -358,8 +366,10 @@ internal partial class RuntimeNativeReferencePresentation : Node
 
     private void PublishOpacity(FalloutFormKey key)
     {
-        if (!_fadeGeometry.TryGetValue(key, out var geometry)) return;
         var opacity = _world.Get(key).Opacity;
+        // Rendered actor alpha is the script alpha times the fade alpha.
+        if (_alphaGeometry.TryGetValue(key, out var geometry)) opacity *= _world.ActorAlpha(key);
+        else if (!_fadeGeometry.TryGetValue(key, out geometry)) return;
         if (_publishedOpacity.TryGetValue(key, out var previous) && previous == opacity) return;
         RuntimeNativeReferenceOpacity.Publish(geometry, opacity);
         _publishedOpacity[key] = opacity;

@@ -703,6 +703,7 @@ public partial class RuntimeCoordinator
             if (restore.State.ActorBaseFlags is { } baseFlags) _nativeReferences.ActorBaseFlags.Restore(baseFlags);
             _nativeReferences.RestoreCellOwnership(restore.State.CellOwnership);
             _nativeReferences.RestoreActorNames(restore.State.ActorNames);
+            _nativeReferences.RestoreCellImageSpaces(restore.State.CellImageSpaces);
             _nativeReferences.RestoreEncounterZones(restore.State.EncounterZones);
             _nativeReferences.RuntimeReferences.Restore(restore.State.RuntimeReferences, restore.State.TransientExplosions);
             _nativeReferences.TransientExplosions.Restore(restore.State.TransientExplosions);
@@ -1719,6 +1720,12 @@ public partial class RuntimeCoordinator
         };
         world.Compositor = AddNativeImageSpace(root, _nativeReferences?.CellImageSpace(cell.Cell.FormKey) ??
             FalloutImageSpaceReader.ForCell(_nativePluginStack!, cell.Cell.FormKey));
+        if (_nativeReferences is { } references && root.GetChildren().OfType<RuntimeNativeImageSpace>().LastOrDefault() is { } presenter)
+        {
+            var cellKey = cell.Cell.FormKey;
+            references.BindCellImageSpace(cellKey, presenter.Replace);
+            presenter.TreeExiting += () => references.UnbindCellImageSpace(cellKey, presenter.Replace);
+        }
         root.AddChild(world);
         var surfaceToLight = RetailLighting.SurfaceToLightFromXcllDegrees(
             lighting.DirectionalXDegrees,

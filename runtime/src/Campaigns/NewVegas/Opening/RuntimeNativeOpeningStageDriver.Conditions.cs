@@ -76,6 +76,10 @@ internal partial class RuntimeNativeOpeningStageDriver
         Function.IsHardcore => _scripts.Session.Hardcore ? 1 : 0,
         Function.PlayerInRegion => _scripts.References!.IsInRegion(_pluginStack.RuntimeFormKey(0x14), condition.FormArgument1,
             SharedConditions.PlayerPlacement?.Invoke(), _player.UnitsToMeters) ? 1 : 0,
+        Function.GetXPForNextLevel => Vitals.NextLevelExperiencePoints,
+        Function.GetPlayerControlsDisabled => PlayerControls.AnyDisabled(condition.Argument1) ? 1 : 0,
+        Function.GetAngle => FalloutConditionRuntime.WrappedDegrees(
+            OpenNV.Runtime.Formats.Gamebryo.GamebryoCoordinate.ReferenceEuler(_player.GlobalBasis)[checked((int)(condition.Argument1 - 'X'))]),
         _ => throw new NotSupportedException($"Player condition {condition.Function} has no authoritative native state owner."),
     };
 }
