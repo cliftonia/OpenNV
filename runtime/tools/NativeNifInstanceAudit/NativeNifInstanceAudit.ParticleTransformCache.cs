@@ -18,6 +18,8 @@ public partial class NativeNifInstanceAudit
         var randomField = typeof(RuntimeNifParticleSystem).GetField("_random", BindingFlags.Instance | BindingFlags.NonPublic)!;
         var cacheField = typeof(RuntimeNifParticleSystem).GetField("_stepTransforms", BindingFlags.Instance | BindingFlags.NonPublic)!;
         var camera = new Camera3D { Current = true, Position = new(3, 4, 8) }; fixture.AddChild(camera);
+        // Each update follows an emitter-controller sample, as its player would.
+        var controllers = new Dictionary<RuntimeNifParticleSystem, (RuntimeNifControllerChannel Channel, float Time)>();
         try
         {
             foreach (var worldSpace in new[] { false, true })
@@ -124,7 +126,8 @@ public partial class NativeNifInstanceAudit
                 runtime.Configure(source, (FalloutNifParticleSystem)source.ReadObject(0), new Dictionary<int, Node3D>
                 { [0] = runtime, [10] = emitter }, material, 1);
                 root.AddChild(runtime); runtime.SetProcess(false);
-                runtime.Bind(source, new("Particles", "", "NiPSysEmitterCtlr", "Emitter", "BirthRate", 7, 9, 0)).Apply(0);
+                var birth = runtime.Bind(source, new("Particles", "", "NiPSysEmitterCtlr", "Emitter", "BirthRate", 7, 9, 0));
+                birth.Apply(0); controllers.Add(runtime, (birth, 0));
                 var draw = runtime.GetChildren().OfType<MultiMeshInstance3D>().Single().Multimesh;
                 return (root, emitter, runtime, draw);
             }
@@ -135,8 +138,13 @@ public partial class NativeNifInstanceAudit
             for (var index = resources.Count - 1; index >= 0; index--) resources[index].Dispose();
         }
 
-        static void Advance(RuntimeNifParticleSystem runtime, float seconds)
-        { runtime.BeginParentMotion(seconds); runtime.Advance(seconds); runtime.EndParentMotion(); }
+        void Advance(RuntimeNifParticleSystem runtime, float seconds)
+        {
+            var (channel, time) = controllers[runtime];
+            controllers[runtime] = (channel, time += seconds);
+            channel.Apply(time);
+            runtime.BeginParentMotion(seconds); runtime.Advance(seconds); runtime.EndParentMotion();
+        }
         static void Require(bool condition, string message)
         { if (!condition) throw new InvalidDataException("Particle transform cache: " + message); }
     }
