@@ -15,17 +15,26 @@ internal partial class RuntimeNativeOpeningStageDriver
     private FalloutRestKind _restKind;
     internal object? RestState => _restMenu?.State;
 
-    private bool PlayerInteractionBusy => _moviePlaying || _levelUpMenu is not null || _restMenu is not null || _repairServicesMenu is not null ||
+    // A player menu, character-creation entry, movie, furniture or terminal
+    // owns input. Menus that dialogue result scripts open (repair, casino)
+    // admit an active conversation; resting does not.
+    private bool PlayerMenuOwnsInput => _moviePlaying || _levelUpMenu is not null || _restMenu is not null || _repairServicesMenu is not null ||
         _player.FurnitureActive || _recipeMenu is not null || _barterMenu is not null || _caravanMenu is not null || _casinoMenu is not null ||
         _nameEntry is not null || _raceSexEntry is not null || _vigorEntry is not null || _specialBookEntry is not null ||
-        _tagSkillEntry is not null || _traitEntry is not null || _conversation?.Active == true || _speech?.Active == true ||
-        TerminalSaveBlocker is not null;
+        _tagSkillEntry is not null || _traitEntry is not null || TerminalSaveBlocker is not null;
+
+    private bool PlayerInteractionBusy => PlayerMenuOwnsInput || _conversation?.Active == true || _speech?.Active == true;
 
     // Beds, the Wait control and ShowSleepWaitMenu share one admission path.
     // A refusal is published as the executable's HUD notice, never thrown.
     internal void RequestPlayerRest(FalloutRestKind kind, FalloutFormKey? bed)
     {
-        if (PlayerInteractionBusy || _vitals.State.ExactHitPoints <= 0) return;
+        if (PlayerInteractionBusy || _vitals.State.ExactHitPoints <= 0)
+        {
+            // Not a source refusal notice, but never a silent drop either.
+            GD.Print($"OPENNV_REST_IGNORED kind={kind} bed={bed?.ToString() ?? "none"} reason={(PlayerInteractionBusy ? "interaction-busy" : "dead")}");
+            return;
+        }
         var world = _scripts.References ?? throw new InvalidOperationException("Rest has no reference-world owner.");
         var player = _pluginStack.RuntimeFormKey(0x14);
         var factions = world.ActorFactions(player);

@@ -38,10 +38,7 @@ internal partial class RuntimeNativeOpeningStageDriver
 
     private void OpenCasinoMenu(FalloutCasinoCommandRequest request)
     {
-        if (_casinoMenu is not null || _caravanMenu is not null || _player.FurnitureActive || _moviePlaying || _recipeMenu is not null ||
-            _barterMenu is not null || _levelUpMenu is not null || _nameEntry is not null || _raceSexEntry is not null ||
-            _vigorEntry is not null || _specialBookEntry is not null || _tagSkillEntry is not null || _traitEntry is not null ||
-            TerminalSaveBlocker is not null)
+        if (PlayerMenuOwnsInput)
             throw new InvalidOperationException("A casino game cannot open while another player interaction owns input.");
         var world = _scripts.References ?? throw new InvalidOperationException("Casino has no shared world owner.");
         var source = RuntimeLiveContentSource.Current ?? throw new InvalidOperationException("Casino owned presentation source is absent.");
