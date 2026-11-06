@@ -24,7 +24,8 @@ public partial class RuntimeCoordinator
             NativeAimedTarget, () => _nativeXr is null && _nativePlayer is { ModalInput: false } &&
                 !_nativeDoorLoading && !GetTree().Paused, () => _nativeOpeningStageDriver!.Vitals,
             () => _nativePlayer?.AmmunitionHud, () => _nativePlayer?.WeaponActionNotice, _nativeUi,
-            () => _nativePlayer!.SourceControls, NativeCompass, () => _nativePlayer?.WeaponConditionHud);
+            () => _nativePlayer!.SourceControls, NativeCompass, () => _nativePlayer?.WeaponConditionHud,
+            hardcore: () => _nativeOpeningStageDriver?.HudHardcore);
         layer.AddChild(_nativeGameplayHud);
         _nativeHudMessages = new(_nativePluginStack!, _nativeInventory.Notifications,
             () => _nativeXr is null && _nativePlayer is { ModalInput: false } && !_nativeDoorLoading && !GetTree().Paused, _nativeQuestState,
@@ -118,7 +119,7 @@ public partial class RuntimeCoordinator
             ActiveEffects = () => driver.IngestibleState,
             InventoryCarryCapacity = player.InventoryCarryCapacity,
             InventoryDefense = driver.PlayerInventoryDefense,
-            InventoryHardcore = () => driver.InventoryHardcore,
+            Hardcore = () => driver.Hardcore,
             InventoryDamage = player.InventoryDamageText,
             InventoryStrength = player.InventoryStrengthText,
             InventoryAmmo = player.InventoryAmmunitionText,

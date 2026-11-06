@@ -52,6 +52,29 @@ is false. SCDA instruction execution, remaining source failures, all quest
 branches, dialogue/combat/effects, housing CELL ownership and complete cold
 continuation remain open. Passing selected tests is not whole-game acceptance.
 
+Hardcore needs and Sleep/Wait follow a clean-room behaviour description.
+Dehydration, Hunger and SleepDeprivation accrue in real time from the effective
+rate settings (saved in vitals, campaign schema v74+). Their DEHY/HUNG/SLPD stage
+diseases, notices and fatal damage come from the records. Need effects of food,
+water and the Doctor's Bag apply, and the HUD and Pip-Boy show the needs.
+Sleep/Wait uses the original refusal chains and runs one game hour per real
+second. The hour step order is the original one, and the full heal happens only
+when a non-Hardcore Sleep ends naturally. Synthetic and owned-data contracts pass;
+the e2e rest test waits three hours in the world.
+Trespass outside unowned cells, alarm, underwater and radiation admission
+inputs, the HealRate/Modify Recovered Health heal terms, rest autosave/fade
+and actor catch-up remain unbound and are named in rest telemetry.
+
+Combat damage now follows one ordered owner: the attacker formula (attack-arm,
+skill, MeleeDamage/UnarmedDamage, companion Charisma), then target mitigation
+(DR capped by fMaxArmorRating, DT with entries 58/56, ammo and entry-0 damage,
+the minimum floor, weapon resistance type, VATS player multiplier) and the
+per-mille critical roll with entries 1/2/36. Critical stages, SetVATSTarget and
+the Agility PushActorAway force are owned and saved (schema v75). Still open and
+visible: critical effect spells (no actor active-effect owner), ash piles,
+Meltdown, sneak-attack detection, blocking, split beam, disarm/stagger, scripted
+FireWeapon, flee destinations, the player ragdoll knockdown and VATS special moves.
+
 ## Next owner and publication
 
 The complete required runtime gate passes: Release/Debug, formatting/analyzers,

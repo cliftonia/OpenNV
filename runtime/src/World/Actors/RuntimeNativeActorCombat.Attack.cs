@@ -306,11 +306,12 @@ internal sealed partial class RuntimeNativeActorCombat
             ? (_skeleton.Node.GlobalTransform * _skeleton.Node.GetBoneGlobalPose(bone)).Origin
             : _actor.GlobalPosition + Vector3.Up * _radius;
         byte? part = null;
+        Func<float>? random = _enemyWeapon is null ? null : _enemyWeaponHandling!.NextShotRandomUnit;
         if (distance <= allowed && CanSeeTarget(player) && _opponent is null && player!.CombatHitPartFrom(origin, _actor) is { } selectedPart)
         {
             part = selectedPart;
             _world.RecordActorWeaponContact(_records.RuntimeFormKey(0x14), _state.Reference, _enemyWeapon?.Form, resolvedDamage.WeaponScriptInstance);
-            _context!.DamagePlayer(resolvedDamage, selectedPart);
+            _context!.DamagePlayer(resolvedDamage, selectedPart, random);
             if (_enemyWeapon is { } weapon) player!.ReceiveWeaponTouchEffects(_state.Reference, weapon.Form);
             player!.ReceiveMeleeKnockback(_actor.GlobalPosition, resolvedDamage.Amount);
             ++_hits;
@@ -318,7 +319,7 @@ internal sealed partial class RuntimeNativeActorCombat
         else if (distance <= allowed && _opponent is not null && TargetContact(origin) is { } collider)
         {
             part = _opponent.Hit(collider, resolvedDamage, _state.Reference, _context!.Level(), _context.Globals,
-                hitWeapon: _enemyWeapon?.Form).Part;
+                nextWeaponRandomUnit: random, hitWeapon: _enemyWeapon?.Form).Part;
             _opponent.ReceiveMeleeKnockback(_actor.GlobalPosition, resolvedDamage.Amount);
             ++_hits;
         }

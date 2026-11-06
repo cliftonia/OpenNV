@@ -10,7 +10,7 @@ using OpenNV.Runtime.World.Cells;
 internal static partial class NativeNavigationContracts
 {
     internal static NativeActorCombatContext PackageReceiptContext() => new(() => null,
-        () => throw new InvalidOperationException("Receipt contract queried player vitals."), (_, _) => { },
+        () => throw new InvalidOperationException("Receipt contract queried player vitals."), (_, _, _) => { },
         (_, _) => [], _ => true, () => 1, null!, .4f, 9.81f);
 
     private static void CheckPackageRouteReceipts()

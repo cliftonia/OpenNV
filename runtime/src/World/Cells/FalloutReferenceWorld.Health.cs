@@ -75,6 +75,14 @@ internal sealed partial class FalloutReferenceWorld
         actor.Engagement is { } engagement && engagement.Target == _enginePlayer &&
         IsEnabled(actor.Reference) && actor.Injury?.Dead != true);
 
+    // Sleep/Wait "hostile actors nearby": a living, enabled resident actor
+    // within the limit that targets the player in combat or is hostile to it.
+    internal bool HostileActorNear(float limit, Func<FalloutFormKey, float> distanceToPlayer) => ResidentInstances.Any(actor =>
+        actor.Reference != _enginePlayer && records.GetEffective(actor.Base).Signature is "NPC_" or "CREA" &&
+        IsEnabled(actor.Reference) && actor.Injury?.Dead != true &&
+        (actor.Engagement?.Target == _enginePlayer || ActorThreat(actor.Reference).Hostile(ActorRelation(actor.Reference, _enginePlayer))) &&
+        distanceToPlayer(actor.Reference) <= limit);
+
     internal bool HasSelectedCombatTarget(FalloutFormKey reference, FalloutFormKey target)
     {
         var actor = Actor(reference);

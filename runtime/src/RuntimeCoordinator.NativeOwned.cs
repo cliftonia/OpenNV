@@ -232,6 +232,7 @@ public partial class RuntimeCoordinator
                 blockingError = _nativeOpeningStageDriver.BlockingExecutionError,
                 stageResults = _nativeOpeningStageDriver.StageResultState,
                 saveRequest = _nativeOpeningStageDriver.SaveRequestState,
+                rest = _nativeOpeningStageDriver.RestState,
             },
             movies = GetChildren().OfType<NativeGamebryoMovie>()
                 .Concat(_nativeOpeningStageDriver?.GetChildren().OfType<NativeGamebryoMovie>() ?? [])
@@ -1613,9 +1614,11 @@ public partial class RuntimeCoordinator
             () => _nativeOpeningStageDriver!.PlayerLevel, value => _nativeOpeningStageDriver!.PlayerCombatValue(value),
             () => _nativeOpeningStageDriver!.PlayerPerkEntries,
             condition => _nativeOpeningStageDriver!.EvaluateRecipeCondition(condition),
-            (damage, part) => _nativeOpeningStageDriver!.DamagePlayer(damage, part));
+            (damage, part, random) => _nativeOpeningStageDriver!.DamagePlayer(damage, part, random));
         _nativePlayer.ConfigureHitEvents(_nativeReferences!, collider => _nativeReferenceEvents?.CollisionReference(collider));
         _nativePlayer.CanOccupyPosition = NativeCollisionResident;
+        _nativeReferences!.PushPlayer = (origin, amount) =>
+            (_nativePlayer ?? throw new NotSupportedException("PushActorAway has no resident player.")).ScriptPushAway(origin, amount);
         _nativePlayer.IsDefeated = () => _nativeOpeningStageDriver?.Vitals.HitPoints == 0;
         var restore = _nativeContinueOpening
             ? _nativeOpeningRestore ?? throw new InvalidOperationException(

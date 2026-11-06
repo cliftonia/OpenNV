@@ -6,19 +6,18 @@ using OpenNV.Runtime.Gameplay.State;
 
 namespace OpenNV.Runtime.Presentation.Ui;
 
-/// <summary>SleepWaitMenu (menus/sleep_wait_menu.xml): chooses hours, then counts them down one game hour at a time.</summary>
+/// <summary>SleepWaitMenu (menus/sleep_wait_menu.xml): chooses hours, then counts them down one game hour per real second.</summary>
 internal sealed partial class NativeOwnedSleepWaitMenu : Control
 {
-    // OpenNV pacing for the visible hour count; the retail interval is unverified.
-    private const double SecondsPerHour = .12;
     private readonly FalloutPluginStack _records;
     private readonly NativeOwnedMenuTree _tiles;
     private readonly XElement _scrollbar, _hours, _time, _prompt;
     private readonly List<(XElement Tile, Control Control)> _targets = [];
     private readonly FalloutRestKind _kind;
     private readonly Func<string> _currentTime;
-    private readonly Func<bool> _advanceHour;
-    private readonly Action<int> _complete;
+    private readonly Action<int> _begin;
+    private readonly Func<int> _step, _remaining;
+    private readonly Action _close;
     private readonly string _verb;
     private double _elapsed;
     private bool _closed;
@@ -29,12 +28,14 @@ internal sealed partial class NativeOwnedSleepWaitMenu : Control
     internal string? Error { get; private set; }
     internal object State => new { kind = _kind.ToString(), hours = Hours, resting = Resting, rested = RestedHours, error = Error };
 
-    // advanceHour advances one game hour and returns false when the rest is
-    // interrupted; complete receives the hours actually rested (0 = cancel).
+    // The rest owner keeps the counter: begin starts it, step runs one hour and
+    // returns the hours left, remaining observes it (WakeUpPC may clear it) and
+    // close ends the menu however the rest stopped.
     internal NativeOwnedSleepWaitMenu(FalloutPluginStack records, FalloutRestKind kind, Func<string> currentTime,
-        Func<bool> advanceHour, Action<int> complete)
+        Action<int> start, Func<int> step, Func<int> remaining, Action close)
     {
-        _records = records; _kind = kind; _currentTime = currentTime; _advanceHour = advanceHour; _complete = complete;
+        _records = records; _kind = kind; _currentTime = currentTime;
+        _begin = start; _step = step; _remaining = remaining; _close = close;
         Name = "OwnedSleepWaitMenu"; TopLevel = true; ZIndex = 100;
         ProcessMode = ProcessModeEnum.Always; MouseFilter = MouseFilterEnum.Stop;
         var menu = FalloutMenuXml.Expand(FalloutMenuXml.Read("menus/sleep_wait_menu.xml")).Elements("menu").Single();
@@ -67,7 +68,7 @@ internal sealed partial class NativeOwnedSleepWaitMenu : Control
         AddChild(slider); _targets.Add((_scrollbar, slider));
         SetMeta("opennv_menu_id", (int)FalloutPlayerRest.MenuId);
         SetMeta("opennv_ui_source", "menus/sleep_wait_menu.xml; source-fonts-and-atlas");
-        SetMeta("opennv_ui_unverified", "retail-hour-pacing,matched-pixels");
+        SetMeta("opennv_ui_unverified", "matched-pixels,begin-fade-and-autosave");
     }
 
     private string Setting(string name) => FalloutGameSettingStrings.Read(_records, name);
@@ -100,42 +101,36 @@ internal sealed partial class NativeOwnedSleepWaitMenu : Control
         if (_closed || Resting || Error is not null) return;
         Resting = true; _elapsed = 0;
         foreach (var (_, control) in _targets) control.Visible = false;
+        _begin(Hours);
         GD.Print($"OPENNV_REST_BEGIN kind={_kind} hours={Hours}");
     }
 
-    internal void Cancel()
-    {
-        if (_closed) return;
-        if (Resting) { Finish(); return; }
-        _closed = true; _complete(0);
-    }
+    internal void Cancel() => Close();
 
-    private void Finish()
+    private void Close()
     {
         if (_closed) return;
         _closed = true; Resting = false;
-        _complete(RestedHours);
+        _close();
     }
 
     public override void _Process(double delta)
     {
         if (!Resting || _closed || Error is not null) return;
-        _elapsed += delta;
         try
         {
-            while (_elapsed >= SecondsPerHour && Resting && !_closed)
-            {
-                _elapsed -= SecondsPerHour;
-                var continuing = _advanceHour();
-                RestedHours++;
-                Refresh(Math.Max(1, Hours - RestedHours));
-                if (!continuing || RestedHours >= Hours) Finish();
-            }
+            if (_remaining() <= 0) { Close(); return; }
+            _elapsed += delta;
+            if (_elapsed < FalloutPlayerRest.SecondsPerHour) return;
+            _elapsed = 0;
+            var left = _step();
+            RestedHours++;
+            Refresh(Math.Max(1, left));
         }
         catch (Exception error)
         {
             Error = error.Message; GD.PushError($"OPENNV_SLEEP_WAIT_UI_FAIL {error.Message}");
-            Finish();
+            Close();
         }
     }
 
@@ -171,8 +166,6 @@ internal sealed partial class NativeOwnedSleepWaitMenu : Control
             {
                 case Key.Left or Key.A when !Resting: Select(Hours - 1); break;
                 case Key.Right or Key.D when !Resting: Select(Hours + 1); break;
-                case Key.Pageup: Select(Hours - 6); break;
-                case Key.Pagedown: Select(Hours + 6); break;
                 case Key.Enter or Key.KpEnter or Key.W when !key.Echo: Begin(); break;
                 case Key.Escape or Key.Tab or Key.E when !key.Echo: Cancel(); break;
                 default: break;
@@ -181,7 +174,8 @@ internal sealed partial class NativeOwnedSleepWaitMenu : Control
         }
         else if (inputEvent is InputEventMouseButton { Pressed: true } mouse && mouse.ButtonIndex is MouseButton.WheelUp or MouseButton.WheelDown)
         {
-            Select(Hours + (mouse.ButtonIndex == MouseButton.WheelUp ? 1 : -1)); viewport.SetInputAsHandled();
+            // Each scroll event moves the code-set slider by two hours.
+            Select(Hours + (mouse.ButtonIndex == MouseButton.WheelUp ? 2 : -2)); viewport.SetInputAsHandled();
         }
     }
 

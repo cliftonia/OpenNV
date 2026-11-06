@@ -138,6 +138,8 @@ internal sealed partial class FalloutReferenceWorld
     private void ApplyActorIngestibleIncrement(FalloutFormKey reference, Dictionary<string, FalloutActorValue> values,
         ref FalloutActorInjury injury, FalloutIngestibleEffect effect, float amount)
     {
+        if (effect.Archetype == FalloutIngestibleApplications.LimbCondition || effect.ActorValue is 73 or 74 or 75)
+            throw new NotSupportedException("Actor limb-condition or Hardcore-need ingestion requires its actor pool owner.");
         if (effect.ActorValue == 54)
         {
             var previous = values.GetValueOrDefault("radiationrads", new(0));

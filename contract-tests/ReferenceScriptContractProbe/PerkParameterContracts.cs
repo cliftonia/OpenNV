@@ -31,6 +31,7 @@ internal static class PerkParameterContracts
                     "begin GameMode\nif once == 0\nSetNthPerkEntryValue1 TestPerk 1 5\n" +
                     "set seen to GetNthPerkEntryValue1 TestPerk 1\nset once to 1\nendif\nend"))),
                 Weapon(), Setting(0x30, "fDamageWeaponMult", 1), Setting(0x31, "fDamageSkillBase", 1),
+                Setting(0x33, "fDamageArmConditionBase", .2f), Setting(0x34, "fDamageArmConditionMult", .8f),
                 Setting(0x32, "fDamageSkillMult", 0));
             var patchBytes = Join(Header("Perks.esm"), MixedPerk(3, 2));
             File.WriteAllBytes(basePath, baseBytes); File.WriteAllBytes(patchPath, patchBytes);
@@ -50,11 +51,11 @@ internal static class PerkParameterContracts
             inventory.Publish([new(Key(0x20), 0x20, "Weapon", "WEAP", 1, 1, 1)]);
             var skills = new FalloutPlayerSkills(records, () => new(5, 5, 5, 5, 5, 5, 5), _ => false,
                 () => [], null, inventory, Key(7), () => Key(8), () => false, () => world.AcquiredPerks(Key(0x14)));
-            var damage = new FalloutWeaponDamageResolver(records, inventory, _ => 100, () => skills.PerkEntries);
-            Require(damage.Resolve(Key(0x20), 10).Amount == 30, "Winning perk value did not reach weapon damage.");
-            Require(records.NumericSettings.Set("fDamageWeaponMult", 2) && damage.Resolve(Key(0x20), 10).Amount == 60,
+            var damage = new FalloutWeaponDamageResolver(records, inventory, _ => 100, () => skills.PerkEntries, WeaponFiringContracts.Steady);
+            Require(damage.Resolve(Key(0x20), 10).Unmitigated == 30, "Winning perk value did not reach weapon damage.");
+            Require(records.NumericSettings.Set("fDamageWeaponMult", 2) && damage.Resolve(Key(0x20), 10).Unmitigated == 60,
                 "Numeric setting mutation left an existing weapon damage owner with a stale multiplier.");
-            Require(records.NumericSettings.Set("fDamageWeaponMult", 1) && damage.Resolve(Key(0x20), 10).Amount == 30,
+            Require(records.NumericSettings.Set("fDamageWeaponMult", 1) && damage.Resolve(Key(0x20), 10).Unmitigated == 30,
                 "Restored session damage multiplier did not reach the same weapon owner.");
             var quests = new FalloutQuestState(records);
             var executor = new FalloutReferenceScripts(records, world, quests, new((_, _) => false,
@@ -64,7 +65,7 @@ internal static class PerkParameterContracts
                 FalloutGameModeProgram.Read("begin GameMode\n" + body + "\nend"), 0);
             Run("set currentPerk to TestPerk\nSetNthPerkEntryValue1 (currentPerk) 1 4\n" +
                 "SetNthPerkEntryValue1 currentPerk 2 0.5\nset seen to GetNthPerkEntryValue1 currentPerk 1");
-            Require(quests.Variable(quest.FormKey, 2) == 4 && damage.Resolve(Key(0x20), 10).Amount == 40 &&
+            Require(quests.Variable(quest.FormKey, 2) == 4 && damage.Resolve(Key(0x20), 10).Unmitigated == 40 &&
                 peer.Perk(Key(1)).Entries[1].Value == .5f && world.PerkEntries(Key(0x14)).First().Value == 4,
                 "Source commands, typed form variables, cached peer readers or live gameplay retained old parameters.");
             Run("set seen to GetPerkEntryCount currentPerk + GetNthPerkEntryType currentPerk 1 + GetNthPerkEntryFunction currentPerk 2");
@@ -75,7 +76,7 @@ internal static class PerkParameterContracts
                 defaultProcessingDelay: .01f, references: world);
             fallback.Advance(1);
             Require(fallback.Capture().Instances.Single().Error is null && quests.Variable(quest.FormKey, 2) == 5 &&
-                damage.Resolve(Key(0x20), 10).Amount == 50, "Fallback quests changed a private perk copy.");
+                damage.Resolve(Key(0x20), 10).Unmitigated == 50, "Fallback quests changed a private perk copy.");
             using var replacement = new FalloutReferenceWorld(records);
             replacement.RestoreActorOverrides(world.CaptureActorOverrides());
             Require(replacement.PerkEntries(Key(0x14)).First().Value == 5 && reader.Perk(Key(1)).Entries[0].Value == 5,
@@ -113,7 +114,7 @@ internal static class PerkParameterContracts
         Field("EPFD", values.SelectMany(BitConverter.GetBytes).ToArray()), Field("PRKF", []));
     private static byte[] Weapon()
     {
-        var data = new byte[120]; BinaryPrimitives.WriteInt32LittleEndian(data.AsSpan(104), 41);
+        var data = new byte[120]; data[0] = 3; BinaryPrimitives.WriteInt32LittleEndian(data.AsSpan(104), 41);
         BinaryPrimitives.WriteSingleLittleEndian(data.AsSpan(116), 1);
         return Record("WEAP", 0x20, Field("DNAM", data));
     }
