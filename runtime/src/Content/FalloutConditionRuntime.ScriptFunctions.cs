@@ -87,6 +87,9 @@ internal sealed partial class FalloutConditionRuntime
                 Call(Function.GetIsCreatureType, number: Index(arguments[0].Number)))
             { ReadOnly = true },
             "getinzone" => Form(Function.GetInZone),
+            "isincriticalstage" => new([FalloutScriptArgumentKind.Identifier], arguments =>
+                Call(Function.IsInCriticalStage, number: FalloutCriticalStage.Parse(arguments[0].Identifier!)))
+            { ReadOnly = true },
             "getissex" => Sex(Function.GetIsSex, true),
             "getpcissex" => Sex(Function.GetPCIsSex, false),
             "getactorvalue" or "getav" => new([FalloutScriptArgumentKind.Identifier], arguments =>

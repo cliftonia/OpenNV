@@ -80,6 +80,7 @@ internal sealed partial class FalloutPlayerSkills
         if (!_evaluating.Add(value)) throw new NotSupportedException("Actor ability conditions have a recursive value dependency.");
         try
         {
+            if (value is 48 or 49) return EffectPool(value); // Invisibility, Chameleon
             if (value == 46)
             {
                 if (_weightRevision != _inventory.Revision || _weightQuestObjectRevision != _records.QuestObjects.Revision || _weightHardcore != _hardcore())
@@ -94,11 +95,15 @@ internal sealed partial class FalloutPlayerSkills
                 }
                 return _carriedWeight;
             }
-            if (value is 13 or 56)
+            if (value is 13 or 14 or 17 or 56)
             {
-                var basis = value == 13
-                    ? (float)(Setting("fAVDCarryWeightsBase") + (double)Value(5) * Setting("fAVDCarryWeightMult"))
-                    : (float)(Setting("fAVDUnarmedDamageBase") + (double)Value(45) * Setting("fAVDUnarmedDamageMult"));
+                var basis = value switch
+                {
+                    13 => (float)(Setting("fAVDCarryWeightsBase") + (double)Value(5) * Setting("fAVDCarryWeightMult")),
+                    14 => (float)(Setting("fAVDCritLuckBase") + (double)Value(11) * Setting("fAVDCritLuckMult")),
+                    17 => (float)(Setting("fAVDMeleeDamageStrengthOffset") + (double)Value(5) * Setting("fAVDMeleeDamageStrengthMult")),
+                    _ => (float)(Setting("fAVDUnarmedDamageBase") + (double)Value(45) * Setting("fAVDUnarmedDamageMult")),
+                };
                 var amount = (float)((double)basis + Modifiers(value, FalloutActorValuePool.Temporary).Sum(effect => effect.Amount) +
                     Modifiers(value, FalloutActorValuePool.Permanent).Sum(effect => effect.Amount) +
                     Modifiers(value, FalloutActorValuePool.Damage).Sum(effect => effect.Amount));
@@ -119,7 +124,18 @@ internal sealed partial class FalloutPlayerSkills
         finally { _evaluating.Remove(value); }
     }
 
-    internal IReadOnlyList<FalloutAbilityModifier> Modifiers(int actorValue, FalloutActorValuePool pool) => ConstantEffects()
+    // A weapon's resistance type reads an empty base pool filled by the
+    // player's constant effects; RadResist keeps its Endurance-derived base.
+    internal float WeaponResistance(int actorValue) => actorValue == 20 ? Value(20) : EffectPool(actorValue);
+
+    private float EffectPool(int actorValue)
+    {
+        var amount = new[] { FalloutActorValuePool.Temporary, FalloutActorValuePool.Permanent, FalloutActorValuePool.Damage }
+            .Sum(pool => Modifiers(actorValue, pool).Sum(effect => effect.Amount));
+        return float.IsFinite(amount) ? amount : throw new InvalidDataException("Player effect actor value is not finite.");
+    }
+
+    internal IReadOnlyList<FalloutAbilityModifier> Modifiers(int actorValue, FalloutActorValuePool pool) =>ConstantEffects()
         .SelectMany(form => OwnedModifiers(form)).Where(effect => effect.ActorValue == actorValue && effect.Pool == pool &&
             FalloutCondition.AllPass(effect.Conditions, Condition)).ToArray();
 

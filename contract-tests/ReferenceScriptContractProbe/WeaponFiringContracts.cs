@@ -6,6 +6,8 @@ using OpenNV.Runtime.Gameplay.State;
 
 internal static class WeaponFiringContracts
 {
+    // An attacker with healthy arms, no teammate scaling and no VATS.
+    internal static readonly FalloutWeaponAttacker Steady = new(() => (1, 1), () => 1, () => false);
     internal static void Run()
     {
         VatsSelectionCameraContracts();
@@ -172,6 +174,8 @@ internal static class WeaponFiringContracts
                 .Concat(Record("GMST", 52, Field("EDID", Text("fCombatDistance")), Field("DATA", BitConverter.GetBytes(128.0f))))
                 .Concat(Record("GMST", 53, Field("EDID", Text("fCombatHitConeAngle")), Field("DATA", BitConverter.GetBytes(35.0f))))
                 .Concat(Record("GMST", 54, Field("EDID", Text("fIronSightsFOVTimeChange")), Field("DATA", BitConverter.GetBytes(.25f))))
+                .Concat(Record("GMST", 0x9a0, Field("EDID", Text("fDamageArmConditionBase")), Field("DATA", BitConverter.GetBytes(.2f))))
+                .Concat(Record("GMST", 0x9a1, Field("EDID", Text("fDamageArmConditionMult")), Field("DATA", BitConverter.GetBytes(.8f))))
                 .Concat(Record("CELL", 0x800, Field("DATA", [1])))
                 .Concat(Record("NPC_", 0x801, Field("EDID", Text("AmmoOwner"))))
                 .Concat(Record("FACT", 0x802, Field("EDID", Text("AmmoFaction"))))
@@ -363,14 +367,14 @@ internal static class WeaponFiringContracts
             var unarmed = FalloutWeaponPresentation.Read(records, FalloutDefaultUnarmedWeapon.Require(records));
             var bareInventory = new FalloutPlayerInventory();
             var bareDamage = new FalloutWeaponDamageResolver(records, bareInventory,
-                value => value == 56 ? 20 : value == 45 ? 40 : throw new InvalidDataException("Unexpected unarmed damage AV."), () => []);
+                value => value == 56 ? 20 : value == 45 ? 40 : throw new InvalidDataException("Unexpected unarmed damage AV."), () => [], Steady);
             Require(unarmed.DefaultUnarmed && unarmed.Model is null && unarmed.IsMeleeWeapon && unarmed.Reach == 0 &&
                 bareDamage.Resolve(unarmed.Form, 0).Amount == 20 && bareDamage.Resolve(unarmed.Form, 3).Amount == 26 &&
                 bareInventory.Items.Count == 0 && bareInventory.Equipped.Count == 0,
                 "Default unarmed source required a model/item or scaled derived AV damage twice.");
             inventory.Add(records, Key(1), 1, 1, true); inventory.Add(records, Key(2), 9, 1, true); inventory.Equip(records, Key(1));
             var damage = new FalloutWeaponDamageResolver(records, inventory,
-                value => value == 41 ? 40 : throw new InvalidDataException("Weapon requested the wrong source skill."), () => []);
+                value => value == 41 ? 40 : throw new InvalidDataException("Weapon requested the wrong source skill."), () => [], Steady);
             Require(MathF.Abs(damage.Resolve(shot).Amount - 17.6f) < .00001f && damage.Resolve(shot).LimbMultiplier == 1.5f,
                 "Source weapon damage, skill, settings or limb multiplier changed.");
             var multiProjectileDamage = damage.Resolve(shot with { Projectiles = 7 });
@@ -386,7 +390,7 @@ internal static class WeaponFiringContracts
             Require(zeroProjectileDamageRefused, "Zero-projectile source action produced damage.");
             var wornInventory = new FalloutPlayerInventory();
             wornInventory.Add(records, Key(1), 1, 1, true, extra: new(1, .25f));
-            var worn = new FalloutWeaponDamageResolver(records, wornInventory, _ => 40, () => []);
+            var worn = new FalloutWeaponDamageResolver(records, wornInventory, _ => 40, () => [], Steady);
             Require(MathF.Abs(worn.Resolve(shot).Amount - 11.704f) < .00001f,
                 "NV damaged-weapon curve did not reach the ordinary damage resolver.");
             Require(FalloutWeaponDamageResolver.NewVegasConditionMultiplier(.75f) == 1 &&
@@ -488,7 +492,7 @@ internal static class WeaponFiringContracts
             var meleeInventory = new FalloutPlayerInventory();
             meleeInventory.Add(records, Key(50), 1, 1, true);
             meleeInventory.Equip(records, Key(50));
-            var meleeDamageResolver = new FalloutWeaponDamageResolver(records, meleeInventory, _ => 40, () => []);
+            var meleeDamageResolver = new FalloutWeaponDamageResolver(records, meleeInventory, _ => 40, () => [], Steady);
             var meleeDamage = meleeDamageResolver.Resolve(knife.Form, 25);
             Require(meleeDamage.Amount > 0 && meleeDamage.LimbMultiplier == 1.5f, "Melee damage resolution failed.");
             var meleeHandling = new FalloutWeaponHandling(meleeInventory);

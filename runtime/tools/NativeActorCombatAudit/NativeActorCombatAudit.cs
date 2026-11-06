@@ -82,7 +82,7 @@ public partial class NativeActorCombatAudit : Node3D
             var health = world.Health(key).Current;
             var defense = world.Defense(key, 1, globals);
             var first = actor.Combat.Hit(contact, new(health / 4, 1, 100, 1), records.RuntimeFormKey(0x14), 1, globals);
-            var expected = health - defense.Absorb(health / 4, FalloutGameSettingFloats.Read(records, "fMinDamMultiplier"));
+            var expected = health - defense.Mitigate(records, new(health / 4, 1, 100, 1), new());
             if (first.Dead || first.HealthAfter != expected) throw new InvalidDataException("Nonfatal source hit did not preserve life.");
             var died = actor.Combat.Hit(contact, new(health * 10, 1, 100, 1), records.RuntimeFormKey(0x14), 1, globals);
             if (!died.Died || !actor.Combat.Dead) throw new InvalidDataException("Fatal source hit did not publish death.");

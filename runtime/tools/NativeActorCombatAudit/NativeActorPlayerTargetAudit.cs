@@ -46,7 +46,7 @@ public partial class NativeActorCombatAudit
         }
         var health = 200f; var hits = 0;
         var context = new NativeActorCombatContext(() => player, () => new(1, 200, (int)health, 70, 70, 0, 100),
-            (damage, _) => { health -= damage.Amount; hits++; },
+            (damage, _, _) => { health -= damage.Amount; hits++; },
             (_, to) => [new(3.5f, .05f, 0), new(3.5f, .05f, -4), to],
             _ => true, () => 1, globals, .4f, 9.81f);
         try

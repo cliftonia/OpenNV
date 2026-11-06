@@ -50,7 +50,7 @@ public partial class NativeActorPerformanceAudit
             player.Configure(RuntimeConfiguration.Load(), new(Basis.Identity, origin + Vector3.Right));
             player.SetProcess(false); player.SetPhysicsProcess(false); player.SetProcessUnhandledInput(false);
             var context = new NativeActorCombatContext(() => player, () => new(1, 200, 200, 70, 70, 0, 100),
-                (_, _) => throw new InvalidOperationException("Escort fixture attacked the player."),
+                (_, _, _) => throw new InvalidOperationException("Escort fixture attacked the player."),
                 (from, to) => navigation.FindPath(Source(from), Source(to)).Select(World).ToArray(),
                 _ => true, () => 1, globals, .4f, 9.81f, PlayerCell: () => cell.Cell.FormKey);
 

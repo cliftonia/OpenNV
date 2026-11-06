@@ -80,7 +80,8 @@ internal sealed record FalloutNativeCampaignRestore(
 
 internal static class FalloutNativeCampaignSave
 {
-    internal const string ExpectedSchema = "opennv-native-fnv-campaign-save/v74";
+    internal const string ExpectedSchema = "opennv-native-fnv-campaign-save/v75";
+    internal const string BeforeCriticalStageSchema = "opennv-native-fnv-campaign-save/v74";
     internal const string BeforeHardcoreNeedsSchema = "opennv-native-fnv-campaign-save/v73";
     internal const string BeforeCasinoWinningsSchema = "opennv-native-fnv-campaign-save/v72";
     internal const string BeforeDynamicMineSchema = "opennv-native-fnv-campaign-save/v71";
@@ -651,6 +652,13 @@ internal static class FalloutNativeCampaignSave
 
     internal static FalloutNativeCampaignState AdmitPreviousOwnerSchema(FalloutNativeCampaignState state)
     {
+        if (state.Schema != ExpectedSchema && (state.ActorOverrides?.Any(actor => actor.CriticalStage != 0) == true ||
+            state.References?.Any(reference => reference.VatsTargetInverted) == true))
+            throw new InvalidDataException("Earlier campaign schemas cannot own critical stages or VATS target overrides.");
+        // Earlier mine damage lacks the post-threshold fields; JSON leaves them zero.
+        if (state.Schema != ExpectedSchema && state.DynamicMines is { } priorMines)
+            state = state with { DynamicMines = priorMines.Select(mine => mine with { Damage = mine.Damage.FromPriorSchema() }).ToArray() };
+        if (state.Schema == BeforeCriticalStageSchema) state = state with { Schema = ExpectedSchema };
         if (state.Schema != ExpectedSchema && state.Vitals?.HasNeeds == true)
             throw new InvalidDataException("Earlier campaign schemas cannot own Hardcore need values.");
         if (state.Schema == BeforeHardcoreNeedsSchema) state = state with { Schema = ExpectedSchema };

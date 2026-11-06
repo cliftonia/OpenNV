@@ -55,7 +55,7 @@ public partial class NativeActorCombatAudit
         Box(new(0, 1.5f, -4), new(4, 3, .5f));
         var noRoute = false;
         var context = new NativeActorCombatContext(() => player, () => new(1, 200, 200, 70, 70, 0, 100),
-            (_, _) => throw new InvalidOperationException("Follow fixture attacked its target."),
+            (_, _, _) => throw new InvalidOperationException("Follow fixture attacked its target."),
             (_, to) => noRoute ? [] : [to], _ => true, () => 1, globals, .4f, 9.81f);
         try
         {

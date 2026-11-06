@@ -45,7 +45,7 @@ internal static partial class NativeOwnedNavigationAudit
             npc.Transform = new(GamebryoCoordinate.ConvertReferenceEuler(
                 new(placed.RotationRadians[0], placed.RotationRadians[1], placed.RotationRadians[2]), placed.Scale), start);
             var context = new NativeActorCombatContext(() => null, () => vitals,
-                (_, _) => throw new InvalidDataException("Actor corridor attempted gameplay damage."),
+                (_, _, _) => throw new InvalidDataException("Actor corridor attempted gameplay damage."),
                 (_, _) => throw new InvalidDataException("Actor corridor attempted autonomous combat planning."),
                 _ => true, () => vitals.Level, globals, config.Player.StepHeightMeters,
                 config.Simulation.GravityMetersPerSecondSquared,

@@ -252,6 +252,10 @@ internal sealed partial class FalloutConditionRuntime(FalloutPluginStack records
                 // Any current membership in a faction flagged as the player's enemy.
                 return ActorFactions(subject).Any(pair => pair.Value >= 0 &&
                     Required(world, "faction player-enemy state").IsPlayerEnemyOfFaction(pair.Key)) ? 1 : 0;
+            case Function.IsInCriticalStage:
+                SecondUnused(condition);
+                var criticalStage = FalloutCriticalStage.Require(condition.Argument1);
+                return Required(world, "critical stage").CriticalStage(subject) == criticalStage ? 1 : 0;
             case Function.GetPlayerTeammate:
                 NoArguments(condition);
                 return subject != records.RuntimeFormKey(0x14) && Required(world, "teammate state").Get(subject).PlayerTeammate ? 1 : 0;
