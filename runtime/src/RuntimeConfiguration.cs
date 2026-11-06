@@ -394,6 +394,8 @@ internal sealed record RuntimeConfiguration(
                 throw new InvalidOperationException("Renderer quality profiles require a [0.25, 1] render scale, 1/2/4 sun splits and a power-of-two shadow atlas.");
             RequirePositive(profile.SunShadowDistanceScale, nameof(profile.SunShadowDistanceScale));
             RequirePositive(profile.GrassStartFadeScale, nameof(profile.GrassStartFadeScale));
+            if (profile.TreeGeometryDistanceScale is not (>= 0 and <= 1))
+                throw new InvalidOperationException("Renderer quality tree geometry distance scale must be in [0, 1].");
         }
         RequireColor(Hud.DesktopPanelColorRgba, nameof(Hud.DesktopPanelColorRgba));
         RequireColor(Hud.TextColorRgba, nameof(Hud.TextColorRgba));

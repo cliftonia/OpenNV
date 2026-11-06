@@ -1099,7 +1099,7 @@ public partial class RuntimeCoordinator : Node3D
         GD.Print($"OPENNV_QUALITY profile={_quality.Kind.ToString().ToLowerInvariant()} source={_quality.Source} " +
             $"processor=\"{OS.GetProcessorName()}\" renderScale={scale:0.00} sunShadowSplits={profile.SunShadowSplits} " +
             $"sunShadowDistanceScale={profile.SunShadowDistanceScale:0.00} directionalShadowAtlas={profile.DirectionalShadowAtlasPixels} " +
-            $"grassStartFadeScale={profile.GrassStartFadeScale:0.00}");
+            $"grassStartFadeScale={profile.GrassStartFadeScale:0.00} treeGeometryDistanceScale={profile.TreeGeometryDistanceScale:0.00}");
         if (_frameHitches is null && OpenNV.Runtime.Diagnostics.RuntimeFrameHitches.FromEnvironment() is { } hitches) AddChild(_frameHitches = hitches);
         if (!_options.ContainsKey("show-fps") || _fpsLabel is not null) return;
         var layer = new CanvasLayer { Layer = 126 };

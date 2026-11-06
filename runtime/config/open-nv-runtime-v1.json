@@ -45,9 +45,9 @@
     "environmentOpaqueAlpha": 1.0,
     "cubemapFaceCount": 6,
     "qualityProfiles": {
-      "high": { "renderScale": 1.0, "sunShadowSplits": 4, "sunShadowDistanceScale": 1.0, "directionalShadowAtlasPixels": 4096, "grassStartFadeScale": 1.0 },
-      "medium": { "renderScale": 0.8, "sunShadowSplits": 4, "sunShadowDistanceScale": 0.6, "directionalShadowAtlasPixels": 2048, "grassStartFadeScale": 0.6 },
-      "low": { "renderScale": 0.6, "sunShadowSplits": 2, "sunShadowDistanceScale": 0.35, "directionalShadowAtlasPixels": 2048, "grassStartFadeScale": 0.4 }
+      "high": { "renderScale": 1.0, "sunShadowSplits": 4, "sunShadowDistanceScale": 1.0, "directionalShadowAtlasPixels": 4096, "grassStartFadeScale": 1.0, "treeGeometryDistanceScale": 1.0 },
+      "medium": { "renderScale": 0.8, "sunShadowSplits": 4, "sunShadowDistanceScale": 0.6, "directionalShadowAtlasPixels": 2048, "grassStartFadeScale": 0.6, "treeGeometryDistanceScale": 0.6 },
+      "low": { "renderScale": 0.6, "sunShadowSplits": 2, "sunShadowDistanceScale": 0.35, "directionalShadowAtlasPixels": 2048, "grassStartFadeScale": 0.4, "treeGeometryDistanceScale": 0.0 }
     }
   },
   "player": {
@@ -745,11 +745,13 @@
     "speedTree": {
       "provenance": {
         "classification": "owned-data-presentation-contract",
-        "status": "explicit-billboard-adapter",
-        "source": "Owned FNV TREE BNAM/CNAM with the per-tree billboard sharing the SPT base name",
+        "status": "generated-geometry-with-billboard-lod",
+        "source": "Owned FNV TREE CNAM/BNAM/SNAM/ICON and SPT generation parameters; the per-tree billboard shares the SPT base name",
         "evidence": "docs/evidence/fnv-retail-material-shader-contract.md"
       },
       "billboardDirectory": "textures\\trees\\billboards",
+      "branchDirectory": "textures\\trees\\branches",
+      "leafDirectory": "textures\\trees\\leaves",
       "billboardAlphaCutoff": 0.38
     },
     "retailGrass": {
