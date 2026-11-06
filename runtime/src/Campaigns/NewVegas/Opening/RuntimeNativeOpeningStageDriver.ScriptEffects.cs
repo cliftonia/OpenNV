@@ -65,7 +65,14 @@ internal partial class RuntimeNativeOpeningStageDriver
                     resident++;
                     if (node.GetChildren().OfType<NativeEffectShader>().Any(existing => existing.Shader == effect.Form && !existing.Releasing))
                         continue;
-                    if (NativeEffectShader.Attach(node, effect, content, _pluginStack, duration, mode, _player.UnitsToMeters) is not { } shader) continue;
+                    NativeEffectShader? shader;
+                    try { shader = NativeEffectShader.Attach(node, effect, content, _pluginStack, duration, mode, _player.UnitsToMeters); }
+                    catch (NotSupportedException error)
+                    {
+                        FalloutScriptCommandDeferral.Warn($"playmagicshadervisuals:{effect.Form}", error.Message);
+                        continue;
+                    }
+                    if (shader is null) continue;
                     attached++;
                     foreach (var reason in shader.Deferrals) FalloutScriptCommandDeferral.Warn($"playmagicshadervisuals:{reason}", reason);
                 }
