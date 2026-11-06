@@ -73,6 +73,12 @@ internal static class ScreenBloodContracts
             Require(blood.LastRequest!.RandomBefore == previous!.RandomAfter && blood.LastRequest.Duration == 4 && blood.ActiveDrops == 3,
                 "Preparation consumed random state, duration mutation was lost, or signed count payload was restricted.");
             blood.Advance(4, true);
+            // TriggerScreenSplatter: explicit alpha and size range replace the settings.
+            blood.Trigger(caller, 2, new(.4f, .3f, .3f));
+            Require(blood.LastRequest!.Drops.Count == 2 && blood.LastRequest.Drops.All(drop => drop.HalfSize == .3f && drop.Opacity == .4f),
+                "Screen splatter ignored its alpha or size overrides.");
+            blood.Advance(4, true);
+            Reject(() => blood.Trigger(caller, 1, new(null, .5f, .2f)));
             records.NumericSettings.Set("iBloodSplatterMaxCount", 20000);
             Reject(() => blood.Trigger(caller, uint.MaxValue)); records.NumericSettings.Set("iBloodSplatterMaxCount", 3);
             Reject(() => FalloutScreenBlood.Count(.5)); Reject(() => FalloutScreenBlood.Count(double.NaN));

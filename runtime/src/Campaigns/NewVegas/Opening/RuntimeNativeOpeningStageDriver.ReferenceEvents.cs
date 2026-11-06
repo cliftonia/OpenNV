@@ -126,7 +126,8 @@ internal partial class RuntimeNativeOpeningStageDriver
                 MiscStatistic: name => _scripts.MiscStatistics.Read(FalloutMiscStatisticNames.Index(
                     RuntimeLiveContentSource.Current ?? throw new InvalidOperationException("Statistic declarations have no owned source."), name)),
                 IsSneaking: actor => _pluginStack.RuntimeFormId(actor) == 0x14 ? _player.Activity.Sneaking :
-                    throw new NotSupportedException("NPC sneaking query has no retained actor activity owner.")));
+                    throw new NotSupportedException("NPC sneaking query has no retained actor activity owner."),
+                IsImageSpaceActive: modifier => _imageSpaceState.Active.Any(active => active.Source.Form == modifier)));
         _resultScripts = results;
         _stageResults = new(_pluginStack, _quests, results.StageSteps,
             EvaluateMessageCondition, () => !_moviePlaying, evaluateRunOn: true);
