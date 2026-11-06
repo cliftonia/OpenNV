@@ -42,6 +42,17 @@ class Failure(Exception):
     pass
 
 
+def healthy_unconfirmed(line: str) -> bool:
+    """A clip ended by its length bound while the mixer was still running: with
+    a healthy device that is a completion bug, not an output stall."""
+    if "OPENNV_AUDIO_UNCONFIRMED" not in line or "sinceLastMixSeconds=" not in line:
+        return False
+    try:
+        return float(line.split("sinceLastMixSeconds=", 1)[1].split()[0]) < 1.0
+    except ValueError:
+        return True
+
+
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise Failure(message)
@@ -97,8 +108,12 @@ class Game:
     def __enter__(self) -> "Game":
         return self
 
-    def __exit__(self, *_: object) -> None:
+    def __exit__(self, failure: type | None, *_: object) -> None:
         self.close()
+        if failure is None:
+            unconfirmed = [line[:240] for line in self.log_path.read_text(errors="replace").splitlines()
+                           if healthy_unconfirmed(line)]
+            require(not unconfirmed, f"audio completion bound fired with a running mixer: {unconfirmed[:2]}")
 
     # -- observation -----------------------------------------------------
     def state(self) -> dict:
@@ -324,8 +339,10 @@ def answer_dialogue(game: Game, finished: bool = False) -> bool:
     choices = [c["text"] for c in offered]
     # Once the opening needs nothing more from a conversation (a late
     # activation can reopen Doc's services menu), take the built-in GOODBYE
-    # topic (0xD4) instead of looping through the first service topic forever.
-    leave = next((c["text"] for c in offered if (c.get("topic") or {}).get("objectId") == 0xD4), None) if finished else None
+    # topic (FalloutNV.esm 0xD4, EDID GOODBYE) instead of looping through the
+    # first service topic forever.
+    leave = next((c["text"] for c in offered if (c.get("topic") or {}).get("objectId") == 0xD4 and
+                  (c.get("topic") or {}).get("ownerPlugin") == "FalloutNV.esm"), None) if finished else None
     preferred = leave or next((c for c in choices if c.startswith("Thanks")), choices[0] if choices else None)
     return preferred is not None and game.press(preferred)
 
@@ -452,10 +469,12 @@ def test_rest() -> str:
         def wait_menu_open() -> bool:
             # DLC "signal found" messages arrive in a chain that can outlast the
             # settle; a message box swallows the Wait key, so answer it and retry.
+            if "Wait" in [c.get("text") for c in game.controls()] or "OPENNV_REST_REFUSED" in game.log_text():
+                return True
             if game.press("OK"):
                 time.sleep(1)
                 game.tap("T")
-            return "Wait" in [c.get("text") for c in game.controls()] or "OPENNV_REST_REFUSED" in game.log_text()
+            return False
         game.wait(wait_menu_open, 60, "Wait menu")
         refusal = next((l for l in game.log_text().splitlines() if "OPENNV_REST_REFUSED" in l), None)
         require(refusal is None, f"waiting in the world was refused: {refusal}")
