@@ -1543,6 +1543,7 @@
       <Type Name="System.Text.Json.Serialization.Converters.LargeObjectWithParameterizedConstructorConverterWithReflection`1[[OpenNV.Runtime.Gameplay.State.FalloutCaravanSession+Move, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.LargeObjectWithParameterizedConstructorConverterWithReflection`1[[OpenNV.Runtime.Gameplay.State.FalloutChallengeDefinition, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.LargeObjectWithParameterizedConstructorConverterWithReflection`1[[OpenNV.Runtime.Gameplay.State.FalloutChallengeSnapshot, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.LargeObjectWithParameterizedConstructorConverterWithReflection`1[[OpenNV.Runtime.Gameplay.State.FalloutCriticalData, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.LargeObjectWithParameterizedConstructorConverterWithReflection`1[[OpenNV.Runtime.Gameplay.State.FalloutDeliveredEffectInvocation, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.LargeObjectWithParameterizedConstructorConverterWithReflection`1[[OpenNV.Runtime.Gameplay.State.FalloutDeliveredEffectState, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.LargeObjectWithParameterizedConstructorConverterWithReflection`1[[OpenNV.Runtime.Gameplay.State.FalloutDestructionState, OpenNV]]" Dynamic="Required All" />
@@ -2521,6 +2522,7 @@
       <Type Name="System.Text.Json.Serialization.Converters.LargeObjectWithParameterizedConstructorConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutCaravanSession+Move, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.LargeObjectWithParameterizedConstructorConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutChallengeDefinition, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.LargeObjectWithParameterizedConstructorConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutChallengeSnapshot, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.LargeObjectWithParameterizedConstructorConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutCriticalData, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.LargeObjectWithParameterizedConstructorConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutDeliveredEffectInvocation, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.LargeObjectWithParameterizedConstructorConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutDeliveredEffectState, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.LargeObjectWithParameterizedConstructorConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutDestructionState, OpenNV]]" Dynamic="Required All" />
@@ -3163,6 +3165,7 @@
       <Type Name="System.Text.Json.Serialization.Converters.NullableConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutCaravanRules+Sale, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.NullableConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutCaravanRules+Suit, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.NullableConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutCaravanSession+ActionKind, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.NullableConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutCriticalOutcome, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.NullableConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutDeliveredEffectPhase, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.NullableConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutDeliveredTargetStatus, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.NullableConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutEatContinuationAction, OpenNV]]" Dynamic="Required All" />
@@ -5549,6 +5552,8 @@
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutChallengesSnapshot, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutConversationHistory, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutCreatureEatProgress, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutCriticalData, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutCriticalOutcome, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutDeliveredEffectDelivery, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutDeliveredEffectInvocation, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutDeliveredEffectState, OpenNV]]" Dynamic="Required All" />
@@ -5690,6 +5695,7 @@
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutVatsSession, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutVatsValueContext, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutWanderProgress, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutWeaponAttacker, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutWeaponDamage, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutWeaponDamageResolver, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Gameplay.State.FalloutWeaponHandling, OpenNV]]" Dynamic="Required All" />
@@ -6508,6 +6514,7 @@
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.World.Cells.FalloutFindFoodSourceScan, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.World.Cells.FalloutForcedTriggerEvents, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.World.Cells.FalloutFurnitureClipSnapshot, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.World.Cells.FalloutHitTarget, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.World.Cells.FalloutIdleReplayCooldown, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.World.Cells.FalloutInventoryScriptContext, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.World.Cells.FalloutInventoryScriptExecution, OpenNV]]" Dynamic="Required All" />
@@ -7475,6 +7482,7 @@
       <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.Gameplay.State.FalloutVatsSession+Publication, OpenNV],[OpenNV.Runtime.Gameplay.State.FalloutVatsSession, OpenNV],[System.Int64, System.Private.CoreLib],[System.Object, System.Private.CoreLib],[System.Object, System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.Gameplay.State.FalloutVatsSession, OpenNV],[OpenNV.Runtime.Gameplay.State.FalloutPlayerVitals, OpenNV],[System.Object, System.Private.CoreLib],[System.Object, System.Private.CoreLib],[System.Object, System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.Gameplay.State.FalloutWanderProgress, OpenNV],[OpenNV.Runtime.Content.FalloutFormKey, OpenNV],[System.String, System.Private.CoreLib],[System.Single[], System.Private.CoreLib],[System.Boolean, System.Private.CoreLib]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.Gameplay.State.FalloutWeaponAttacker, OpenNV],[System.Func`1[[System.ValueTuple`2[[System.Single, System.Private.CoreLib],[System.Single, System.Private.CoreLib]], System.Private.CoreLib]], System.Private.CoreLib],[System.Func`1[[System.Single, System.Private.CoreLib]], System.Private.CoreLib],[System.Func`1[[System.Boolean, System.Private.CoreLib]], System.Private.CoreLib],[System.Object, System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.Gameplay.State.FalloutWeaponHandling, OpenNV],[OpenNV.Runtime.Gameplay.State.FalloutPlayerInventory, OpenNV],[System.Boolean, System.Private.CoreLib],[System.Object, System.Private.CoreLib],[System.Object, System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.Gameplay.State.FalloutWeaponHandlingSnapshot, OpenNV],[System.Boolean, System.Private.CoreLib],[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Gameplay.State.FalloutMagazineSnapshot, OpenNV]], System.Private.CoreLib],[System.Nullable`1[[System.UInt64, System.Private.CoreLib]], System.Private.CoreLib],[System.Nullable`1[[System.UInt64, System.Private.CoreLib]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.Gameplay.State.FalloutWeaponSight, OpenNV],[OpenNV.Runtime.Content.FalloutPluginStack, OpenNV],[System.Single, System.Private.CoreLib],[System.Object, System.Private.CoreLib],[System.Object, System.Private.CoreLib]]" Dynamic="Required All" />
@@ -7628,6 +7636,7 @@
       <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.World.Cells.FalloutDetectionEventsSnapshot, OpenNV],[System.Single, System.Private.CoreLib],[System.Int64, System.Private.CoreLib],[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.World.Cells.FalloutDetectionEventState, OpenNV]], System.Private.CoreLib],[System.Object, System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.World.Cells.FalloutFindFoodSourceScan, OpenNV],[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.World.Cells.FalloutFindFoodSource, OpenNV]], System.Private.CoreLib],[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutFormKey, OpenNV]], System.Private.CoreLib],[System.Object, System.Private.CoreLib],[System.Object, System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.World.Cells.FalloutFurnitureClipSnapshot, OpenNV],[OpenNV.Runtime.Content.FalloutFormKey, OpenNV],[System.String, System.Private.CoreLib],[System.String, System.Private.CoreLib],[System.String, System.Private.CoreLib]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.World.Cells.FalloutHitTarget, OpenNV],[System.Single, System.Private.CoreLib],[System.Single, System.Private.CoreLib],[System.Single, System.Private.CoreLib],[System.Single, System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.World.Cells.FalloutIdleReplayCooldown, OpenNV],[OpenNV.Runtime.Content.FalloutFormKey, OpenNV],[System.String, System.Private.CoreLib],[System.Single, System.Private.CoreLib],[System.Object, System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.World.Cells.FalloutInventoryScriptResult, OpenNV],[OpenNV.Runtime.Content.FalloutFormKey, OpenNV],[System.Guid, System.Private.CoreLib],[System.Int32, System.Private.CoreLib],[System.String, System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.World.Cells.FalloutNavigationSourceIndex, OpenNV],[OpenNV.Runtime.World.Cells.CellNavigationGraph, OpenNV],[System.Object, System.Private.CoreLib],[System.Object, System.Private.CoreLib],[System.Object, System.Private.CoreLib]]" Dynamic="Required All" />
@@ -10135,6 +10144,8 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutChallengesSnapshot, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutConversationHistory, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutCreatureEatProgress, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutCriticalData, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutCriticalOutcome, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutDeliveredEffectDelivery, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutDeliveredEffectInvocation, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutDeliveredEffectPhase, OpenNV]]" Dynamic="Required All" />
@@ -10292,6 +10303,7 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutVatsSession, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutVatsValueContext, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutWanderProgress, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutWeaponAttacker, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutWeaponDamage, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutWeaponDamageResolver, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutWeaponHandling, OpenNV]]" Dynamic="Required All" />
@@ -11131,6 +11143,7 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.World.Cells.FalloutFindFoodSourceScan, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.World.Cells.FalloutForcedTriggerEvents, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.World.Cells.FalloutFurnitureClipSnapshot, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.World.Cells.FalloutHitTarget, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.World.Cells.FalloutIdleReplayCooldown, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.World.Cells.FalloutInventoryScriptContext, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.World.Cells.FalloutInventoryScriptExecution, OpenNV]]" Dynamic="Required All" />
@@ -12316,6 +12329,7 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Nullable`1[[OpenNV.Runtime.Gameplay.State.FalloutCaravanRules+Sale, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Nullable`1[[OpenNV.Runtime.Gameplay.State.FalloutCaravanRules+Suit, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Nullable`1[[OpenNV.Runtime.Gameplay.State.FalloutCaravanSession+ActionKind, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Nullable`1[[OpenNV.Runtime.Gameplay.State.FalloutCriticalOutcome, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Nullable`1[[OpenNV.Runtime.Gameplay.State.FalloutDeliveredEffectPhase, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Nullable`1[[OpenNV.Runtime.Gameplay.State.FalloutDeliveredTargetStatus, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Nullable`1[[OpenNV.Runtime.Gameplay.State.FalloutEatContinuationAction, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
@@ -14994,6 +15008,8 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutChallengesSnapshot, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutConversationHistory, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutCreatureEatProgress, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutCriticalData, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutCriticalOutcome, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutDeliveredEffectDelivery, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutDeliveredEffectInvocation, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutDeliveredEffectPhase, OpenNV]]" Dynamic="Required All" />
@@ -15151,6 +15167,7 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutVatsSession, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutVatsValueContext, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutWanderProgress, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutWeaponAttacker, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutWeaponDamage, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutWeaponDamageResolver, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutWeaponHandling, OpenNV]]" Dynamic="Required All" />
@@ -15990,6 +16007,7 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.World.Cells.FalloutFindFoodSourceScan, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.World.Cells.FalloutForcedTriggerEvents, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.World.Cells.FalloutFurnitureClipSnapshot, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.World.Cells.FalloutHitTarget, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.World.Cells.FalloutIdleReplayCooldown, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.World.Cells.FalloutInventoryScriptContext, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.World.Cells.FalloutInventoryScriptExecution, OpenNV]]" Dynamic="Required All" />
@@ -17175,6 +17193,7 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Nullable`1[[OpenNV.Runtime.Gameplay.State.FalloutCaravanRules+Sale, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Nullable`1[[OpenNV.Runtime.Gameplay.State.FalloutCaravanRules+Suit, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Nullable`1[[OpenNV.Runtime.Gameplay.State.FalloutCaravanSession+ActionKind, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Nullable`1[[OpenNV.Runtime.Gameplay.State.FalloutCriticalOutcome, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Nullable`1[[OpenNV.Runtime.Gameplay.State.FalloutDeliveredEffectPhase, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Nullable`1[[OpenNV.Runtime.Gameplay.State.FalloutDeliveredTargetStatus, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Nullable`1[[OpenNV.Runtime.Gameplay.State.FalloutEatContinuationAction, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
@@ -19853,6 +19872,8 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutChallengesSnapshot, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutConversationHistory, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutCreatureEatProgress, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutCriticalData, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutCriticalOutcome, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutDeliveredEffectDelivery, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutDeliveredEffectInvocation, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutDeliveredEffectPhase, OpenNV]]" Dynamic="Required All" />
@@ -20010,6 +20031,7 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutVatsSession, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutVatsValueContext, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutWanderProgress, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutWeaponAttacker, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutWeaponDamage, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutWeaponDamageResolver, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Gameplay.State.FalloutWeaponHandling, OpenNV]]" Dynamic="Required All" />
@@ -20849,6 +20871,7 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.World.Cells.FalloutFindFoodSourceScan, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.World.Cells.FalloutForcedTriggerEvents, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.World.Cells.FalloutFurnitureClipSnapshot, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.World.Cells.FalloutHitTarget, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.World.Cells.FalloutIdleReplayCooldown, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.World.Cells.FalloutInventoryScriptContext, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.World.Cells.FalloutInventoryScriptExecution, OpenNV]]" Dynamic="Required All" />
@@ -22034,6 +22057,7 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Nullable`1[[OpenNV.Runtime.Gameplay.State.FalloutCaravanRules+Sale, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Nullable`1[[OpenNV.Runtime.Gameplay.State.FalloutCaravanRules+Suit, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Nullable`1[[OpenNV.Runtime.Gameplay.State.FalloutCaravanSession+ActionKind, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Nullable`1[[OpenNV.Runtime.Gameplay.State.FalloutCriticalOutcome, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Nullable`1[[OpenNV.Runtime.Gameplay.State.FalloutDeliveredEffectPhase, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Nullable`1[[OpenNV.Runtime.Gameplay.State.FalloutDeliveredTargetStatus, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Nullable`1[[OpenNV.Runtime.Gameplay.State.FalloutEatContinuationAction, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
