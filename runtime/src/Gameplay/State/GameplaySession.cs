@@ -24,6 +24,8 @@ internal partial class GameplaySession : Node
     private const string SaveSchemaV5 = "opennv-campaign-save/v5";
     private const string SaveSchemaV6 = "opennv-campaign-save/v6";
     private const string SaveSchemaV7 = "opennv-campaign-save/v7";
+    // v8 vitals may carry the Hardcore need values.
+    private const string SaveSchemaV8 = "opennv-campaign-save/v8";
     private const int EquippedWeaponCount = 1;
 
     private readonly Dictionary<string, InventoryEntry> _inventory = new(StringComparer.OrdinalIgnoreCase);
@@ -838,7 +840,7 @@ internal partial class GameplaySession : Node
             : PlayerTransformState.Capture(_player);
         var document = new
         {
-            schema = SaveSchemaV7,
+            schema = SaveSchemaV8,
             cellFormId = _cellFormId,
             activeCellFormId = _activeCellFormId,
             opening = _openingState,
@@ -969,7 +971,7 @@ internal partial class GameplaySession : Node
 
     internal object Report() => new
     {
-        schema = SaveSchemaV7,
+        schema = SaveSchemaV8,
         savePath = _savePath,
         routeCellFormId = _cellFormId,
         activeCellFormId = _activeCellFormId,
@@ -1026,12 +1028,12 @@ internal partial class GameplaySession : Node
         var schema = root.GetProperty("schema").GetString();
         if (schema != SaveSchemaV1 && schema != SaveSchemaV2 &&
             schema != SaveSchemaV3 && schema != SaveSchemaV4 && schema != SaveSchemaV5 &&
-            schema != SaveSchemaV6 && schema != SaveSchemaV7)
+            schema != SaveSchemaV6 && schema != SaveSchemaV7 && schema != SaveSchemaV8)
             throw new InvalidOperationException($"Unexpected sandbox save schema: {_savePath}");
         if (root.GetProperty("cellFormId").GetString() != cellFormId)
             throw new InvalidOperationException($"Sandbox save belongs to another cell: {_savePath}");
         if (schema == SaveSchemaV4 || schema == SaveSchemaV5 || schema == SaveSchemaV6 ||
-            schema == SaveSchemaV7)
+            schema == SaveSchemaV7 || schema == SaveSchemaV8)
         {
             if (!root.TryGetProperty("activeCellFormId", out var activeCell) ||
                 activeCell.ValueKind != JsonValueKind.String)
@@ -1063,7 +1065,7 @@ internal partial class GameplaySession : Node
             _doorStates.Add(property.Name, property.Value.GetBoolean());
         foreach (var value in root.GetProperty("emptiedContainers").EnumerateArray())
             _emptiedContainers.Add(value.GetString()!);
-        if (schema == SaveSchemaV5 || schema == SaveSchemaV6 || schema == SaveSchemaV7)
+        if (schema == SaveSchemaV5 || schema == SaveSchemaV6 || schema == SaveSchemaV7 || schema == SaveSchemaV8)
         {
             if (!root.TryGetProperty("containerInventories", out var containers))
                 throw new InvalidOperationException(
@@ -1086,7 +1088,7 @@ internal partial class GameplaySession : Node
                 : null;
         _ammoInMagazine = root.GetProperty("ammoInMagazine").GetInt32();
         _shotsFired = root.GetProperty("shotsFired").GetInt32();
-        if (schema == SaveSchemaV7)
+        if (schema == SaveSchemaV7 || schema == SaveSchemaV8)
         {
             if (!root.TryGetProperty("pickupTransforms", out var pickups) ||
                 pickups.ValueKind != JsonValueKind.Array)
@@ -1125,17 +1127,17 @@ internal partial class GameplaySession : Node
             }
         }
         if ((schema == SaveSchemaV3 || schema == SaveSchemaV4 || schema == SaveSchemaV5 ||
-             schema == SaveSchemaV6 || schema == SaveSchemaV7) &&
+             schema == SaveSchemaV6 || schema == SaveSchemaV7 || schema == SaveSchemaV8) &&
             root.TryGetProperty("opening", out var opening) &&
             opening.ValueKind == JsonValueKind.Object)
             _openingState = OpeningCampaignState.Parse(opening);
-        if (schema == SaveSchemaV6 || schema == SaveSchemaV7)
+        if (schema == SaveSchemaV6 || schema == SaveSchemaV7 || schema == SaveSchemaV8)
         {
             if (!root.TryGetProperty("vitals", out var vitals) ||
                 vitals.ValueKind is not JsonValueKind.Object and not JsonValueKind.Null)
                 throw new InvalidOperationException("Campaign save has malformed gameplay vitals.");
             if (vitals.ValueKind == JsonValueKind.Object)
-                _vitals = ParseVitals(vitals);
+                _vitals = ParseVitals(vitals, needs: schema == SaveSchemaV8);
         }
         if (root.TryGetProperty("playerTransform", out var playerTransform))
         {
@@ -1210,8 +1212,11 @@ internal partial class GameplaySession : Node
         }
     }
 
-    private static GameplayVitals ParseVitals(JsonElement source)
+    private static GameplayVitals ParseVitals(JsonElement source, bool needs)
     {
+        if (!needs && new[] { nameof(GameplayVitals.Dehydration), nameof(GameplayVitals.Hunger), nameof(GameplayVitals.SleepDeprivation) }
+                .Any(name => source.TryGetProperty(name, out _)))
+            throw new InvalidOperationException("Campaign saves before v8 cannot own Hardcore need values.");
         var hitPointFraction = source.TryGetProperty(nameof(GameplayVitals.HitPointFraction), out var fraction)
             ? fraction.GetSingle() : 0;
         IReadOnlyDictionary<byte, float>? limbDamage = null;
@@ -1228,7 +1233,10 @@ internal partial class GameplaySession : Node
             source.GetProperty(nameof(GameplayVitals.ExperiencePoints)).GetInt32(),
             source.GetProperty(nameof(GameplayVitals.NextLevelExperiencePoints)).GetInt32(), hitPointFraction, limbDamage,
             source.TryGetProperty(nameof(GameplayVitals.RadiationRads), out var rads) ? rads.GetSingle() : 0,
-            source.TryGetProperty(nameof(GameplayVitals.ActionPointFraction), out var actionFraction) ? actionFraction.GetSingle() : 0);
+            source.TryGetProperty(nameof(GameplayVitals.ActionPointFraction), out var actionFraction) ? actionFraction.GetSingle() : 0,
+            source.TryGetProperty(nameof(GameplayVitals.Dehydration), out var dehydration) ? dehydration.GetSingle() : 0,
+            source.TryGetProperty(nameof(GameplayVitals.Hunger), out var hunger) ? hunger.GetSingle() : 0,
+            source.TryGetProperty(nameof(GameplayVitals.SleepDeprivation), out var sleep) ? sleep.GetSingle() : 0);
         result.Validate();
         return result;
     }

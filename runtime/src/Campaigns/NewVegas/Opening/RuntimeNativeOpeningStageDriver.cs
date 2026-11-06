@@ -174,7 +174,7 @@ internal partial class RuntimeNativeOpeningStageDriver : Node
         _configured = true;
         _player = player ?? throw new ArgumentNullException(nameof(player));
         _player.UseInventoryHotkey = UseInventoryHotkey;
-        _player.OpenWaitMenu = () => RunPlayerRestRequest(FalloutRestKind.Wait, null);
+        _player.OpenWaitMenu = RunWaitControl;
         _player.ActivateBed = bed => RequestPlayerRest(FalloutRestKind.Sleep, bed);
         _raceSexContract = raceSexContract ?? throw new ArgumentNullException(nameof(raceSexContract));
         _vigorContract = vigorContract;
@@ -247,6 +247,7 @@ internal partial class RuntimeNativeOpeningStageDriver : Node
         {
             if (name.Equals("Health", StringComparison.OrdinalIgnoreCase)) return Vitals.ExactHitPoints;
             if (name.Equals("RadiationRads", StringComparison.OrdinalIgnoreCase)) return Vitals.RadiationRads;
+            if (FalloutHardcoreNeeds.ActorValue(name) is { } need) return Vitals.Need(need);
             if (name.Equals("ActionPoints", StringComparison.OrdinalIgnoreCase)) return Vitals.ActionPoints;
             if (name.Equals("XP", StringComparison.OrdinalIgnoreCase)) return Vitals.ExperiencePoints;
             if (FalloutBodyPartData.LimbActorValue(name) is { } limb)
@@ -265,6 +266,7 @@ internal partial class RuntimeNativeOpeningStageDriver : Node
         _playerAbilities.Synchronize();
         _vitals = FalloutPlayerVitals.FromActorValues(pluginStack, _playerActorValues, restore?.State.Vitals);
         _playerActorValues.BindFatigueLevel(() => _vitals.State.Level);
+        BindHardcoreNeeds();
         _player.ConfigureFatigueKnockout(_pluginStack, _pluginStack.GetEffective(_raceSexContract.Player),
             () => _playerActorValues.ReadCurrent(22), () =>
             {
@@ -357,8 +359,12 @@ internal partial class RuntimeNativeOpeningStageDriver : Node
             if (BlockingExecutionError is not null) return;
             RefreshRadioStations();
             _ingestibles.Advance(delta);
+            if (_restMenu is not null) DispatchRestMenuMode(delta);
             if (!GetTree().Paused)
             {
+                AdvanceHardcoreNeeds();
+                // SetPCSleepHours outside the menu runs one rest hour per frame.
+                if (_restMenu is null && _scripts.Session.PlayerSleeping && _scripts.Session.PlayerSleepHours > 0) RestHourStep();
                 _playerActorValues.AdvanceFatigue(delta);
                 _scripts.References?.AdvanceActorFatigue(delta);
                 _deliveredEffects.Advance(delta);

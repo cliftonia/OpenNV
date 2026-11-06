@@ -11,8 +11,9 @@ internal static class FalloutIngestibleApplications
     internal static void Validate(FalloutIngestibleEffect effect, Func<int, bool> temporaryPool)
     {
         ValidateResistance(effect);
-        if (effect.Archetype is not (0 or 34) || effect.Area != 0 || effect.Range != 0 ||
-            (effect.Flags & 0x10) == 0 || (effect.Flags & ~0x11803f7u) != 0 ||
+        // 0x2000 only changes how the effect name is displayed.
+        if (effect.Archetype is not (0 or 34 or LimbCondition) || effect.Area != 0 || effect.Range != 0 ||
+            (effect.Flags & 0x10) == 0 || (effect.Flags & ~0x11823f7u) != 0 ||
             effect.AdditionalPresentation || effect.Conditions.Any(condition => condition.Function is not (449 or 586)))
             throw new NotSupportedException($"Ingestible effect {effect.Form} requires its archetype, condition or presentation owner.");
         if (Reversible(effect))
@@ -20,9 +21,18 @@ internal static class FalloutIngestibleApplications
             if (effect.Archetype != 0 || effect.EffectiveDuration == 0 || !temporaryPool(effect.ActorValue))
                 throw new NotSupportedException($"Ingestible effect {effect.Form} requires its reversible actor-value pool.");
         }
-        else if (effect.ActorValue is not (16 or 54))
+        else if (effect.Archetype == LimbCondition ? effect.EffectiveDuration != 0 : !IsAccumulated(effect.ActorValue) && effect.ActorValue != 16)
             throw new NotSupportedException($"Ingestible effect {effect.Form} requires its actor-value damage/restore owner.");
     }
+
+    // The Limb Condition archetype restores every limb condition and leaves
+    // Health untouched. Its magnitude is applied as condition points, the
+    // limb half of Value and Parts; that scale is unverified.
+    internal const uint LimbCondition = 35;
+
+    // Radiation and the Hardcore needs accumulate: "Damage" raises them and
+    // "Restore" lowers them, never below zero.
+    internal static bool IsAccumulated(int actorValue) => actorValue is 54 or 73 or 74 or 75;
 
     internal static void ValidateResistance(FalloutIngestibleEffect effect)
     {

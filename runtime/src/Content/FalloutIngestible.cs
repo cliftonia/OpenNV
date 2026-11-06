@@ -39,6 +39,16 @@ internal sealed record FalloutIngestible(FalloutFormKey Form, string Hash, byte 
     // actor effects do not carry ALCH skill scaling or consume an inventory item.
     internal static FalloutIngestible ReadActorEffect(FalloutPluginStack records, FalloutFormKey form)
     {
+        var (spell, type, flags) = ReadSpell(records, form);
+        if (type != 0 || flags != 0)
+            throw new NotSupportedException("Actor effect type or flags require their spell lifecycle owner.");
+        return spell;
+    }
+
+    // Any SPEL type, with its SPIT type and flags, for owners that classify
+    // a spell's effects before choosing how it is delivered.
+    internal static (FalloutIngestible Spell, uint Type, byte Flags) ReadSpell(FalloutPluginStack records, FalloutFormKey form)
+    {
         var record = records.GetEffective(form);
         if (record.Signature != "SPEL") throw new InvalidDataException("Actor effect is not SPEL.");
         var fields = record.ReadSubrecords().ToArray();
@@ -46,11 +56,9 @@ internal sealed record FalloutIngestible(FalloutFormKey Form, string Hash, byte 
         if (declarations.Length != 1 || declarations[0].Data.Length != 16)
             throw new InvalidDataException("Actor effect needs one 16-byte SPIT declaration.");
         var header = declarations[0].Data.Span;
-        if (BinaryPrimitives.ReadUInt32LittleEndian(header) != 0 || header[12] != 0)
-            throw new NotSupportedException("Actor effect type or flags require their spell lifecycle owner.");
         var effects = ReadEffects(records, record, fields);
         if (effects.Count == 0) throw new InvalidDataException("Actor effect has no source effects.");
-        return new(form, HashOf(record), 0, null, null, 0, null, effects);
+        return (new(form, HashOf(record), 0, null, null, 0, null, effects), BinaryPrimitives.ReadUInt32LittleEndian(header), header[12]);
     }
 
     internal static FalloutIngestible ReadWeaponEnchantment(FalloutPluginStack records, FalloutFormKey form)

@@ -31,6 +31,8 @@ internal sealed partial class FalloutPlayerSkills
     private bool _weightHardcore;
     private float _carriedWeight;
     internal Func<float>? HealthPercentage { get; set; }
+    // Active Hardcore need-stage diseases are constant effects while their stage lasts.
+    internal Func<IReadOnlyList<FalloutFormKey>>? NeedStageSpells { get; set; }
     private static readonly (int Value, string Name, string Setting, int Attribute)[] Skills =
     [
         (32, "Barter", "Barter", 8), (34, "EnergyWeapons", "EnergyWeapons", 6), (35, "Explosives", "Explosives", 6),
@@ -132,7 +134,8 @@ internal sealed partial class FalloutPlayerSkills
 
     private IEnumerable<FalloutFormKey> ConstantEffects() =>
         Links(_actor, "SPLO").Concat(Links(_race(), "SPLO"))
-            .Concat(Perks.SelectMany(perk => _abilities.Perk(perk).Spells)).Distinct()
+            .Concat(Perks.SelectMany(perk => _abilities.Perk(perk).Spells))
+            .Concat(NeedStageSpells?.Invoke() ?? []).Distinct()
             .Concat(_inventory.Equipped.Select(_records.RuntimeFormKey).Where(form => _records.GetEffective(form).Signature == "ARMO")
                 .SelectMany(form => Links(form, "EITM")));
 

@@ -41,6 +41,9 @@ internal static partial class IngestibleContracts
                 NativeInventoryOrderFixture(actor),
                 Record("INGR", 9, Field("EDID", Text("UnknownIngredientFlags")), Field("DATA", BitConverter.GetBytes(1f)),
                     Field("ENIT", [0, 0, 0, 0, 4, 0, 0, 0]), Effect(11, 4, 5)),
+                Item(0x50, Effect(16, 50, 0, true, 73)), Item(0x51, Effect(17, 36, 0, true, uint.MaxValue)),
+                Item(0x52, Effect(11, 4, 5), Effect(18, 10, 0, true, 73)),
+                Modifier(16, 0, 0x70, 73), Modifier(17, 35, 0x2070, uint.MaxValue), Modifier(18, 0, 0x1000075, 73),
                 Modifier(15, 0, 0x76, 7), Modifier(10, 34, 0x70), Modifier(11, 0, 0x70), Modifier(12, 1, 0x70), Modifier(13, 0, 0xf0), Modifier(14, 0, 0x1000075, 54, 20),
                 Setting(100, "fMagicMedicineSkillBase", 1), Setting(101, "fMagicMedicineSkillMult", 2),
                 Setting(110, "fMagicSurvivalSkillBase", 1), Setting(111, "fMagicSurvivalSkillMult", 2),
@@ -115,6 +118,7 @@ internal static partial class IngestibleContracts
             FalloutPlayerIngestibles Owner(FalloutPlayerVitals health) => new(records, inventory, health, parts, _ => 50, _ => false, () => hardcore);
             var owner = Owner(vitals);
             InstantScriptTransactions(records, () => Vitals(initial), parts);
+            HardcoreNeedEffects(records, Vitals(initial with { Dehydration = 130 }), parts);
             var selectedInventory = new FalloutPlayerInventory(45);
             selectedInventory.Add(records, Key(1), 1, 1, true);
             selectedInventory.Add(records, Key(1), 1, 1, true, extra: new(1, Owner: Key(7), Hotkey: 3));

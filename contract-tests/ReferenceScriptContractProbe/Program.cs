@@ -957,6 +957,11 @@ if (args is ["--game-time-command-contracts"])
     GameTimeCommandContracts.Run();
     return;
 }
+if (args is ["--audit-owned-hardcore", var hardcoreGame])
+{
+    HardcoreNeedsContracts.RunOwned(hardcoreGame);
+    return;
+}
 if (args.Length >= 7 && args[0] == "--audit-owned-game-time")
 {
     OwnedGameTimeCommandProbe.Run(args[1], args[2], args[3], args[4], args[5], args[6], args[7..]);
@@ -2043,6 +2048,7 @@ ActorAppearanceContracts.Run();
 ChallengeContracts.Run();
 WorldCommandContracts.Run();
 PlayerRestContracts.Run();
+HardcoreNeedsContracts.Run();
 AgeRaceContracts.Run();
 FaceGeometryContracts.Run();
 ScriptSoundContracts.Run();

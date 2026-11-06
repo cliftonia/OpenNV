@@ -1,3 +1,4 @@
+using System.Globalization;
 using OpenNV.Runtime.Content;
 using OpenNV.Runtime.Gameplay.State;
 using OpenNV.Runtime.World.Actors;
@@ -41,7 +42,8 @@ internal sealed record FalloutReferenceScriptHost(Func<FalloutFormKey, FalloutFo
     Func<FalloutFormKey, float>? HealthPercentage = null,
     Func<string, int>? MiscStatistic = null, Func<FalloutFormKey, bool>? IsSneaking = null,
     Func<FalloutFormKey, FalloutFormKey?>? InventoryContainer = null,
-    Action<FalloutFormKey, FalloutFormKey?>? RemoveInventoryInstance = null, Action<double>? RewardKarma = null);
+    Action<FalloutFormKey, FalloutFormKey?>? RemoveInventoryInstance = null, Action<double>? RewardKarma = null,
+    FalloutScriptSession? Session = null);
 internal sealed record FalloutReferenceScriptEventResult(FalloutFormKey Reference, string Event, int Blocks, string? Error,
     string? RecoveredError = null);
 internal sealed record FalloutReferenceScriptEvent(string Name, FalloutFormKey? ActionReference = null,
@@ -182,7 +184,13 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                 }
                 else if (!activation && block.Filter is not null)
                 {
-                    if (block.Event.Equals("SayToDone", StringComparison.OrdinalIgnoreCase))
+                    if (block.Event.Equals("MenuMode", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (!double.TryParse(block.Filter, NumberStyles.Integer, CultureInfo.InvariantCulture, out var menu))
+                            throw new NotSupportedException("MenuMode filter is not a literal menu code.");
+                        if (world.Menus.Query(menu) == 0) continue;
+                    }
+                    else if (block.Event.Equals("SayToDone", StringComparison.OrdinalIgnoreCase))
                     {
                         var topic = program!.Bindings.Form(block.Filter);
                         if (topic.Signature != "DIAL") throw new InvalidDataException("SayToDone source filter is not a DIAL form.");
@@ -234,6 +242,16 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
     internal IReadOnlyList<FalloutReferenceScriptEventResult> Advance(double seconds) =>
         world.ResidentInstances.Where(instance => instance.Script is not null)
             .Select(instance => Dispatch(instance.Reference, "GameMode", elapsedSeconds: seconds)).ToArray();
+
+    // Whether a resident reference's object script declares a block for an
+    // event; a script whose source cannot be decoded reports through dispatch.
+    internal bool HasEventBlock(FalloutFormKey reference, string eventName)
+    {
+        var instance = world.Get(reference);
+        if (instance.Script is null) return false;
+        try { return Program(instance).Events.Any(block => block.Event.Equals(eventName, StringComparison.OrdinalIgnoreCase)); }
+        catch (Exception error) when (error is InvalidDataException or NotSupportedException) { return true; }
+    }
 
     internal void UnloadCell(FalloutFormKey cell)
     {
@@ -515,7 +533,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                 return settingFunction;
             if (parts.Length == 1 && FalloutNumericIniSettingCommands.Function(records, operation) is { } iniSettingFunction)
                 return iniSettingFunction;
-            if (parts.Length == 1 && FalloutGameTimeCommands.Function(operation, host.GameTime, host.IsHardcore) is { } timeFunction)
+            if (parts.Length == 1 && FalloutGameTimeCommands.Function(operation, host.GameTime) is { } timeFunction)
                 return timeFunction;
             if (parts.Length == 1 && FalloutModQueryCommands.Function(records, operation) is { } modQueryFunction)
                 return modQueryFunction;
@@ -535,6 +553,11 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                 return new([], _ => (host.LocationSpecificLoadScreensOnly ??
                     throw new NotSupportedException("Loading-screen policy query has no session owner."))() ? 1 : 0)
                 { ReadOnly = true };
+            if (parts.Length == 1 && operation is "ispcsleeping" or "getpcsleephours")
+            {
+                var session = host.Session ?? throw new NotSupportedException($"{operation} has no shared player rest owner.");
+                return new([], _ => operation == "ispcsleeping" ? session.PlayerSleeping ? 1 : 0 : session.PlayerSleepHours) { ReadOnly = true };
+            }
             if (parts.Length == 1 && operation == "ishardcore")
                 return new([], _ => (host.IsHardcore ??
                     throw new NotSupportedException("IsHardcore has no shared player session owner."))() ? 1 : 0)
@@ -1212,7 +1235,12 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                         arguments.Count > 3 ? Number(arguments[3]) : 0);
                     break;
                 case "sethardcore" when parts.Length == 1 && arguments.Count == 1:
-                    host.Apply(new(FalloutReferenceEffectKind.Hardcore, source, Enable: Boolean(arguments[0])));
+                    // A value outside 0..1 is rejected with a warning and changes nothing.
+                    var hardcore = Number(arguments[0]);
+                    if (hardcore is not (0 or 1))
+                        FalloutScriptCommandDeferral.Sink("OPENNV_SCRIPT_COMMAND_REJECTED name=sethardcore value=" +
+                            hardcore.ToString("R", CultureInfo.InvariantCulture));
+                    else host.Apply(new(FalloutReferenceEffectKind.Hardcore, source, Enable: hardcore == 1));
                     break;
                 case "setlocationspecificloadscreensonly" when parts.Length == 1 && arguments.Count == 1:
                     host.Apply(new(FalloutReferenceEffectKind.LoadingScreenPolicy, source, Enable: Boolean(arguments[0])));
