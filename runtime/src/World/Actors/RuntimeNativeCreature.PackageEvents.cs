@@ -32,6 +32,7 @@ internal sealed partial class RuntimeNativeCreature
         });
         try
         {
+            if ((package.Flags & FalloutPackageFlags.DoorFlags) != 0) world.ApplyPackageDoorActions(actor, package, kind);
             if (package.EventPrograms.GetValueOrDefault(kind) is { } program)
             {
                 if (ExecutePackageEvent is { } execute) execute(program, actor);
