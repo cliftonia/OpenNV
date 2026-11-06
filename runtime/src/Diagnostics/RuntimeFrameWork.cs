@@ -10,7 +10,7 @@ internal static class RuntimeFrameWork
     private static readonly long[] Ticks = new long[Calls.Length];
     private static readonly long[] Maximum = new long[Calls.Length];
     // Opt-in spike log: OPENNV_FRAME_SPIKE_MS=<threshold> prints each owner step above it.
-    private static readonly long SpikeTicks = double.TryParse(Environment.GetEnvironmentVariable("OPENNV_FRAME_SPIKE_MS"),
+    internal static readonly long SpikeTicks = double.TryParse(Environment.GetEnvironmentVariable("OPENNV_FRAME_SPIKE_MS"),
         System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var spike) && spike > 0
         ? (long)(spike * Stopwatch.Frequency / 1000.0) : long.MaxValue;
     internal static Scope Measure(Owner owner) => new(owner);

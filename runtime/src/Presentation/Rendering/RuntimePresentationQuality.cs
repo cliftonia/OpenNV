@@ -12,8 +12,12 @@ internal enum RuntimePresentationQualityKind
 
 // Selects one of the configured renderer quality profiles. --quality wins;
 // otherwise mobile is low and a desktop that looks low-power is medium.
-internal sealed partial record RuntimePresentationQuality(RuntimePresentationQualityKind Kind, string Source, RendererQualityProfile Profile)
+// --render-scale overrides the profile's 3D render scale.
+internal sealed partial record RuntimePresentationQuality(
+    RuntimePresentationQualityKind Kind, string Source, RendererQualityProfile Profile, float RenderScale)
 {
+    internal const float MinimumRenderScale = .25f;
+
     internal static RuntimePresentationQuality Resolve(IReadOnlyDictionary<string, string> options, RendererQualityProfiles profiles)
     {
         var (kind, source) = options.TryGetValue("quality", out var requested)
@@ -26,8 +30,14 @@ internal sealed partial record RuntimePresentationQuality(RuntimePresentationQua
             RuntimePresentationQualityKind.Low => profiles.Low,
             _ => throw new ArgumentOutOfRangeException(nameof(options)),
         };
-        return new(kind, source, profile);
+        return new(kind, source, profile, options.TryGetValue("render-scale", out var scale) ? ParseRenderScale(scale) : profile.RenderScale);
     }
+
+    private static float ParseRenderScale(string value) =>
+        float.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var scale) &&
+        float.IsFinite(scale)
+            ? Math.Clamp(scale, MinimumRenderScale, 1f)
+            : throw new ArgumentException($"Unknown --render-scale {value}; use a number from {MinimumRenderScale} to 1.");
 
     private static RuntimePresentationQualityKind Parse(string value) => value.ToLowerInvariant() switch
     {

@@ -22,11 +22,10 @@ internal partial class RuntimeFrameHitches : Node
     private long _threshold, _last;
     private ulong _hitches;
 
-    internal static RuntimeFrameHitches? FromEnvironment() =>
-        double.TryParse(System.Environment.GetEnvironmentVariable("OPENNV_FRAME_SPIKE_MS"), System.Globalization.NumberStyles.Float,
-            System.Globalization.CultureInfo.InvariantCulture, out var milliseconds) && milliseconds > 0
-            ? new RuntimeFrameHitches { Name = "FrameHitches", ProcessMode = ProcessModeEnum.Always, _threshold = (long)(milliseconds * Stopwatch.Frequency / 1000.0) }
-            : null;
+    // Shares the owner spike threshold so one variable enables both logs.
+    internal static RuntimeFrameHitches? FromEnvironment() => RuntimeFrameWork.SpikeTicks == long.MaxValue
+        ? null
+        : new RuntimeFrameHitches { Name = "FrameHitches", ProcessMode = ProcessModeEnum.Always, _threshold = RuntimeFrameWork.SpikeTicks };
 
     public override void _Process(double delta)
     {
