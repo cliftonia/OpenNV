@@ -32,7 +32,7 @@ internal partial class RuntimeNativePlayer
         var owner = new FalloutVatsMeleeChance(records);
         _vatsPreparationCandidates = 1;
         if (!_vatsActors.TryGetValue(reference, out var actor) || !ActorAvailable(actor) ||
-            VatsMeleeDistance(actor) > owner.Range(PlayerMeleeReach(weapon), UnitsToMeters))
+            VatsMeleeDistance(actor) > VatsMeleeRange(weapon))
         { _vatsPreparationSkipped = 1; return []; }
         var torso = world.BodyParts(reference).Parts.SingleOrDefault(part => part.Type == 0) ??
             throw new NotSupportedException("VATS melee target has no source torso part.");

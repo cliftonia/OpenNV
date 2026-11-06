@@ -22,12 +22,7 @@ internal sealed partial class FalloutReferenceScripts
             case "showallmapmarkers":
                 if (parts.Length != 1 || arguments.Count != 3)
                     throw new InvalidDataException("ShowAllMapMarkers requires visible, travel and hidden flags.");
-                var flags = arguments.Select(argument => number(argument) switch
-                {
-                    0 => false,
-                    1 => true,
-                    _ => throw new InvalidDataException("ShowAllMapMarkers flag must be zero or one."),
-                }).ToArray();
+                var flags = arguments.Select(argument => Flag(number(argument), "ShowAllMapMarkers")).ToArray();
                 if (!flags[0]) throw new NotSupportedException("Hiding every map marker has no source caller.");
                 world.ShowAllMapMarkers(flags[1], flags[2]);
                 return true;
@@ -62,13 +57,7 @@ internal sealed partial class FalloutReferenceScripts
             return;
         }
         if (arguments.Count != 1) throw new InvalidDataException("PipBoyRadio on/off takes no station.");
-        var enable = number(arguments[0]) switch
-        {
-            0 => false,
-            1 => true,
-            _ => throw new InvalidDataException("PipBoyRadio state must be zero or one."),
-        };
-        if (!enable) radio.Off();
+        if (!Flag(number(arguments[0]), "PipBoyRadio")) radio.Off();
         else if (radio.CurrentStation is null && radio.LastStation is { } last)
             radio.Select(FalloutRadioStation.Read(records, records.GetEffective(last)));
     }
