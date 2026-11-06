@@ -2,7 +2,9 @@ using System.Security.Cryptography;
 
 namespace OpenNV.Runtime.Content;
 
-internal enum FalloutAnimationSoundEnd { Active, NativeFinished, SourceStopped, ChanceSkipped, Cancelled, Faulted, SourceUnloaded }
+// ClipBoundUnconfirmed settles a finite voice whose device never reported
+// Finished within its decoded length; it is stored apart from NativeFinished.
+internal enum FalloutAnimationSoundEnd { Active, NativeFinished, SourceStopped, ChanceSkipped, Cancelled, Faulted, SourceUnloaded, ClipBoundUnconfirmed }
 internal sealed record FalloutAnimationSoundBoneEmitterSnapshot(FalloutFormKey Reference,
     string SkeletonPath, string SkeletonSha256, int Block, string Name)
 {
@@ -196,8 +198,9 @@ internal sealed class FalloutAnimationSoundEvents(FalloutSpatialReferenceId refe
 
     internal bool Complete(long generation, FalloutAnimationSoundEnd end)
     {
-        if (end is not (FalloutAnimationSoundEnd.NativeFinished or FalloutAnimationSoundEnd.SourceStopped or FalloutAnimationSoundEnd.SourceUnloaded))
-            throw new ArgumentException("A voice can end through native Finished, authored Stop or source unload.", nameof(end));
+        if (end is not (FalloutAnimationSoundEnd.NativeFinished or FalloutAnimationSoundEnd.ClipBoundUnconfirmed or
+            FalloutAnimationSoundEnd.SourceStopped or FalloutAnimationSoundEnd.SourceUnloaded))
+            throw new ArgumentException("A voice can end through native Finished, its unconfirmed clip bound, authored Stop or source unload.", nameof(end));
         var entry = Find(generation);
         if (entry.End == end) return false;
         if (entry.End != FalloutAnimationSoundEnd.Active || !FalloutAnimationSoundEventsSnapshot.Hash(entry.MediaSha256))

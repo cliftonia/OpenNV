@@ -9,10 +9,12 @@ internal sealed partial class NativeOwnedAnimationSoundPlayer
         // A handoff or save drain waits for this generation; the shared watcher
         // ends it by its decoded length when the device never confirms.
         NativeOwnedAudioCompletion.Watch(node, "animation-sound");
+        void Finished() => FinishVoice(node, NativeOwnedAudioCompletion.Unconfirmed(node)
+            ? FalloutAnimationSoundEnd.ClipBoundUnconfirmed : FalloutAnimationSoundEnd.NativeFinished);
         if (node is AudioStreamPlayer3D spatial)
-        { spatial.Finished += () => FinishVoice(node); spatial.Play(); }
+        { spatial.Finished += Finished; spatial.Play(); }
         else
-        { var flat = (AudioStreamPlayer)node; flat.Finished += () => FinishVoice(node); flat.Play(); }
+        { var flat = (AudioStreamPlayer)node; flat.Finished += Finished; flat.Play(); }
         var voice = _voices[node];
         if (voice.Pcm is not null && voice.Generation is { } pcmGeneration)
             _events!.BindPlayback(pcmGeneration, () => CapturePcmVoice(node, voice));

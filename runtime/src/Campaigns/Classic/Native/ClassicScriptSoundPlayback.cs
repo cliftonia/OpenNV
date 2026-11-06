@@ -1,4 +1,5 @@
 using Godot;
+using OpenNV.Runtime.Content;
 
 namespace OpenNV.Runtime.Campaigns.Classic.Native;
 
@@ -26,7 +27,7 @@ internal sealed partial class ClassicScriptSoundPlayback : Node
                 AddChild(player);
                 _voices.Add(request.Id, new(player, stream));
                 player.Finished += () => Retire(request.Id);
-                OpenNV.Runtime.Content.NativeOwnedAudioCompletion.Watch(player, "classic-script-sound");
+                NativeOwnedAudioCompletion.Watch(player, "classic-script-sound");
                 player.Play();
                 if (!player.Playing) throw new InvalidOperationException("Godot did not start the classic source sound.");
             }

@@ -17,7 +17,8 @@ internal sealed class NativeOwnedFiniteSoundSaveDrain : IFalloutFiniteSoundSaveD
     private readonly ulong _nodeId, _playbackId, _streamId;
     private readonly Node.ProcessModeEnum _processMode;
     private readonly bool _streamPaused, _preparedPaused;
-    private bool _active, _finished, _disposed;
+    private bool _active, _disposed;
+    private FalloutAnimationSoundEnd? _finished;
     private Exception? _finishedError;
     internal FalloutFiniteSoundVoice? PendingVoice => ObserveFinished() ? null : Voice;
     public FalloutFiniteSoundVoice Voice { get; }
@@ -56,11 +57,11 @@ internal sealed class NativeOwnedFiniteSoundSaveDrain : IFalloutFiniteSoundSaveD
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_finishedError is { } error)
             throw new FalloutFiniteSoundSaveDrainInvalidatedException(error.Message);
-        ValidateSource(validateMedia: !_finished);
-        if (_finished)
+        ValidateSource(validateMedia: _finished is null);
+        if (_finished is { } end)
         {
             if (_events.Events.Single(entry => entry.Generation == Voice.Generation) !=
-                (_entry with { End = FalloutAnimationSoundEnd.NativeFinished }))
+                (_entry with { End = end }))
                 throw new FalloutFiniteSoundSaveDrainInvalidatedException("The genuine finite Finished receipt changed during save preparation.");
             return true;
         }
@@ -100,18 +101,21 @@ internal sealed class NativeOwnedFiniteSoundSaveDrain : IFalloutFiniteSoundSaveD
             throw new FalloutFiniteSoundSaveDrainInvalidatedException("Finite save preparation changed its winning source or actual owned finite media.");
     }
 
-    // Called only by the original native Finished handler, before it releases
-    // that node. Playing=false, retirement and authored Stop never call this.
-    internal void NativeFinished()
+    // Called only by the original Finished handler, before it releases that
+    // node: NativeFinished from the device or ClipBoundUnconfirmed from the
+    // clip-length watcher. Playing=false, retirement and authored Stop never call this.
+    internal void Finished(FalloutAnimationSoundEnd end)
     {
+        if (end is not (FalloutAnimationSoundEnd.NativeFinished or FalloutAnimationSoundEnd.ClipBoundUnconfirmed))
+            throw new ArgumentException("Only a Finished receipt settles a save-drain lease.", nameof(end));
         if (_disposed) return;
         try
         {
             ValidateSource();
-            if (_finished || !_bound() || !GodotObject.IsInstanceValid(_node) || _node.GetInstanceId() != _nodeId ||
+            if (_finished is not null || !_bound() || !GodotObject.IsInstanceValid(_node) || _node.GetInstanceId() != _nodeId ||
                 Stream(_node) != _stream || _events.Events.Single(entry => entry.Generation == Voice.Generation) != _entry)
                 throw new FalloutFiniteSoundSaveDrainInvalidatedException("Native Finished no longer belongs to the prepared source/native generation.");
-            _finished = true;
+            _finished = end;
         }
         catch (Exception error) { _finishedError = error; }
     }

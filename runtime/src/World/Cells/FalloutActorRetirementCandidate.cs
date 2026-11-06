@@ -157,7 +157,8 @@ internal sealed class FalloutActorRetirementCandidate
             var original = _history[index]; var current = ledger.Events[index];
             if (original.End == FalloutAnimationSoundEnd.Active)
             {
-                if (current.End is not (FalloutAnimationSoundEnd.Active or FalloutAnimationSoundEnd.NativeFinished) ||
+                if (current.End is not (FalloutAnimationSoundEnd.Active or FalloutAnimationSoundEnd.NativeFinished or
+                    FalloutAnimationSoundEnd.ClipBoundUnconfirmed) ||
                     JsonSerializer.Serialize(current with { End = FalloutAnimationSoundEnd.Active }) != JsonSerializer.Serialize(original)) return false;
                 if (current.End == FalloutAnimationSoundEnd.Active)
                     active.Add(_voices.Single(voice => voice.Generation == current.Generation));

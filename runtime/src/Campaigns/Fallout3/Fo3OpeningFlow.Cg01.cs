@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 using Godot;
 using OpenNV.Runtime.Campaigns.NewVegas.Opening;
+using OpenNV.Runtime.Content;
 using OpenNV.Runtime.Presentation.CharacterCreation;
 using OpenNV.Runtime.Presentation.Ui;
 
@@ -624,7 +625,7 @@ internal partial class Fo3OpeningFlow
                 subtitle,
                 acceptanceProof);
         };
-        OpenNV.Runtime.Content.NativeOwnedAudioCompletion.Watch(_vaultDialogueVoice, "fo3-opening-dialogue");
+        NativeOwnedAudioCompletion.Watch(_vaultDialogueVoice, "fo3-opening-dialogue");
         AddChild(_vaultDialogueVoice);
         ShowVaultDialogue(
             subtitle,
@@ -926,7 +927,7 @@ internal partial class Fo3OpeningFlow
                 stage14,
                 subtitle);
         };
-        OpenNV.Runtime.Content.NativeOwnedAudioCompletion.Watch(_vaultDialogueVoice, "fo3-opening-dialogue");
+        NativeOwnedAudioCompletion.Watch(_vaultDialogueVoice, "fo3-opening-dialogue");
         AddChild(_vaultDialogueVoice);
         ShowVaultDialogue(subtitle, coverage.Cg01DadActor.Actor.Name, cue.Response.Text);
         _vaultDialogueVoice.Play();
@@ -1204,7 +1205,7 @@ internal partial class Fo3OpeningFlow
                 Callable.From(() => PlayCg01DadReturnCue(
                     cues, index + 1, completed)).CallDeferred();
         };
-        OpenNV.Runtime.Content.NativeOwnedAudioCompletion.Watch(_vaultDialogueVoice, "fo3-opening-dialogue");
+        NativeOwnedAudioCompletion.Watch(_vaultDialogueVoice, "fo3-opening-dialogue");
         AddChild(_vaultDialogueVoice);
         _vaultDialogueVoice.Play();
     }

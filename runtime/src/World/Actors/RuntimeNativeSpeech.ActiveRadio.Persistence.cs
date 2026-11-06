@@ -132,7 +132,6 @@ internal partial class RuntimeNativeSpeech
                 voice.Generation = saved.Generation;
                 voice.CompletedCommands = snapshot.Voices.Single(history => history.Speaker == station).CompletedCommands;
                 voice.Player.Finished += () => voice.Advance = true;
-                WatchCompletion(voice);
                 // Prepare every original resource before publishing any channel.
                 // StartCore would reselect and replay the committed result prefix.
                 PlayResponse(voice, saved, start: false);

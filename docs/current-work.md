@@ -75,6 +75,19 @@ visible: critical effect spells (no actor active-effect owner), ash piles,
 Meltdown, sneak-attack detection, blocking, split beam, disarm/stagger, scripted
 FireWeapon, flee destinations, the player ragdoll knockdown and VATS special moves.
 
+Finite audio no longer waits forever on the output device. Speech, radio,
+script sounds, music, SOUN voices, actor animation sounds (handoff and save
+drains), the FO3 opening voices and classic script sounds share one watcher.
+It anchors on the player's cursor and settles a clip only after the cursor has
+been frozen for the rest of the clip plus 0.5 s, so a working device that
+hiccups is never cut short. Each such end prints OPENNV_AUDIO_UNCONFIRMED with
+the mixer's idle time, and the animation ledger stores it as
+ClipBoundUnconfirmed, apart from NativeFinished. Looping and undecodable clips
+keep waiting on the device. A synthetic contract covers the rule. A stalled
+CoreAudio device was proven live for speech only; the other owners are proven
+by the contract and by healthy-device e2e runs, which fail on any bound that
+fires while the mixer runs.
+
 ## Next owner and publication
 
 The complete required runtime gate passes: Release/Debug, formatting/analyzers,

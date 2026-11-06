@@ -187,7 +187,8 @@ internal sealed partial class NativeOwnedAnimationSoundPlayer
     private void FinishVoice(Node node, FalloutAnimationSoundEnd end = FalloutAnimationSoundEnd.NativeFinished)
     {
         if (!_voices.TryGetValue(node, out var voice)) return;
-        var completed = end is FalloutAnimationSoundEnd.NativeFinished or FalloutAnimationSoundEnd.SourceStopped;
+        var completed = end is FalloutAnimationSoundEnd.NativeFinished or FalloutAnimationSoundEnd.ClipBoundUnconfirmed or
+            FalloutAnimationSoundEnd.SourceStopped;
         var settled = completed || end == FalloutAnimationSoundEnd.SourceUnloaded;
         if (settled && voice.Pcm is { } pcm)
         {
@@ -208,7 +209,9 @@ internal sealed partial class NativeOwnedAnimationSoundPlayer
         }
         if (voice.Generation is { } generation)
         {
-            if (end == FalloutAnimationSoundEnd.NativeFinished) voice.SaveDrain?.NativeFinished();
+            if (end is FalloutAnimationSoundEnd.NativeFinished or FalloutAnimationSoundEnd.ClipBoundUnconfirmed)
+                voice.SaveDrain?.Finished(end);
+            if (end == FalloutAnimationSoundEnd.ClipBoundUnconfirmed) ++_unconfirmedEnds;
             if (settled) _events!.Complete(generation, end);
             else
             {

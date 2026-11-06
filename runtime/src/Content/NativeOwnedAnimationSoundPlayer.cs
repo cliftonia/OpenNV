@@ -15,7 +15,7 @@ internal sealed partial class NativeOwnedAnimationSoundPlayer : Node3D
     private readonly Dictionary<string, (FalloutSoundRecord Source, IReadOnlyList<string> Variants, long Revision)> _descriptors = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, AudioStream> _streams = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<AudioStreamPlayer3D, FalloutAnimationSoundSelection> _spatial = [];
-    private long _eventCount;
+    private long _eventCount, _unconfirmedEnds;
     private readonly SortedSet<string> _unbound = new(StringComparer.Ordinal);
     private bool _lostCaptureAtRetirement;
     private bool _retired;
@@ -45,6 +45,7 @@ internal sealed partial class NativeOwnedAnimationSoundPlayer : Node3D
         pcmRestoreError = _pcmRestoreFailure?.Message,
         activeSpatial = _spatial.Count,
         activeVoices = _voices.Count,
+        unconfirmedEnds = _unconfirmedEnds,
         unbound = _unbound.ToArray(),
         last = LastEvent,
         sourceEvents = _events?.RecentDiagnosticEvents,

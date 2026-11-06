@@ -102,7 +102,7 @@ public partial class NativeReferenceEventsAudit
             void Finished()
             {
                 if (suppressSourceFinished) return;
-                saveDrain?.NativeFinished();
+                saveDrain?.Finished(FalloutAnimationSoundEnd.NativeFinished);
                 if (settled) return; settled = true; nativeFinished++;
                 ledger.Complete(generation, FalloutAnimationSoundEnd.NativeFinished); Release();
             }

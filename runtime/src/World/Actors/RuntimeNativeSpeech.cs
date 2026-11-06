@@ -307,7 +307,6 @@ internal partial class RuntimeNativeSpeech : Node
         { voice.Generation = restored.Generation; voice.CompletedCommands = restored.CompletedCommands; }
         var channel = voice;
         player.Finished += () => channel.Advance = true;
-        WatchCompletion(voice);
         _channels.Add(speaker, voice);
         AddChild(player);
         return voice;
@@ -607,6 +606,7 @@ internal partial class RuntimeNativeSpeech : Node
             voice.Advance = cold.Advance || !cold.Samples.Playing && !cold.Samples.StartPending;
             voice.Lip?.Sample(cold.Samples.Position / cold.Samples.SourceRate, voice.LipWeights);
         }
+        WatchCompletion(voice);
         if (!start) return;
         voice.Player.Play();
         voice.UtteranceActive = true;
@@ -661,7 +661,7 @@ internal partial class RuntimeNativeSpeech : Node
         voice.UtteranceActive = false;
         voice.Advance = false;
         var completionOwner = voice.Unrecorded is not null ? "source-unrecorded-text-timer" :
-            voice.Player.HasMeta(NativeOwnedAudioCompletion.UnconfirmedMeta) ? "clip-length-bound-audio-unconfirmed" : "audio-finished";
+            NativeOwnedAudioCompletion.Unconfirmed(voice.Player) ? "clip-length-bound-audio-unconfirmed" : "audio-finished";
         voice.Unrecorded = null;
         ClearResponseSound(voice);
         RetireRadioPcm(voice);
