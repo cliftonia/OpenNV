@@ -5140,6 +5140,9 @@
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameHitches+MethodName, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameHitches+PropertyName, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameHitches+SignalName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameRateOverlay+MethodName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameRateOverlay+PropertyName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameRateOverlay+SignalName, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameWork+Scope, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.DoorConfiguration, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.EnvironmentShotConfiguration, OpenNV]]" Dynamic="Required All" />
@@ -7514,7 +7517,7 @@
       <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.Presentation.Rendering.RuntimeNativeGrassOwner+SourceCell, OpenNV],[OpenNV.Runtime.Content.RuntimeNativeLandscapeTransport, OpenNV],[System.Single, System.Private.CoreLib],[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutGrassArea, OpenNV]], System.Private.CoreLib],[System.Object, System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.Presentation.Rendering.RuntimeNativeImageSpace+BackgroundLease, OpenNV],[OpenNV.Runtime.Presentation.Rendering.RuntimeNativeImageSpace, OpenNV],[System.Int64, System.Private.CoreLib],[System.Object, System.Private.CoreLib],[System.Object, System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.Presentation.Rendering.RuntimeNativeSpeedTreeOwner+Batch, OpenNV],[OpenNV.Runtime.Content.FalloutSpeedTree, OpenNV],[Godot.ShaderMaterial, GodotSharp],[Godot.MultiMesh, GodotSharp],[Godot.MultiMeshInstance3D, GodotSharp]]" Dynamic="Required All" />
-      <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.Presentation.Rendering.RuntimePresentationQuality, OpenNV],[OpenNV.Runtime.Presentation.Rendering.RuntimePresentationQualityKind, OpenNV],[System.String, System.Private.CoreLib],[OpenNV.Runtime.RendererQualityProfile, OpenNV],[System.Object, System.Private.CoreLib]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.Presentation.Rendering.RuntimePresentationQuality, OpenNV],[OpenNV.Runtime.Presentation.Rendering.RuntimePresentationQualityKind, OpenNV],[System.String, System.Private.CoreLib],[OpenNV.Runtime.RendererQualityProfile, OpenNV],[System.Single, System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.Presentation.Ui.FalloutLevelUpSkillPresentation, OpenNV],[System.Int32, System.Private.CoreLib],[OpenNV.Runtime.Content.FalloutNativeSkillIdentity, OpenNV],[System.String, System.Private.CoreLib],[System.String, System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.Presentation.Ui.GameplayUiControl, OpenNV],[System.String, System.Private.CoreLib],[System.String, System.Private.CoreLib],[System.Object, System.Private.CoreLib],[System.Object, System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.Presentation.Ui.GameplayUiMapMarker, OpenNV],[System.String, System.Private.CoreLib],[System.String, System.Private.CoreLib],[Godot.Vector3, GodotSharp],[System.Object, System.Private.CoreLib]]" Dynamic="Required All" />
@@ -9680,6 +9683,9 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameHitches+MethodName, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameHitches+PropertyName, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameHitches+SignalName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameRateOverlay+MethodName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameRateOverlay+PropertyName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameRateOverlay+SignalName, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameWork+Owner, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameWork+Scope, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.DoorConfiguration, OpenNV]]" Dynamic="Required All" />
@@ -14539,6 +14545,9 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameHitches+MethodName, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameHitches+PropertyName, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameHitches+SignalName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameRateOverlay+MethodName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameRateOverlay+PropertyName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameRateOverlay+SignalName, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameWork+Owner, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameWork+Scope, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.DoorConfiguration, OpenNV]]" Dynamic="Required All" />
@@ -19398,6 +19407,9 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameHitches+MethodName, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameHitches+PropertyName, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameHitches+SignalName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameRateOverlay+MethodName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameRateOverlay+PropertyName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameRateOverlay+SignalName, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameWork+Owner, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Diagnostics.RuntimeFrameWork+Scope, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.DoorConfiguration, OpenNV]]" Dynamic="Required All" />

@@ -55,10 +55,10 @@ foreach (var presentation in new[] { "first-person", "hex-tactical" })
     MustReject<ArgumentException>(() => RuntimeLaunchValidator.NormalizePresentation(
         new Dictionary<string, string> { ["presentation"] = presentation, ["vr"] = "true" }));
 var fileArguments = RuntimeLaunchArgumentsFile.Parse(
-    ["# iPad launch", "", "  --data-root {documents}/Fallout New Vegas  ", "--show-fps", "--render-scale\t0.6", "fallout-new-vegas"],
+    ["# iPad launch", "", "  --data-root {documents}/Fallout New Vegas  ", "--show-fps", "--render-scale\t0.6", "--campaign fallout-new-vegas"],
     "/sandbox/Documents");
 string[] expectedFileArguments =
-    ["--data-root", "/sandbox/Documents/Fallout New Vegas", "--show-fps", "--render-scale", "0.6", "fallout-new-vegas"];
+    ["--data-root", "/sandbox/Documents/Fallout New Vegas", "--show-fps", "--render-scale", "0.6", "--campaign", "fallout-new-vegas"];
 if (!fileArguments.SequenceEqual(expectedFileArguments))
     throw new InvalidOperationException("Launch argument file lines were not split into the command-line form: " + string.Join('|', fileArguments));
 if (RuntimeLaunchArgumentsFile.PathIn("/sandbox/Documents") != Path.Combine("/sandbox/Documents", "OpenNV", "launch-args.txt"))
