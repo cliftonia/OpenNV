@@ -19,13 +19,13 @@ internal partial class RuntimeNativeImageSpace : Node
     internal FalloutImageSpaceFrame? Frame { get; private set; }
     internal RetailHdrCompositorEffect Effect => _effect;
 
-    // SetCellImageSpace on the current cell: the next composed frame uses it.
-    internal void Replace(FalloutImageSpace source) => _source = source;
-
+    // Reconfiguring (SetCellImageSpace on the presented cell) releases the
+    // previous source's compositor resources first.
     internal void Configure(FalloutImageSpace source, FalloutImageSpaceState state, RetailHdrCompositorEffect effect,
         FalloutGameTime? gameTime = null, Func<IReadOnlyList<FalloutWeatherImageModifier>>? weather = null,
         Action<float>? sunlightDimmer = null, Action<float>? skyScale = null)
     {
+        if (_effect is not null && !ReferenceEquals(_effect, effect)) _effect.ReleaseRenderingResources();
         Name = "NativeImageSpace";
         ProcessMode = ProcessModeEnum.Always;
         ProcessPriority = 100;

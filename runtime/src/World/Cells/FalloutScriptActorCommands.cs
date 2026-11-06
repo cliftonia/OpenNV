@@ -128,9 +128,18 @@ internal static class FalloutScriptActorCommands
                 references.ForceFlee(subject());
             }),
             // SetNoAvoidance is written with a receiver but changes one global
-            // flag; SetAllVisible is the global detection override. Neither is saved.
-            "setnoavoidance" => Command([Kind.Number], arguments => world().AiToggles.NoAvoidance = Flag(arguments[0].Number)),
-            "setallvisible" => Command([Kind.Number], arguments => world().AiToggles.AllVisible = Flag(arguments[0].Number)),
+            // flag; SetAllVisible is the global detection override. Neither is
+            // saved, and no steering or visibility owner reads them yet.
+            "setnoavoidance" => Command([Kind.Number], arguments =>
+            {
+                world().AiToggles.NoAvoidance = Flag(arguments[0].Number);
+                FalloutScriptCommandDeferral.Warn(name, "no-actor-avoidance-steering-reads-flag");
+            }),
+            "setallvisible" => Command([Kind.Number], arguments =>
+            {
+                world().AiToggles.AllVisible = Flag(arguments[0].Number);
+                FalloutScriptCommandDeferral.Warn(name, "no-detection-visibility-owner-reads-flag");
+            }),
             // The shipping engine reads the flag and does nothing else.
             "setallreachable" => Command([Kind.Number], arguments => _ = Flag(arguments[0].Number)),
             // Outside an inventory item's script there is no containing item: the

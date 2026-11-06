@@ -40,7 +40,15 @@ internal static class FalloutScriptEffectCommands
             // other spells reach the caster's active-effect owner at once.
             case "cios" or "castimmediateonself" when arguments.Count == 1:
                 var cast = Require(resolve.Form(arguments[0]), "SPEL");
-                if (SpellType(records, cast) == AbilitySpell || !world.IsScriptActor(target)) return null;
+                if (SpellType(records, cast) == AbilitySpell) return null;
+                if (!world.IsScriptActor(target))
+                {
+                    // Any reference with a magic caster may cast on itself; only
+                    // actors have an active-effect owner here.
+                    if (records.GetEffective(target).Signature == "REFR")
+                        FalloutScriptCommandDeferral.Warn("castimmediateonself", "non-actor-caster-has-no-active-effect-owner");
+                    return null;
+                }
                 return [arguments[0]];
             case "addspell" or "removespell" when arguments.Count == 1:
                 _ = ChangeSpell(records, world, target, operation == "addspell", Require(resolve.Form(arguments[0]), "SPEL"));
@@ -243,13 +251,14 @@ internal sealed partial class FalloutReferenceWorld
     {
         if (!IsScriptActor(reference) || reference != _enginePlayer && !IsResident(reference)) return null;
         var clamped = Math.Clamp(alpha, 0, 1);
-        if (reference == _enginePlayer) return clamped;
+        if (reference == _enginePlayer || ActorAlpha(reference) == clamped) return clamped;
         if (clamped == 1) _actorAlpha.Remove(reference); else _actorAlpha[reference] = clamped;
         ++PresentationRevision;
         return clamped;
     }
 
     internal float ActorAlpha(FalloutFormKey reference) => _actorAlpha.GetValueOrDefault(reference, 1);
+    internal IReadOnlyCollection<FalloutFormKey> TranslucentActors => _actorAlpha.Keys;
 
     // Shader instances are transient presentation of a loaded receiver.
     // Returns false when the receiver has no loaded 3D.
@@ -265,16 +274,22 @@ internal sealed partial class FalloutReferenceWorld
     internal IReadOnlyList<FalloutFormKey> MagicShaders(FalloutFormKey reference) =>
         _magicShaders.Where(item => item.Reference == reference).Select(item => item.Shader).ToArray();
 
+    // Unloading ends the reference's transient visuals and drops frame-queued
+    // trigger and door events instead of firing them on a later load.
     private void RetireTransientPresentation(FalloutFormKey reference)
     {
         _actorAlpha.Remove(reference);
         _magicShaders.RemoveWhere(item => item.Reference == reference);
+        ForcedTriggers.Clear(reference);
+        if (_instances.TryGetValue(reference, out var instance)) instance.PendingDoorEvent = null;
     }
 
     internal void SetCellImageSpace(FalloutFormKey cell, FalloutFormKey imageSpace)
     {
         _cellImageSpaces[cell] = imageSpace;
         if (_cellImageSpacePresenters.TryGetValue(cell, out var present)) present(CellImageSpace(cell)!);
+        // An exterior or unpresented cell composes the new source when built.
+        else FalloutScriptCommandDeferral.Warn("setcellimagespace", "cell-has-no-presenter;applies-on-next-cell-build");
     }
 
     internal FalloutImageSpace? CellImageSpace(FalloutFormKey cell) => _cellImageSpaces.TryGetValue(cell, out var image)

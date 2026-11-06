@@ -397,6 +397,16 @@ internal static partial class IngestibleContracts
             world.AdvanceActorIngestibles(8);
             Check(world.Health(creature.Reference).Current == 40 && world.ActorValue(creature.Reference, "endurance") == 5,
                 "Creature food lost the qualified empty skill pool or source modifier lifetime.");
+            // CastImmediateOnSelf on an NPC: nothing while unloaded, then the
+            // spell's modifier and timer through the shared actor-effect owner.
+            Check(!world.CastActorEffectOnSelf(consumer.Reference, Key(0x41), 1, null, false), "An unloaded actor received a cast.");
+            world.LoadCell(FalloutCellSceneReader.Read(records, Key(0x80)));
+            var castBefore = world.ActorValue(consumer.Reference, "endurance");
+            Check(world.CastActorEffectOnSelf(consumer.Reference, Key(0x41), 1, null, false) &&
+                world.ActorValue(consumer.Reference, "endurance") == castBefore - 1 &&
+                consumer.Ingestibles!.Effects.Any(timer => timer.Item == Key(0x41)), "NPC CastImmediateOnSelf lost its actor effect.");
+            Check(world.DispelActorEffects(consumer.Reference, item => item == Key(0x41)) == 1 &&
+                world.ActorValue(consumer.Reference, "endurance") == castBefore, "Dispel did not end the cast effect.");
             new FalloutActorEatProgress(Key(6), FalloutIngestible.Read(records, Key(6)).Hash, null,
                 Consumed: true, NoIdle: true).Validate();
             Reject(() => new FalloutActorEatProgress(Key(6), FalloutIngestible.Read(records, Key(6)).Hash, null,

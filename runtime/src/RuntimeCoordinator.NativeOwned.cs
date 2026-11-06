@@ -1720,11 +1720,18 @@ public partial class RuntimeCoordinator
         };
         world.Compositor = AddNativeImageSpace(root, _nativeReferences?.CellImageSpace(cell.Cell.FormKey) ??
             FalloutImageSpaceReader.ForCell(_nativePluginStack!, cell.Cell.FormKey));
+        // SetCellImageSpace on this presented cell rebuilds its compositor and
+        // telemetry from the new source at once.
         if (_nativeReferences is { } references && root.GetChildren().OfType<RuntimeNativeImageSpace>().LastOrDefault() is { } presenter)
         {
             var cellKey = cell.Cell.FormKey;
-            references.BindCellImageSpace(cellKey, presenter.Replace);
-            presenter.TreeExiting += () => references.UnbindCellImageSpace(cellKey, presenter.Replace);
+            void Present(FalloutImageSpace image)
+            {
+                if (GodotObject.IsInstanceValid(presenter) && GodotObject.IsInstanceValid(world))
+                    world.Compositor = ConfigureNativeImageSpace(root, presenter, image);
+            }
+            references.BindCellImageSpace(cellKey, Present);
+            presenter.TreeExiting += () => references.UnbindCellImageSpace(cellKey, Present);
         }
         root.AddChild(world);
         var surfaceToLight = RetailLighting.SurfaceToLightFromXcllDegrees(
@@ -1746,12 +1753,20 @@ public partial class RuntimeCoordinator
         Action<float>? skyScale = null)
     {
         if (imageSpace is null) return null;
+        var presenter = new RuntimeNativeImageSpace();
+        var compositor = ConfigureNativeImageSpace(root, presenter, imageSpace, weather, sunlightDimmer, skyScale);
+        root.AddChild(presenter);
+        return compositor;
+    }
+
+    private Compositor? ConfigureNativeImageSpace(Node3D root, RuntimeNativeImageSpace presenter, FalloutImageSpace imageSpace,
+        Func<IReadOnlyList<FalloutWeatherImageModifier>>? weather = null, Action<float>? sunlightDimmer = null,
+        Action<float>? skyScale = null)
+    {
         var application = RetailImageSpaceRenderer.CreateFromSource(imageSpace,
             _configuration.FalloutEnvironment.ImageSpace, _configuration.Capture,
             _configuration.ActorCompiler.FaceGenMaterial.RuntimeAlbedoTransfer);
-        var presenter = new RuntimeNativeImageSpace();
         presenter.Configure(imageSpace, _nativeImageSpaceState, application.Effect, _nativeGameTime, weather, sunlightDimmer, skyScale);
-        root.AddChild(presenter);
         root.SetMeta("opennv_source_image_space", imageSpace.Form.ToString());
         root.SetMeta("opennv_source_image_space_version", imageSpace.FormVersion);
         root.SetMeta("opennv_source_image_space_dnam_sha256", imageSpace.DnamSha256);

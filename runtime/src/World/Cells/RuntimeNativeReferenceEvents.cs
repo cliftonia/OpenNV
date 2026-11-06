@@ -450,10 +450,11 @@ internal partial class RuntimeNativeReferenceEvents : Node
                 .Select(key => key!.Value).Distinct().ToArray();
             events.AddRange(binding.Contacts.Advance(contacts));
         }
-        if (_world.ForcedTriggers.HasPending(binding.Reference.FormKey) && _world.ForcedTriggers.Take(binding.Reference.FormKey,
-                events.Any(item => item.Name.Equals("OnTriggerEnter", StringComparison.OrdinalIgnoreCase))) is { } forced)
-            events.Add(forced);
-        if (binding.Instance.PendingDoorEvent is { } doorEvent)
+        var forced = _world.ForcedTriggers.HasPending(binding.Reference.FormKey)
+            ? _world.ForcedTriggers.Take(binding.Reference.FormKey, events.Select(item => item.Name).ToArray()) : [];
+        events.AddRange(forced);
+        var doorEvent = binding.Instance.PendingDoorEvent;
+        if (doorEvent is not null)
         {
             events.Add(new(doorEvent));
             binding.Instance.PendingDoorEvent = null;
@@ -476,6 +477,16 @@ internal partial class RuntimeNativeReferenceEvents : Node
             results.Single(result => result.Event.Equals("OnActivate", StringComparison.OrdinalIgnoreCase)).Error is null);
         npcPortalActor?.FinishPortalAttempt(binding.Reference.FormKey,
             results.Single(result => result.Event.Equals("OnActivate", StringComparison.OrdinalIgnoreCase)).Error);
+        // An abandoned run (a reference-requiring command without a receiver)
+        // leaves this frame's pending events for the next run.
+        if (results.Any(result => result.Abandoned))
+        {
+            foreach (var entered in forced.Where(item => item.Name.Equals("OnTriggerEnter", StringComparison.OrdinalIgnoreCase)))
+                _world.ForcedTriggers.Enter(binding.Reference.FormKey, entered.ActionReference!.Value);
+            if (doorEvent is not null) binding.Instance.PendingDoorEvent = doorEvent;
+            Report(binding, results);
+            return;
+        }
         // Source faults retain their executed prefix on the actual instance.
         // Consume this admission once while preserving marks produced by it.
         if (hasPackageEvents) _world.PackageEvents.Consume(packageBatch!);

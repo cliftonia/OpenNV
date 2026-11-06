@@ -28,14 +28,20 @@ internal static class ScriptCommandContracts
             var quests = new FalloutQuestState(records);
             var activeImage = Key(0x160);
             var scripts = new FalloutReferenceScripts(records, world, quests, new((_, _) => false,
-                _ => throw new InvalidDataException("Script command used an unrelated host effect."),
+                effect => { if (effect.Kind != FalloutReferenceEffectKind.ReferenceEnable) throw new InvalidDataException("Script command used an unrelated host effect."); },
                 IsImageSpaceActive: form => form == activeImage));
 
             // Receiver variable holding zero: commands and functions are no-ops.
             var result = scripts.Dispatch(Key(0x906), "GameMode");
             var caller = world.Get(Key(0x906));
             Require(result.Error is null, $"Caller script stopped: {result.Error}");
+            // Section 5: an unresolved qualifier statement falls back to the
+            // previous receiver; an unresolved expression term is zero; a
+            // variable that resolved once keeps its stale form.
             Require(caller.Read(1) == 1, "A null receiver function did not return zero.");
+            Require(world.Get(Key(0x904)).EnableRequest is { Enabled: false } && FalloutScriptQualifiers.Count("previous-receiver") > 0,
+                "A null qualifier statement did not reuse the previous statement's receiver.");
+            Require(caller.Read(9) == 2, "A zero qualifier variable did not keep its stale resolved form.");
             Require(Math.Abs(caller.Read(2) - 90) < 1e-4, "GetAngle did not return the stored rotation in degrees.");
             Require(caller.Read(4) == 0 && caller.Read(5) == 1 && caller.Read(6) == 0 && caller.Read(7) == 1 && caller.Read(8) == 1,
                 "GetIsGhost, HasLoaded3D, IsLimbGone, IsDLCInstalled or IsImageSpaceActive returned the wrong value.");
@@ -47,7 +53,32 @@ internal static class ScriptCommandContracts
             Require(world.Get(Key(0x904)).Read(1) == FalloutReferenceScripts.EnterTriggerNestingLimit &&
                 world.ForcedTriggers.HasPending(Key(0x904)), "Re-entrant EnterTrigger ignored the nesting limit.");
             var quest = records.GetEffective(Key(0x600));
+            // A non-reference qualifier in an expression disables the script form.
+            Require(scripts.Dispatch(Key(0x907), "GameMode").Error is null && world.Get(Key(0x907)).Read(2) == 0 &&
+                world.IsScriptFormDisabled(Key(0x54)) && scripts.Dispatch(Key(0x907), "GameMode").Blocks == 0,
+                "A non-reference expression qualifier did not disable its script form.");
+            // An unknown operation still fails visibly through the fallback receiver.
+            Require(scripts.Dispatch(Key(0x908), "GameMode").Error?.Contains("MissingOperation", StringComparison.Ordinal) == true,
+                "An unknown command on a null receiver vanished silently.");
+            // A quest has no implicit receiver: "requires a reference" abandons the run.
+            var abandoned = FalloutScriptQualifiers.Count("requires-reference-run-abandoned");
+            scripts.ExecuteStage(quest, quest.ReadSubrecords().ToArray(), "rq.Disable\nBoxRef.Disable");
+            Require(FalloutScriptQualifiers.Count("requires-reference-run-abandoned") == abandoned + 1 && world.IsEnabled(Key(0x905)),
+                "A quest statement without a receiver did not abandon the rest of its run.");
+            // A queued EnterTrigger admits OnTriggerEnter and OnTrigger together,
+            // deferring to a contact enter admitted in the same frame.
+            Require(world.ForcedTriggers.Take(Key(0x904), ["OnTriggerEnter"]).Count == 0 &&
+                world.ForcedTriggers.Take(Key(0x904), []) is [{ Name: "OnTriggerEnter" }, { Name: "OnTrigger", TriggerReferences: { Count: 1 } }],
+                "A queued EnterTrigger lost OnTrigger or contact precedence.");
+            // OnOpen/OnClose are ordinary blocks; queued door and trigger events
+            // of an unloading reference are dropped instead of firing late.
+            Require(scripts.Dispatch(Key(0x903), "OnOpen") is { Blocks: 1, Error: null } && world.Get(Key(0x903)).Read(8) == 1,
+                "OnOpen did not run its block.");
+            world.Get(Key(0x903)).PendingDoorEvent = "OnClose";
+            world.ForcedTriggers.Enter(Key(0x903), Key(0x900));
             world.UnloadCell(Key(0x800));
+            Require(world.Get(Key(0x903)).PendingDoorEvent is null && !world.ForcedTriggers.HasPending(Key(0x903)),
+                "Queued events outlived their reference's residency.");
             scripts.ExecuteStage(quest, quest.ReadSubrecords().ToArray(), "TriggerRef.EnterTrigger player");
             Require(world.Get(Key(0x903)).Read(1) == 2, "EnterTrigger did not run an unloaded trigger's script.");
             world.LoadCell(cell);
@@ -57,7 +88,12 @@ internal static class ScriptCommandContracts
             scripts.ExecuteStage(quest, quest.ReadSubrecords().ToArray(), string.Join('\n',
                 "BoxRef.SetLevel 5", "DropMe", "ActorRef.SetNoAvoidance 1", "SetAllVisible 1", "SetAllReachable 1",
                 "BoxRef.ClearOwnership", "SetCellImageSpace TestCell TestImage"));
-            Require(warnings.Count == 0, "A wrong-kind receiver or a no-op command reported a deferral.");
+            Require(!warnings.Any(line => line.Contains("name=setlevel", StringComparison.Ordinal) || line.Contains("name=dropme", StringComparison.Ordinal) ||
+                    line.Contains("name=setallreachable", StringComparison.Ordinal) || line.Contains("name=clearownership", StringComparison.Ordinal)),
+                "A wrong-kind receiver or a no-op command reported a deferral.");
+            Require(FalloutScriptCommandDeferral.WasReported("setnoavoidance") && FalloutScriptCommandDeferral.WasReported("setallvisible") &&
+                FalloutScriptCommandDeferral.WasReported("setcellimagespace"),
+                "An unread AI flag or an unpresented cell image space hid its deferral.");
             Require(world.AiToggles is { NoAvoidance: true, AllVisible: true }, "SetNoAvoidance/SetAllVisible did not set their global flags.");
 
             // ClearOwnership removes the reference's own owner and is saved.
@@ -119,7 +155,8 @@ internal static class ScriptCommandContracts
             var controls = new FalloutPlayerControlState(true, false, true, true, true, true, true);
             Require(controls.AnyDisabled(0b11) && !controls.AnyDisabled(0b101) && !controls.AnyDisabled(0),
                 "GetPlayerControlsDisabled mask selected the wrong controls.");
-            Console.WriteLine("OPENNV_SCRIPT_COMMAND_CONTRACT_PASS nullReceiver=true wrongKindNoOp=true enterTrigger=true nesting=true " +
+            Console.WriteLine("OPENNV_SCRIPT_COMMAND_CONTRACT_PASS nullReceiver=true previousReceiver=true staleQualifier=true questAbandon=true " +
+                "formDisabled=true unknownVisible=true queuedOnTrigger=true doorEvents=true wrongKindNoOp=true enterTrigger=true nesting=true " +
                 "unloadedTrigger=true clearOwnership=true cold=true schema=true cellImageSpace=true spellReturns=true cios=true " +
                 "dispelAll=true alpha=true shader=true aiToggles=true queries=true controls=true presentation=unverified");
         }
@@ -153,10 +190,10 @@ internal static class ScriptCommandContracts
             Placed(0x903, 0x111, "TriggerRef"), Placed(0x904, 0x112, "RecursiveRef"),
             Record("REFR", 0x905, Field("EDID", Text("BoxRef")), Field("NAME", BitConverter.GetBytes(0x113u)),
                 Field("XOWN", BitConverter.GetBytes(0x110u)), Field("DATA", new byte[24])),
-            Placed(0x906, 0x114, "CallerRef"));
+            Placed(0x906, 0x114, "CallerRef"), Placed(0x907, 0x115, "DisabledRef"), Placed(0x908, 0x116, "UnknownRef"));
         var group = new byte[24 + references.Length]; Encoding.ASCII.GetBytes("GRUP").CopyTo(group, 0);
         UInt(group, 4, (uint)group.Length); UInt(group, 8, 0x800); UInt(group, 12, 6); references.CopyTo(group, 24);
-        var formIds = new uint[] { 0x14, 0x900, 0x903, 0x904, 0x905, 0x150, 0x151, 0x152, 0x160, 0x161, 0x800 };
+        var formIds = new uint[] { 0x14, 0x900, 0x903, 0x904, 0x905, 0x150, 0x151, 0x152, 0x160, 0x161, 0x800, 0x110 };
         return Join(Record("TES4", 0, Field("HEDR", header)),
             Record("NPC_", 7, Field("ACBS", new byte[24])),
             Record("NPC_", 0x110, Field("EDID", Text("ActorBase")), Field("ACBS", new byte[24]), Field("SPLO", BitConverter.GetBytes(0x151u))),
@@ -164,27 +201,33 @@ internal static class ScriptCommandContracts
             Record("ACTI", 0x112, Field("SCRI", BitConverter.GetBytes(0x51u))),
             Record("CONT", 0x113, Field("EDID", Text("Box"))),
             Record("ACTI", 0x114, Field("SCRI", BitConverter.GetBytes(0x52u))),
+            Record("ACTI", 0x115, Field("SCRI", BitConverter.GetBytes(0x54u))),
+            Record("ACTI", 0x116, Field("SCRI", BitConverter.GetBytes(0x55u))),
             Record("EFSH", 0x150, Field("EDID", Text("Shader"))),
             Spell(0x151, "KnownSpell", 0), Spell(0x152, "Ability", 4), Spell(0x153, "Power", 2),
             Record("IMAD", 0x160, Field("EDID", Text("ActiveImage"))),
             Record("IMGS", 0x161, Field("EDID", Text("TestImage")), Field("DNAM", new byte[132])),
-            Script(0x50, "begin OnTriggerEnter player\nset prefix to prefix + 1\nend\nbegin OnTrigger\nset suffix to suffix + 1\nend", formIds),
+            Script(0x50, "begin OnTriggerEnter player\nset prefix to prefix + 1\nend\nbegin OnTrigger\nset suffix to suffix + 1\nend\nbegin OnOpen\nset image to image + 1\nend", formIds),
             Script(0x51, "begin OnTriggerEnter\nset prefix to prefix + 1\nRecursiveRef.EnterTrigger player\nend", formIds),
-            Script(0x52, "begin GameMode\nTriggerRef.EnterTrigger player\nRecursiveRef.EnterTrigger player\n" +
+            Script(0x52, "ref r\nbegin GameMode\nTriggerRef.EnterTrigger player\nRecursiveRef.EnterTrigger player\n" +
                 "r.Disable\nset prefix to r.GetDisabled + 1\nset suffix to ActorRef.GetAngle Z\n" +
                 "set ghost to ActorRef.GetIsGhost\nset loaded to ActorRef.HasLoaded3D\nset limb to ActorRef.IsLimbGone 0 12\n" +
-                "set dlc to IsDLCInstalled \"Script Commands\"\nset image to IsImageSpaceActive ActiveImage\nend", formIds),
+                "set dlc to IsDLCInstalled \"Script Commands\"\nset image to IsImageSpaceActive ActiveImage\n" +
+                "set r to ActorRef\nset stale to r.HasLoaded3D\nset r to 0\nset stale to stale + r.GetIsGhost + r.HasLoaded3D\nend", formIds),
+            Script(0x53, "ref rq\nbegin GameMode\nend", formIds, quest: true),
+            Script(0x54, "ref rb\nbegin GameMode\nset rb to ActorBase\nset prefix to rb.GetDisabled\nset suffix to 1\nend", formIds),
+            Script(0x55, "ref r\nbegin GameMode\nr.MissingOperation\nend", formIds),
             Record("CELL", 0x800, Field("EDID", Text("TestCell")), Field("DATA", [1])), group,
-            Record("QUST", 0x600, [Field("EDID", Text("CommandQuest")), .. formIds.Select(id => Field("SCRO", BitConverter.GetBytes(id)))]));
+            Record("QUST", 0x600, [Field("EDID", Text("CommandQuest")), Field("SCRI", BitConverter.GetBytes(0x53u)), .. formIds.Select(id => Field("SCRO", BitConverter.GetBytes(id)))]));
     }
 
     private static byte[] Placed(uint id, uint form, string name) => Record("REFR", id, Field("EDID", Text(name)),
         Field("NAME", BitConverter.GetBytes(form)), Field("DATA", new byte[24]));
 
-    private static byte[] Script(uint id, string source, IEnumerable<uint> references)
+    private static byte[] Script(uint id, string source, IEnumerable<uint> references, bool quest = false)
     {
-        var header = new byte[20]; UInt(header, 12, 8);
-        string[] locals = ["prefix", "suffix", "r", "ghost", "loaded", "limb", "dlc", "image"];
+        string[] locals = ["prefix", "suffix", "r", "ghost", "loaded", "limb", "dlc", "image", "stale", "rb", "rq", "qflag"];
+        var header = new byte[20]; UInt(header, 12, (uint)locals.Length); header[16] = quest ? (byte)1 : (byte)0;
         return Record("SCPT", id, [Field("SCHR", header), .. locals.Select((name, index) => Local((uint)index + 1, name)).SelectMany(value => value),
             .. references.Select(form => Field("SCRO", BitConverter.GetBytes(form))), Field("SCTX", Text(source))]);
     }

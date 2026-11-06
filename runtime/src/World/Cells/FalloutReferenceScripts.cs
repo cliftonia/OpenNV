@@ -44,7 +44,7 @@ internal sealed record FalloutReferenceScriptHost(Func<FalloutFormKey, FalloutFo
     Action<FalloutFormKey, FalloutFormKey?>? RemoveInventoryInstance = null, Action<double>? RewardKarma = null,
     Func<FalloutFormKey, bool>? IsImageSpaceActive = null);
 internal sealed record FalloutReferenceScriptEventResult(FalloutFormKey Reference, string Event, int Blocks, string? Error,
-    string? RecoveredError = null);
+    string? RecoveredError = null, bool Abandoned = false);
 internal sealed record FalloutReferenceScriptEvent(string Name, FalloutFormKey? ActionReference = null,
     IReadOnlySet<FalloutFormKey>? TriggerReferences = null, FalloutFormKey? Topic = null,
     IReadOnlySet<FalloutFormKey>? Topics = null, FalloutFormKey? Package = null,
@@ -145,10 +145,16 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
         // continuation; repeating player input must not replay that prefix.
         var counts = admitted.Keys.ToDictionary(name => name, _ => 0, StringComparer.OrdinalIgnoreCase);
         var failure = instance.ScriptError;
+        var abandoned = false;
         IReadOnlyList<FalloutReferenceScriptEventResult> Results() => events.Select(item =>
             new FalloutReferenceScriptEventResult(reference, item.Name, counts[FalloutReferencePackageEvents.CanonicalName(item.Name)], failure,
-                recovered?.StartsWith(item.Name + ":", StringComparison.OrdinalIgnoreCase) == true ? recovered : null)).ToArray();
+                recovered?.StartsWith(item.Name + ":", StringComparison.OrdinalIgnoreCase) == true ? recovered : null, abandoned)).ToArray();
         if (instance.ScriptError is not null || instance.DeletePending || instance.Deleted || events.Count == 0) return Results();
+        if (instance.Script is { } attached && world.IsScriptFormDisabled(attached.Record.FormKey))
+        {
+            FalloutScriptQualifiers.Report(attached.Record.FormKey, -1, "run", "script-form-disabled");
+            return Results();
+        }
         var runningEvent = "Parse";
         FalloutScriptEventProgram? runningBlock = null;
         var runningOrdinal = -1;
@@ -211,6 +217,14 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                 observeActivationEnd?.Invoke();
             }
         }
+        // The rest of this run stops; no fault is retained and the frame's
+        // pending events are left for the next run.
+        catch (FalloutScriptRunAbandonedException) { abandoned = true; }
+        catch (FalloutScriptFormDisabledException error)
+        {
+            world.DisableScriptForm(error.Script);
+            FalloutScriptQualifiers.Report(error.Script, runningBlock?.Program.LastStatement ?? -1, runningEvent, "expression-failed-script-form-disabled");
+        }
         catch (Exception error) when (error is InvalidDataException or InvalidOperationException or NotSupportedException or KeyNotFoundException or OverflowException)
         {
             failure = $"{runningEvent}: {error.Message}";
@@ -270,7 +284,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
         var selected = begin ? (split < 0 ? fields : fields[..split]) : (split < 0 ? [] : fields[(split + 1)..]);
         var bindings = Bindings(records.GetEffective(info.Quest), info.Record, selected);
         var program = FalloutGameModeProgram.Read("begin Result\n" + source + "\nend", "Result");
-        Execute(speaker, bindings, program, null, 0);
+        ExecuteRun(speaker, bindings, program, null, 0);
     }
 
     internal void ExecuteProgram(FalloutPluginRecord owner, FalloutPluginRecord script, FalloutGameModeProgram program, double seconds)
@@ -278,7 +292,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
         var key = (owner.FormKey, script.FormKey);
         if (!_questBindings.TryGetValue(key, out var bindings))
             _questBindings.Add(key, bindings = Bindings(owner, script, script.ReadSubrecords()));
-        Execute(owner.FormKey, bindings, program, null, seconds);
+        ExecuteRun(owner.FormKey, bindings, program, null, seconds);
     }
 
     internal bool CanRetryPlayerDeathRead(FalloutPluginRecord owner, FalloutPluginRecord script, FalloutGameModeProgram program)
@@ -305,7 +319,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
         var reference = records.GetEffective(actor);
         if (reference.Signature is not ("ACHR" or "ACRE"))
             throw new InvalidDataException("Package results require a placed actor as their calling reference.");
-        Execute(actor, Bindings(reference, program.Package, program.Fields),
+        ExecuteRun(actor, Bindings(reference, program.Package, program.Fields),
             FalloutGameModeProgram.Read("begin Result\n" + program.Source + "\nend", "Result"), null, 0);
         // Topic selection observes the committed script result. Native speech
         // owns its voice/results; the following event IDLE stays with the actor.
@@ -320,12 +334,12 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
     }
 
     internal void ExecuteStage(FalloutPluginRecord quest, IReadOnlyList<FalloutPluginSubrecord> fields, string source) =>
-        Execute(quest.FormKey, Bindings(quest, quest, fields),
+        ExecuteRun(quest.FormKey, Bindings(quest, quest, fields),
             FalloutGameModeProgram.Read("begin Result\n" + source + "\nend", "Result"), null, 0);
 
     internal IEnumerable<bool> StageSteps(FalloutPluginRecord quest, IReadOnlyList<FalloutPluginSubrecord> fields, string source) =>
-        Steps(quest.FormKey, Bindings(quest, quest, fields),
-            FalloutGameModeProgram.Read("begin Result\n" + source + "\nend", "Result"), null, 0);
+        AbandonableSteps(Steps(quest.FormKey, Bindings(quest, quest, fields),
+            FalloutGameModeProgram.Read("begin Result\n" + source + "\nend", "Result"), null, 0), Bindings(quest, quest, fields).Source);
 
     internal IReadOnlyList<FalloutScriptStatementInspection> Inspect(FalloutPluginRecord owner,
         FalloutPluginRecord source, IEnumerable<FalloutPluginSubrecord> fields,
@@ -343,6 +357,40 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
         target => target.Signature is "REFR" or "ACHR" or "ACRE" ? world.Get(target.FormKey).Script?.Record :
             FalloutScriptLocals.AttachedScript(records, target));
 
+    // Result, quest and package runs share the object runner's outcomes: an
+    // abandoned run just ends, and a failed qualifier expression disables the
+    // script form for the session.
+    private void ExecuteRun(FalloutFormKey source, FalloutScriptBindings bindings, FalloutGameModeProgram program,
+        FalloutFormKey? actor, double seconds)
+    {
+        foreach (var _ in AbandonableSteps(Steps(source, bindings, program, actor, seconds), bindings.Source)) { }
+    }
+
+    private IEnumerable<bool> AbandonableSteps(IEnumerable<bool> steps, FalloutFormKey script)
+    {
+        if (world.IsScriptFormDisabled(script))
+        {
+            FalloutScriptQualifiers.Report(script, -1, "run", "script-form-disabled");
+            yield break;
+        }
+        using var cursor = steps.GetEnumerator();
+        while (true)
+        {
+            try
+            {
+                if (!cursor.MoveNext()) yield break;
+            }
+            catch (FalloutScriptRunAbandonedException) { yield break; }
+            catch (FalloutScriptFormDisabledException error)
+            {
+                world.DisableScriptForm(error.Script);
+                FalloutScriptQualifiers.Report(error.Script, -1, "expression", "expression-failed-script-form-disabled");
+                yield break;
+            }
+            yield return cursor.Current;
+        }
+    }
+
     private void Execute(FalloutFormKey source, FalloutScriptBindings bindings, FalloutGameModeProgram program,
         FalloutFormKey? actor, double seconds)
     {
@@ -356,6 +404,8 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
         FalloutInventoryScriptContext? inventoryContext = null)
     {
         budget ??= new();
+        string? statementQualifier = null;
+        FalloutFormKey? statementReceiver = null, previousReceiver = null;
         var valueStore = world.ScriptValues;
         FalloutScriptEvents Events() => host.Events ?? throw new NotSupportedException("Script event has no process owner.");
         FalloutFormKey? CallingReference() => records.RuntimeFormId(source) == 0x14 ||
@@ -443,6 +493,24 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                 throw new InvalidDataException("Script reference variable is not a placed reference.");
             return key;
         }
+        // Statement receivers: a qualifier variable without a reference falls
+        // back to the previous statement's receiver, then the implicit one.
+        bool IsQualifierVariable(string name) => !FalloutScriptBindings.IsPlayer(name) && bindings.TryForm(name) is null && HasValueOwner(name) && IsForm(name);
+        (FalloutScriptQualifierKind Kind, FalloutFormKey Form) ResolveQualifier(string name) =>
+            world.ResolveQualifier(bindings.Source, name, ReadValue(name).Number);
+        FalloutFormKey Qualifier(string name)
+        {
+            if (statementQualifier is not null && name.Equals(statementQualifier, StringComparison.OrdinalIgnoreCase)) return statementReceiver!.Value;
+            if (!IsQualifierVariable(name)) return Reference(name);
+            var (kind, form) = ResolveQualifier(name);
+            return kind switch
+            {
+                FalloutScriptQualifierKind.Reference => form,
+                FalloutScriptQualifierKind.NonReference => throw new FalloutScriptFormDisabledException(bindings.Source,
+                    $"Qualifier {name} resolved to non-reference form {form}."),
+                _ => throw new InvalidDataException("Script reference variable has no valid form identity."),
+            };
+        }
         FalloutScriptFunction UserFunction(string command, string name)
         {
             var parts = command.Split('.');
@@ -455,7 +523,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                 _ => FalloutScriptArgumentKind.Number,
             }).ToArray();
             return FalloutScriptFunction.Typed(kinds, arguments => InvokeFunctionValue(
-                definition.Script.FormKey, parts.Length == 2 ? Reference(parts[0]) : CallingReference(),
+                definition.Script.FormKey, parts.Length == 2 ? Qualifier(parts[0]) : CallingReference(),
                 arguments.Select(argument => argument.Value).ToArray(), seconds, budget));
         }
         FalloutFormKey Quest(string name)
@@ -472,16 +540,20 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                 (caller, arguments) => FunctionFor("this." + name, caller)!.InvokeValue(arguments));
         }
         FalloutScriptFunction? Function(string name) => FunctionFor(name, null);
-        // A receiver variable holding no reference makes the call a no-op that
-        // returns zero; the engine reports no error and the script continues.
-        bool NullReceiver(string[] parts) => parts.Length == 2 && !FalloutScriptBindings.IsPlayer(parts[0]) &&
-            bindings.TryForm(parts[0]) is null && HasValueOwner(parts[0]) &&
-            ReadValue(parts[0]) is { Kind: FalloutScriptValueKind.Number or FalloutScriptValueKind.Form } receiver && receiver.Number == 0;
+        // In an expression, a qualifier variable that resolves to no form is a
+        // zero term: the function is not called and execution continues.
+        bool NullReceiver(string[] parts) => parts.Length == 2 && IsQualifierVariable(parts[0]) &&
+            (statementQualifier is null || !parts[0].Equals(statementQualifier, StringComparison.OrdinalIgnoreCase)) &&
+            ResolveQualifier(parts[0]).Kind == FalloutScriptQualifierKind.Null;
         FalloutScriptFunction? FunctionFor(string name, FalloutScriptValue? caller)
         {
             var function = ResolveFunction(name, caller);
             return function is not null && caller is null && NullReceiver(name.Split('.'))
-                ? FalloutScriptFunction.Typed(function.Arguments, _ => 0, function.ReadOnly, function.Variadic)
+                ? FalloutScriptFunction.Typed(function.Arguments, _ =>
+                {
+                    FalloutScriptQualifiers.Report(bindings.Source, program.LastStatement, name.Split('.')[^1].ToLowerInvariant(), "zero-term");
+                    return 0;
+                }, function.ReadOnly, function.Variadic)
                 : function;
         }
         FalloutScriptFunction? ResolveFunction(string name, FalloutScriptValue? caller)
@@ -495,7 +567,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
             if (parts.Length == 1 && FalloutScriptCasinoCommands.Function(operation, records, () => world.CasinoWinnings) is { } casinoFunction)
                 return casinoFunction;
             if (parts.Length <= 2 && FalloutScriptPosition.Function(operation, () => world,
-                () => caller?.FormKey(records) ?? (parts.Length == 2 ? Reference(parts[0]) : source),
+                () => caller?.FormKey(records) ?? (parts.Length == 2 ? Qualifier(parts[0]) : source),
                 inventoryContext is { ElapsedTimeOwned: false } ? null : () => seconds) is { } positionFunction)
                 return positionFunction;
             FalloutFormKey? suppliedTarget = null;
@@ -547,7 +619,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                 { ReadOnly = true };
             if (parts.Length <= 2 && operation == "getcontainerinventorycount")
                 return new([], _ => (host.Inventory ?? throw new NotSupportedException("GetContainerInventoryCount has no shared inventory owner."))
-                    .StackCount(parts.Length == 2 ? Reference(parts[0]) : CallingReference() ??
+                    .StackCount(parts.Length == 2 ? Qualifier(parts[0]) : CallingReference() ??
                         throw new InvalidDataException("GetContainerInventoryCount has no calling container.")))
                 { ReadOnly = true };
             // Placement needs a camera pick ray and a runtime placed-reference
@@ -592,7 +664,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                     return world.PlayerNotes.Contains(note.FormKey) ? 1 : 0;
                 })
                 { ReadOnly = true };
-            FalloutFormKey Target() => suppliedTarget ?? (parts.Length == 1 ? source : Reference(parts[0]));
+            FalloutFormKey Target() => suppliedTarget ?? (parts.Length == 1 ? source : Qualifier(parts[0]));
             if (parts.Length <= 2 && operation is "addspell" or "removespell")
                 return new([FalloutScriptArgumentKind.Value], arguments =>
                 {
@@ -775,12 +847,12 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                     (Target()) ? 1 : 0);
             if (parts.Length <= 2 && operation == "getdestroyed")
                 return new([], _ => (suppliedTarget ??
-                    (parts.Length == 1 ? CallingReference() : Reference(parts[0]))) is { } target &&
+                    (parts.Length == 1 ? CallingReference() : Qualifier(parts[0]))) is { } target &&
                     world.Get(target).Destroyed ? 1 : 0)
                 { ReadOnly = true };
             if (parts.Length <= 2 && operation == "getdestructionstage")
                 return new([], _ => world.DestructionStage(suppliedTarget ??
-                    (parts.Length == 1 ? CallingReference() : Reference(parts[0]))))
+                    (parts.Length == 1 ? CallingReference() : Qualifier(parts[0]))))
                 { ReadOnly = true };
             if (parts.Length <= 2 && operation == "getkiller")
                 return FalloutScriptFunction.Typed([], _ => FalloutScriptValue.Form(
@@ -823,7 +895,37 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
         void Call(string command, IReadOnlyList<string> arguments)
         {
             var parts = command.Split('.');
-            if (NullReceiver(parts)) return;
+            FalloutFormKey? receiver = parts.Length == 1 ? CallingReference() : null;
+            if (parts.Length == 2 && IsQualifierVariable(parts[0]))
+            {
+                var (kind, form) = ResolveQualifier(parts[0]);
+                if (kind == FalloutScriptQualifierKind.Reference) receiver = form;
+                else
+                {
+                    var operation = parts[1].ToLowerInvariant();
+                    receiver = previousReceiver ?? CallingReference();
+                    if (receiver is null)
+                    {
+                        FalloutScriptQualifiers.Report(bindings.Source, program.LastStatement, operation, "requires-reference-run-abandoned");
+                        throw new FalloutScriptRunAbandonedException($"Function {parts[1]} requires a reference.");
+                    }
+                    FalloutScriptQualifiers.Report(bindings.Source, program.LastStatement, operation, "previous-receiver");
+                }
+                statementQualifier = parts[0]; statementReceiver = receiver;
+            }
+            else if (parts.Length == 2)
+                receiver = FalloutScriptBindings.IsPlayer(parts[0]) ? records.RuntimeFormKey(0x14) :
+                    bindings.TryForm(parts[0]) is { Signature: "REFR" or "ACHR" or "ACRE" } placed ? placed.FormKey : null;
+            try { CallCore(command, arguments); }
+            finally
+            {
+                statementQualifier = null; statementReceiver = null;
+                previousReceiver = receiver;
+            }
+        }
+        void CallCore(string command, IReadOnlyList<string> arguments)
+        {
+            var parts = command.Split('.');
             var operation = parts[^1].ToLowerInvariant();
             if (parts.Length <= 2 && FalloutActorValueCommands.Operation(operation) is not null ||
                 parts.Length == 1 && FalloutScriptFormLists.Supports(operation) ||
@@ -836,7 +938,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
                 return;
             }
             var target = parts.Length == 1 ? source : parts.Length == 2 ?
-                operation is "addnote" or "removenote" ? bindings.Reference(parts[0]) : Reference(parts[0]) :
+                operation is "addnote" or "removenote" ? bindings.Reference(parts[0]) : Qualifier(parts[0]) :
                 throw new NotSupportedException("Script command target path is unbound.");
             if (operation == "detonateplacedexplosives")
             {
@@ -885,7 +987,7 @@ internal sealed partial class FalloutReferenceScripts(FalloutPluginStack records
             if (operation == "rewardkarma")
             {
                 if (parts.Length > 2 || arguments.Count != 1) throw new InvalidDataException("RewardKarma requires one signed integer.");
-                if (parts.Length == 2) _ = Reference(parts[0]);
+                if (parts.Length == 2) _ = Qualifier(parts[0]);
                 (host.RewardKarma ?? throw new NotSupportedException("RewardKarma has no shared player Karma owner."))
                     (FalloutActorValueCommands.Integer(Number(arguments[0])));
                 return;

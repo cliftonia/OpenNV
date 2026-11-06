@@ -73,3 +73,27 @@ weapon damage/repair rules, broader effects and housing access remain visible
 additional gaps. Actual ordinary-input opening-route and fresh-process save
 continuation follow the offline block; matched retail evidence is additionally
 required before parity claims.
+
+## Script command coverage
+
+Shared object, quest, effect and result runs map an unresolved reference
+qualifier to the engine's three outcomes: a statement reuses the previous or
+implicit receiver, an expression term is zero, a quest statement without any
+receiver abandons that run (pending frame events survive), and a non-reference
+expression qualifier disables the script form for the session. A zero ref
+variable keeps its shared last resolved form. Each degraded site reports one
+counted OPENNV_SCRIPT_QUALIFIER line.
+
+EnterTrigger runs the trigger script at once (nesting limit five), ClearOwnership
+and SetCellImageSpace are saved in schema v74, script actor alpha and shaders
+follow loaded 3D, NPC CastImmediateOnSelf applies value effects, and OnOpen and
+OnClose dispatch when door motion finishes. ScriptCommandContracts covers these.
+
+Still visibly deferred: PlaceLeveledActorAtMe and PlaceAtReticle (no runtime
+actor spawner or camera pick owner), SetLevel, SetPackDuration, Reset3DState,
+base-record SetItemValue, NavMesh exclusion, SetScreenSplatterFade, the AddSpell
+HUD notice and ability application, GetLineOfSight native rays, securitron faces,
+shader particles, ShowTutorialMenu, SetPCCanUsePowerArmor, readers of the
+SetNoAvoidance/SetAllVisible flags, and the OnStartCombat, OnReset,
+ScriptEffectUpdate, OnDestructionStageChange, OnMagicEffectHit, OnSell and
+OnActorEquip events.

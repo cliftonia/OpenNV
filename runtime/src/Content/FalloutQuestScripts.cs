@@ -695,7 +695,27 @@ internal sealed partial class FalloutQuestScripts
                 (caller, arguments) => FunctionFor("player." + name, caller)!.InvokeValue(arguments));
         }
         FalloutScriptFunction? Function(string name) => FunctionFor(name, null);
+        // A qualifier variable holding no reference: as in object scripts, a
+        // known operation is a counted no-op returning zero.
+        bool NullReceiver(string[] parts) => parts.Length == 2 && !FalloutScriptBindings.IsPlayer(parts[0]) &&
+            TryForm(parts[0]) is null && instance.Bindings.HasVariable(parts[0]) &&
+            instance.Bindings.VariableKind(parts[0]) == FalloutScriptLocalKind.Form && (References is { } references
+                ? references.ResolveQualifier(instance.Bindings.Source, parts[0], ReadValue(parts[0]).Number).Kind == World.Cells.FalloutScriptQualifierKind.Null
+                : ReadValue(parts[0]).Number == 0);
+        void ReportQualifier(string operation, string outcome) => World.Cells.FalloutScriptQualifiers.Report(instance.Script.FormKey,
+            (program ?? instance.Program).LastStatement, operation, outcome);
         FalloutScriptFunction? FunctionFor(string name, FalloutScriptValue? caller)
+        {
+            var function = ResolveFunction(name, caller);
+            return function is not null && caller is null && NullReceiver(name.Split('.'))
+                ? FalloutScriptFunction.Typed(function.Arguments, _ =>
+                {
+                    ReportQualifier(name.Split('.')[^1].ToLowerInvariant(), "zero-term");
+                    return 0;
+                }, function.ReadOnly, function.Variadic)
+                : function;
+        }
+        FalloutScriptFunction? ResolveFunction(string name, FalloutScriptValue? caller)
         {
             var parts = name.Split('.');
             var operation = parts[^1].ToLowerInvariant();
@@ -941,6 +961,12 @@ internal sealed partial class FalloutQuestScripts
         {
             var parts = command.Split('.');
             var operation = parts[^1].ToLowerInvariant();
+            // A quest script has no implicit receiver to fall back to.
+            if (NullReceiver(parts))
+            {
+                ReportQualifier(operation, "requires-reference-run-abandoned");
+                throw new World.Cells.FalloutScriptRunAbandonedException($"Function {parts[1]} requires a reference.");
+            }
             if (parts.Length <= 2 && FalloutActorValueCommands.Operation(operation) is not null ||
                 parts.Length == 1 && FalloutScriptFormLists.Supports(operation) ||
                 parts.Length == 1 && FalloutScriptLeveledItems.Supports(operation) ||
@@ -1373,8 +1399,13 @@ internal sealed partial class FalloutQuestScripts
             }
         }
         var executing = program ?? instance.Program;
-        foreach (var _ in ScriptManualSaves.Execute(instance.Quest.FormKey, instance.Script, executing,
-            executing.Steps(Read, Write, Call, Function, values: values))) { }
+        // "Requires a reference" abandons only this run; the next starts anew.
+        try
+        {
+            foreach (var _ in ScriptManualSaves.Execute(instance.Quest.FormKey, instance.Script, executing,
+                executing.Steps(Read, Write, Call, Function, values: values))) { }
+        }
+        catch (World.Cells.FalloutScriptRunAbandonedException) { }
         // Each reached operation publishes in source order. A later failure
         // retains the executed prefix, including consumptive message results
         // and nested SetStage scripts. A bound missing command may continue

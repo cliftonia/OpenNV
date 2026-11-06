@@ -72,8 +72,11 @@ internal sealed partial class FalloutReferenceScripts
         ++_enterTriggerDepth;
         try
         {
-            _ = DispatchFrameCore(trigger, [new("OnTrigger", TriggerReferences: new HashSet<FalloutFormKey> { entering }),
-                new("OnTriggerEnter", entering)], 0);
+            // The trigger's own fault stays on the trigger; the caller continues.
+            var failed = DispatchFrameCore(trigger, [new("OnTrigger", TriggerReferences: new HashSet<FalloutFormKey> { entering }),
+                new("OnTriggerEnter", entering)], 0).FirstOrDefault(result => result.Error is not null);
+            if (failed is not null)
+                FalloutScriptCommandDeferral.Sink($"OPENNV_SCRIPT_ENTERTRIGGER_FAILED trigger={target} actor={entering} error={failed.Error}");
         }
         finally { --_enterTriggerDepth; }
     }
