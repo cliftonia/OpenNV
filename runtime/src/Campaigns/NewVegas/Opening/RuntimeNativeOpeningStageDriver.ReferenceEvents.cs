@@ -296,8 +296,8 @@ internal partial class RuntimeNativeOpeningStageDriver
                 (_pipBoy ?? throw new InvalidOperationException("Pip-Boy state owner is absent.")).Reset();
                 break;
             case FalloutReferenceEffectKind.ScriptActivate:
-                GetTree().Root.FindChildren("*", "", true, false).OfType<RuntimeNativeReferenceEvents>()
-                    .Single(owner => owner.IsProcessing()).ScriptActivate(effect.Target!.Value, effect.Argument!.Value, effect.Enable);
+                (RuntimeNativeReferenceEvents.Active(GetTree()) ?? throw new InvalidOperationException("Script activation has no processing reference event owner."))
+                    .ScriptActivate(effect.Target!.Value, effect.Argument!.Value, effect.Enable);
                 break;
             case FalloutReferenceEffectKind.Hardcore:
                 SetHardcore(effect.Enable);

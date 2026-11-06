@@ -308,6 +308,10 @@ internal sealed partial class RuntimeNativeCreature
             current.RetainsSelection(Combat!.PackagePlayerInSameCell(), forced)) return;
         if (_aiError is null && _followPackage is { ContinueIfPlayerNear: true } currentFollow && selected?.FormKey != currentFollow.Form &&
             currentFollow.RetainsSelection(Combat!.PackagePlayerInSameCell(), forced)) return;
+        if (_aiError is null && !forced && _aiPackage is { } held && selected?.FormKey != held.FormKey &&
+            FalloutAiPackages.RetainsMustPackage(_aiRecords!, Appearance.Creature, _aiState!.Templates, held, selected?.FormKey,
+                _packageEvents?.Done == true, _travelPackage?.Form == held.FormKey ? _travelProgress?.Complete : null, _aiClock, PackageCondition))
+            return;
         _aiError = null;
         if (_aiPackage?.FormKey == selected?.FormKey)
         {

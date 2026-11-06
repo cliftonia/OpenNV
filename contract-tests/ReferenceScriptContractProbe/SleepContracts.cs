@@ -29,17 +29,28 @@ internal static partial class FurnitureContracts
         foreach (var kind in new[] { "POBA", "POEA", "POCA" }) world.ApplyPackageDoorActions(actor, lifecycle, kind);
         Require(world.Get(Key(0x90c)).LockState is null && world.Get(Key(0x90d)).LockState is null,
             "Package door actions created a lock on a lockless source door.");
-        // Unlocked is not lockless: 0x8 locks the CELL's lockable doors at
-        // start and 0x80 unlocks them at end or change.
+        // A script-changed lock is left alone by package door actions.
         world.LockReference(Key(0x90d), 50); world.UnlockReference(Key(0x90d));
+        var scripted = world.Get(Key(0x90d)).LockState;
         world.ApplyPackageDoorActions(actor, lifecycle, "POBA");
-        Require(world.GetLocked(Key(0x90d)) == 1 && world.GetLockLevel(Key(0x90d)) == 50 && world.Get(Key(0x90c)).LockState is null,
-            "Package start did not lock the lockable door or locked a lockless one.");
+        Require(world.Get(Key(0x90d)).LockState == scripted, "Package door actions overrode a script-changed lock.");
+        // A lock last written by a package: 0x8 locks the location CELL's door
+        // at start and 0x80 unlocks it at end or change, keeping its level.
+        world.Get(Key(0x90d)).LockState = scripted! with { PackageActor = actor };
+        world.ApplyPackageDoorActions(actor, lifecycle, "POBA");
+        Require(world.GetLocked(Key(0x90d)) == 1 && world.GetLockLevel(Key(0x90d)) == 50 && world.Get(Key(0x90c)).LockState is null &&
+            world.Get(Key(0x90d)).LockState!.PackageActor == actor, "Package start did not lock its door or locked a lockless one.");
         world.ApplyPackageDoorActions(actor, lifecycle, "POEA");
         Require(world.GetLocked(Key(0x90d)) == 0, "Package end did not unlock its door.");
         world.ApplyPackageDoorActions(actor, lifecycle, "POBA"); world.ApplyPackageDoorActions(actor, lifecycle, "POCA");
         Require(world.GetLocked(Key(0x90d)) == 0, "Package change did not unlock its door.");
-        Console.WriteLine("OPENNV_SLEEP_DOOR_ACTIONS_CONTRACT_PASS flagsRetained=true noLockCreated=true startLocks=true endUnlocks=true changeUnlocks=true levelRetained=true");
+        // Start actions wait until the actor is in the package location CELL.
+        var home = world.Placement(actor);
+        world.SetPlacement(actor, home with { Cell = Key(0x801) });
+        world.ApplyPackageDoorActions(actor, lifecycle, "POBA");
+        Require(world.GetLocked(Key(0x90d)) == 0, "Package start locked its location's doors before the actor arrived.");
+        world.SetPlacement(actor, home);
+        Console.WriteLine("OPENNV_SLEEP_DOOR_ACTIONS_CONTRACT_PASS flagsRetained=true noLockCreated=true scriptLockRetained=true startLocks=true endUnlocks=true changeUnlocks=true levelRetained=true startAwayDeferred=true");
         var progress = new FalloutActorSleepProgress(cell.Cell.FormKey, bed, false);
         source.Validate(records, world, actor, progress);
         Require(source.Location.Form == cell.Cell.FormKey && source.Candidates(records, world, actor).Single().FormKey == bed,

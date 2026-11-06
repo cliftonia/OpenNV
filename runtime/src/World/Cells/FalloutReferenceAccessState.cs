@@ -4,8 +4,10 @@ namespace OpenNV.Runtime.World.Cells;
 
 // Overrides retain the winning placed declaration, independently of its script.
 // Difficulty and access are separate: unlocking never erases the source lock.
+// PackageActor names the actor whose package door action last wrote it; a
+// script or player change clears it, and package actions then leave the door.
 internal sealed record FalloutReferenceLockState(string ReferenceSha256, int Level, bool Locked,
-    uint? FailedPickAttempts = null, uint? PickRewardCount = null)
+    uint? FailedPickAttempts = null, uint? PickRewardCount = null, FalloutFormKey? PackageActor = null)
 {
     internal void Validate()
     {

@@ -382,7 +382,7 @@ internal static class TravelContracts
             var globals = FalloutGlobalState.Read(records);
             var clock = new FalloutGameTime(globals, FalloutGameTimeBindings.Read(records),
                 new([31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31], "synthetic-calendar"));
-            world.MarkPackageStart(actor, record, clock);
+            world.MarkPackageCompleted(actor, record, clock);
             Require(world.PackageEligible(actor, record, clock, record.FormKey, false), "Once-per-day interrupted its current unfinished run.");
             Require(!world.PackageEligible(actor, record, clock, record.FormKey, true), "Once-per-day restarted after completion.");
             globals.Set(Key(0x39), 5.1f); globals.Set(Key(0x38), 2);

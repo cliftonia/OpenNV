@@ -204,6 +204,7 @@ internal partial class RuntimeNativeNpc
                 editorTravel = EditorTravelState,
                 patrol = _patrol is null ? null : new { source = _patrol.SourceSha256, points = _patrol.Points.Count, progress = _patrolProgress, status = _patrolStatus },
                 guard = _guardPackage is null ? null : new { source = _guardPackage, progress = _guardProgress },
+                steppedPackage = SteppedPackageState,
                 dialoguePackage = _dialoguePackage is null ? null : new
                 {
                     source = _dialoguePackage,
@@ -428,7 +429,8 @@ internal partial class RuntimeNativeNpc
         // on the normal source frame, including events produced before 3D binds.
         if (_aiWorld is { } world)
         {
-            if (kind == "POBA") world.MarkPackageStart(Appearance.Reference!.Value, _aiStack!.GetEffective(package.Form), _aiClock);
+            if (kind == "POBA") world.MarkPackageStart(Appearance.Reference!.Value);
+            if (kind == "POEA") world.MarkPackageCompleted(Appearance.Reference!.Value, _aiStack!.GetEffective(package.Form), _aiClock);
             world.PackageEvents.Mark(Appearance.Reference!.Value, package.Form, kind switch
             {
                 "POBA" => FalloutReferencePackageEventKind.Start,
@@ -562,7 +564,7 @@ internal partial class RuntimeNativeNpc
             }
             if (!forced && !procedureFailed && _aiPackage is { } held && selected?.FormKey != held.FormKey &&
                 FalloutAiPackages.RetainsMustPackage(_aiStack, Appearance.Npc, _templates, held, selected?.FormKey,
-                    _packageEvents?.Done == true, CurrentPackageLocationReached, _aiClock))
+                    _packageEvents?.Done == true, CurrentPackageLocationReached, _aiClock, EvaluateAiCondition))
             {
                 _selectedSourcePackage = held.FormKey;
                 return;

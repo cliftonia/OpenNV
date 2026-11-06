@@ -21,7 +21,8 @@ internal sealed partial class RuntimeNativeCreature
     {
         var actor = Appearance.Reference!.Value;
         var world = _aiWorld!;
-        if (kind == "POBA") world.MarkPackageStart(actor, _aiRecords!.GetEffective(package.Form), _aiClock);
+        if (kind == "POBA") world.MarkPackageStart(actor);
+        if (kind == "POEA") world.MarkPackageCompleted(actor, _aiRecords!.GetEffective(package.Form), _aiClock);
         world.PackageEvents.Mark(actor, package.Form, kind switch
         {
             "POBA" => FalloutReferencePackageEventKind.Start,

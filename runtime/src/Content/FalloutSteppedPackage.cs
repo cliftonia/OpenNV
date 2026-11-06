@@ -73,7 +73,7 @@ internal sealed record FalloutSteppedPackage(FalloutFormKey Form, string EditorI
             _ => [FalloutPackageStep.Travel, FalloutPackageStep.Done],
         };
         if (steps.Count == 2 && steps[0] == FalloutPackageStep.Travel)
-            FalloutPackageDeferral.Warn($"invalid-package:{record.FormKey}",
+            FalloutScriptCommandDeferral.WarnPackage($"invalid-package:{record.FormKey}",
                 $"Package '{declaration.EditorId}' is not a valid package because it is missing necessary Target Or Location Info; it runs as Travel.");
         return new(record.FormKey, declaration.EditorId, data.Procedure, flags, specific, location, zone, target, attack, weapon,
             FalloutPackageSchedule.Read(record).Duration, steps);

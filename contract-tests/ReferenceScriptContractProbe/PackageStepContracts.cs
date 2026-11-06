@@ -8,7 +8,7 @@ using OpenNV.Runtime.Gameplay.State;
 // UseItemAt, Ambush, FleeNotCombat, UseWeapon) over synthetic records.
 internal static class PackageStepContracts
 {
-    private static readonly FalloutPackageStepSettings Settings = new(15000, 1000, 30, 5, 0);
+    private static readonly FalloutPackageStepSettings Settings = new(15000, 1000, 30, 5);
 
     internal static void Run()
     {
@@ -31,13 +31,16 @@ internal static class PackageStepContracts
                 Package(0x14, 10, 0x1002, target: Target(0, 0x901, 500)),
                 // UseWeapon: volley fire, 2 bursts, 2..2 shots, pause 1..1 s, Must Complete; attack target PTD2.
                 Package(0x15, 16, 0x04801004, location: Location(2, 0, 0), target: Target(1, 0x710, 0),
-                    extra: [Field("PTD2", Target(0, 0x901, 0)), Field("PKW3", Weapon(volley: true, bursts: 2, minimum: 2, maximum: 2, pause: 1))]),
+                    extra: [Field("PTD2", Target(0, 0x901, 0)), Field("PKW3", Weapon(volley: true, bursts: 2, minimum: 2, maximum: 2, pause: 1)),
+                        Field("CTDA", UnloadedActorPackageContracts.StageCondition(0x900))]),
                 // UseWeapon without its weapon declaration degrades to Travel.
                 Package(0x16, 16, 0x1000, location: Location(2, 0, 0)),
                 // CastMagic has no procedure; it runs as Travel.
                 Package(0x17, 11, 0x1000, location: Location(2, 0, 0)),
+                // Sandbox with Must Complete and an always-active schedule.
+                Package(0x18, 12, 0x1004, location: Location(2, 0, 0)),
                 Record("NPC_", 0x800, Field("ACBS", new byte[24]), Field("PKID", BitConverter.GetBytes(0x16u)), Field("PKID", BitConverter.GetBytes(0x15u)),
-                    Field("PKID", BitConverter.GetBytes(0x10u)))));
+                    Field("PKID", BitConverter.GetBytes(0x10u)), Field("PKID", BitConverter.GetBytes(0x18u)))));
             using var records = FalloutPluginStack.Load(directory, ["Steps.esm"]);
             FalloutPluginRecord Source(uint id) => records.GetEffective(new("Steps.esm", id));
             FlagAdmission(records, Source);
@@ -72,12 +75,19 @@ internal static class PackageStepContracts
         // Must Complete / Must Reach hold against lower priority, never against higher priority or once done.
         var npc = new FalloutFormKey("Steps.esm", 0x800);
         var useWeapon = source(0x15);
-        bool Retains(uint current, uint? next, bool done, bool arrived) => FalloutAiPackages.RetainsMustPackage(records, npc, null,
-            source(current), next is { } id ? source(id).FormKey : null, done, arrived, null);
-        Require(Retains(0x15, 0x10, false, false) && Retains(0x15, null, false, true) && !Retains(0x15, 0x16, false, false) &&
-            !Retains(0x15, 0x10, true, true) && Retains(0x14, null, false, false) && !Retains(0x14, null, false, true),
-            "Must Complete/Must Reach retention ignored stack priority, completion or arrival.");
-        Console.WriteLine("OPENNV_PACKAGE_FLAG_ADMISSION_CONTRACT_PASS garbageBehavior=true staleSpecificMasked=true generalFlagsAdmitted=true mustCompleteRetention=true mustReachRetention=true higherPriorityPreempts=true");
+        bool Retains(uint current, uint? next, bool done, bool? arrived, float stage = 0) => FalloutAiPackages.RetainsMustPackage(records, npc, null,
+            source(current), next is { } id ? source(id).FormKey : null, done, arrived, null, _ => stage);
+        var retention = new (bool Holds, string Case)[]
+        {
+            (Retains(0x15, 0x10, false, null), "lower priority"), (Retains(0x15, null, false, null), "no selection"),
+            (!Retains(0x15, 0x16, false, null), "higher priority"), (!Retains(0x15, 0x10, true, null), "done"),
+            (!Retains(0x15, null, false, null, stage: 1), "conditions lapse"), (Retains(0x14, null, false, false), "must reach"),
+            (!Retains(0x14, null, false, true), "arrived"), (!Retains(0x14, null, false, null), "no arrival owner"),
+            (!Retains(0x18, 0x10, false, null), "no Done owner"), (!Retains(0x10, 0x18, false, null), "wander without duration"),
+        };
+        Require(retention.All(value => value.Holds), "Must Complete/Must Reach retention failed: " +
+            string.Join(", ", retention.Where(value => !value.Holds).Select(value => value.Case)));
+        Console.WriteLine("OPENNV_PACKAGE_FLAG_ADMISSION_CONTRACT_PASS garbageBehavior=true staleSpecificMasked=true generalFlagsAdmitted=true mustCompleteRetention=true mustReachRetention=true higherPriorityPreempts=true conditionsLapse=true noDoneOwnerNoHold=true alwaysActiveSchedule=true");
     }
 
     private static FalloutPackageStepResult Step(FalloutSteppedPackage source, FalloutPackageStepProgress progress,
@@ -116,17 +126,31 @@ internal static class PackageStepContracts
         Require(Step(source, progress, At() with { ConditionsPass = false }).Progress.Step == 1, "Lapsed conditions did not re-travel.");
         var sit = Step(source, progress, At() with { UseKind = 9, HasUsedForm = true, HasUseTarget = true });
         Require(sit.Action.HasFlag(FalloutPackageStepAction.Sit) && sit.Progress.Step == 2, "Sit Down did not sit before use.");
-        var use = Step(source, progress, At() with { UseKind = 9, HasUsedForm = true, HasUseTarget = true, Seated = true }, draw: 2500);
-        Require(use.Action.HasFlag(FalloutPackageStepAction.PlayUseIdle) && use.Progress.Uses == 1 && Math.Abs(use.Progress.Timer - 7.5) < 1e-9,
-            "Item use did not play its idle with a 5-10 s use timer.");
-        var consumed = Step(source, use.Progress with { Timer = 0 }, At() with { UseKind = 9, HasUsedForm = true, HasUseTarget = true, Seated = true });
-        Require(consumed.Progress.Step == 3 && consumed.Action.HasFlag(FalloutPackageStepAction.ConsumeItem), "Item use did not consume and complete.");
+        var item = At() with { UseKind = 9, HasUsedForm = true, HasUseTarget = true, Seated = true };
+        var use = Step(source, progress, item, draw: 2500);
+        Require(use.Action.HasFlag(FalloutPackageStepAction.PlayUseIdle) && use.Progress.Uses == 0, "Item use was counted before its idle was performed.");
+        Require(Step(source, use.Progress, item).Progress.Uses == 0, "An unperformed item use advanced the package.");
+        var played = Step(source, use.Progress, item with { UsePerformed = true }, draw: 2500);
+        Require(played.Progress.Uses == 1 && Math.Abs(played.Progress.Timer - 7.4) < 1e-9, "A performed use idle did not start its 5-10 s use timer.");
+        var unconsumed = Step(source, played.Progress with { Timer = 0 }, item);
+        Require(unconsumed.Progress.Step == 2 && unconsumed.Action.HasFlag(FalloutPackageStepAction.ConsumeItem),
+            "Item use completed without an actual inventory removal.");
+        var consumed = Step(source, played.Progress with { Timer = 0 }, item with { ItemConsumed = true });
+        Require(consumed.Progress.Step == 3, "A consumed item use did not complete.");
         var done = Step(source, consumed.Progress, At());
         Require(done.Action.HasFlag(FalloutPackageStepAction.CompletePackage) && done.Action.HasFlag(FalloutPackageStepAction.ReevaluatePackages) &&
             done.Progress.DoneHandled, "Done did not fire the package end once and re-evaluate a duration-0 package.");
         var after = Step(source, done.Progress, At());
         Require(after.Action == FalloutPackageStepAction.Hold, "Completed package replayed its end or re-evaluated every tick.");
-        Require(Step(source, done.Progress, At() with { AtLocation = false }).Progress.Step == 2, "Completed package left its location without re-travel.");
+        var retravel = Step(source, done.Progress, At() with { AtLocation = false });
+        Require(retravel.Progress.Step == 1 && retravel.Action.HasFlag(FalloutPackageStepAction.MoveToLocation),
+            "Completed package that left its location did not return to its Travel step.");
+        var activator = At() with { UseKind = 1, HasUseTarget = true, Seated = true };
+        var activate = Step(source, progress, activator);
+        Require(activate.Action.HasFlag(FalloutPackageStepAction.Activate) && activate.Progress.Uses == 0 &&
+            Step(source, activate.Progress, activator).Progress.Step == 2, "An unperformed activation completed the package.");
+        Require(Step(source, activate.Progress, activator with { UsePerformed = true }).Progress.Step == 3,
+            "A performed activation did not complete the package.");
         Require(Step(source, progress, At() with { UseKind = 12, HasUseTarget = true, Seated = true }).Action.HasFlag(FalloutPackageStepAction.WeaponTargetWarning),
             "A weapon UseItemAt target was not reported.");
     }
@@ -182,6 +206,9 @@ internal static class PackageStepContracts
         Require(shot.Action.HasFlag(FalloutPackageStepAction.Fire) && shot.Progress.ShotTarget == 2, "Volley fire did not size its volley from PKW3.");
         Require(!Step(source, shot.Progress, ready with { DeltaSeconds = 0.1, ShotsFired = 1 }).Action.HasFlag(FalloutPackageStepAction.Fire),
             "UseWeapon ignored its refire cooldown.");
+        var unfired = Step(source, shot.Progress with { Cooldown = 0 }, ready);
+        Require(unfired.Action.HasFlag(FalloutPackageStepAction.Fire) && unfired.Progress.Shots == 0 && unfired.Progress.Volleys == 0,
+            "An undischarged shot was counted.");
         var second = Step(source, shot.Progress with { Cooldown = 0 }, ready with { ShotsFired = 1 });
         var paused = Step(source, second.Progress with { Cooldown = 0 }, ready with { ShotsFired = 1 });
         Require(paused.Progress.Volleys == 1 && paused.Progress.Timer > 0 && !paused.Action.HasFlag(FalloutPackageStepAction.Fire),
@@ -193,12 +220,6 @@ internal static class PackageStepContracts
         // PSDT duration expiry always lands on Done.
         var timed = source with { DurationHours = 2 };
         Require(Step(timed, progress, ready with { NowHours = 2 }).Progress.Step == 3, "Duration expiry did not complete the package.");
-        var melee = FalloutPackageSteps.ChooseMeleeAttack(bound => bound == 100 ? 5u : 0u, moving: true, sneakAttack: false);
-        Require(melee == FalloutMeleeAttack.StandardA &&
-            FalloutPackageSteps.ChooseMeleeAttack(_ => 69, false, false) == FalloutMeleeAttack.StandardA &&
-            FalloutPackageSteps.ChooseMeleeAttack(_ => 70, false, false) == FalloutMeleeAttack.StandardB &&
-            FalloutPackageSteps.ChooseMeleeAttack(_ => 39, false, false) == FalloutMeleeAttack.PowerRight &&
-            FalloutPackageSteps.ChooseMeleeAttack(_ => 0, false, true) == FalloutMeleeAttack.Sneak, "Melee attack weighting differs from 10/10/10/10/30/30.");
         // Step progress survives a save with its package motion.
         var motion = new FalloutActorPackageMotion(source.Form, new string('a', 64), "idle", new string('b', 64), 0, false,
             [0, 0, 0], [0, 0, 0, 1], Steps: paused.Progress with { Anchor = [1, 2, 3] });
@@ -208,6 +229,8 @@ internal static class PackageStepContracts
             "Saved step progress lost its cursor, counters or anchor.");
         Reject(() => (motion with { Steps = motion.Steps! with { Package = new("Steps.esm", 0x10) } }).Validate());
         Reject(() => (motion with { Steps = motion.Steps! with { Step = 9 } }).Validate());
+        // A saved step outside the package's own step list is refused on restore.
+        Reject(() => FalloutPackageSteps.Validate(source with { Steps = [FalloutPackageStep.Travel, FalloutPackageStep.Done] }, motion.Steps!));
     }
 
     private static byte[] Package(uint id, byte procedure, uint flags, ushort behavior = 0, ushort specific = 0,

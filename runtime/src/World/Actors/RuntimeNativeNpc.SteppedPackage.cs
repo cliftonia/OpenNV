@@ -8,21 +8,43 @@ namespace OpenNV.Runtime.World.Actors;
 
 // Runs Wander, UseItemAt, Ambush, FleeNotCombat and UseWeapon (and invalid
 // packages degraded to Travel) as step lists over the shared movement,
-// combat-start and package-event owners. Behaviour without a native owner is
-// reported once as a deferral; it never stops the actor's AI.
+// activation, combat-start and package-event owners. A step whose effect has
+// no owner holds with a per-actor deferral; it never counts as performed, so
+// an unperformed shot or use cannot complete the package.
 internal partial class RuntimeNativeNpc
 {
     // Fallback location radius (source units) for a zero PLDT radius.
     private const float SteppedDefaultRadius = 20;
+    // Step decisions run at this cadence; movement advances every frame.
+    private const double SteppedDecisionSeconds = 0.25;
     private FalloutSteppedPackage? _stepped;
     private FalloutPackageStepProgress? _steps;
     private FalloutPackageStepSettings? _stepSettings;
+    private IReadOnlyList<FalloutCondition> _stepConditions = [];
+    private (bool Has, int Clip, bool Melee) _stepWeapon;
+    private Action _stepAction;
+    private double _stepDecisionRemaining;
+    private double _stepDelta;
+    private bool _stepUsePerformed;
+    private readonly SortedSet<string> _stepDeferrals = new(StringComparer.Ordinal);
+
     internal bool SteppedPackageUsesItem => _stepped?.Procedure is 8 or 16 &&
         _steps is { } progress && FalloutPackageSteps.Current(_stepped, progress) is FalloutPackageStep.UseItemAt or FalloutPackageStep.UseWeapon;
 
-    private bool CurrentPackageLocationReached => _stepped is { } source && _steps is { } steps
+    private object? SteppedPackageState => _stepped is not { } source || _steps is not { } progress ? null : new
+    {
+        package = source.Form.ToString(),
+        procedure = source.Procedure,
+        step = FalloutPackageSteps.Current(source, progress).ToString(),
+        progress.Shots, progress.Volleys, progress.Uses, progress.TargetHandled,
+        action = _stepAction.ToString(),
+        deferrals = _stepDeferrals.ToArray(),
+    };
+
+    // Arrival as known to the current procedure's owner; null when it has none.
+    private bool? CurrentPackageLocationReached => _stepped is { } source && _steps is { } steps
         ? source.Steps.Take(steps.Step).Contains(FalloutPackageStep.Travel) || source.Steps[steps.Step] == FalloutPackageStep.Done
-        : _nativeMarkerTravelProgress?.Complete ?? _editorTravelProgress?.Complete ?? true;
+        : _nativeMarkerTravelProgress?.Complete ?? _editorTravelProgress?.Complete;
 
     private void BeginSteppedPackage(FalloutPluginRecord package, bool initializing)
     {
@@ -30,9 +52,13 @@ internal partial class RuntimeNativeNpc
         var source = FalloutSteppedPackage.Read(package);
         var state = world.Get(Appearance.Reference!.Value);
         var retained = initializing && state.PackageMotion is { } motion && motion.Package == package.FormKey ? motion.Steps : null;
+        if (retained is not null) FalloutPackageSteps.Validate(source, retained);
         _stepSettings ??= FalloutPackageStepSettings.Read(_aiStack!.NumericSettings);
         _stepped = source;
         _steps = retained ?? FalloutPackageSteps.Start(source, NowHours, null);
+        _stepConditions = FalloutCondition.Read(package);
+        _stepWeapon = source.Procedure == 16 ? Combat?.PackageWeapon(source.Target) ?? default : default;
+        _stepAction = Action.Hold; _stepDecisionRemaining = 0; _stepDelta = 0; _stepUsePerformed = false;
         _aiPackage = package;
         _travelProgress?.Cancel();
         if (_packageEvents!.Active?.Form == package.FormKey) { }
@@ -42,9 +68,16 @@ internal partial class RuntimeNativeNpc
             $"procedure={source.Procedure} steps={string.Join(',', source.Steps)} restored={retained is not null} step={_steps.Step}");
     }
 
-    private void ClearSteppedPackage() { _stepped = null; _steps = null; }
+    private void ClearSteppedPackage() { _stepped = null; _steps = null; _stepConditions = []; _stepAction = Action.None; }
 
     private double NowHours => (_aiClock?.DaysPassed ?? 0) * 24.0;
+
+    // A deferral is reported once per process and retained per actor for telemetry.
+    private void DeferStep(string key, string reason)
+    {
+        _stepDeferrals.Add(key);
+        FalloutScriptCommandDeferral.WarnPackage(key, reason);
+    }
 
     private void AdvanceSteppedPackage(double delta)
     {
@@ -54,18 +87,27 @@ internal partial class RuntimeNativeNpc
         {
             // Combat owns the body; the package resumes at its step afterwards.
             if (source.ContinueDuringCombat)
-                FalloutPackageDeferral.Warn("continue-during-combat", "Stepped packages with Continue During Combat are suspended by combat; package-driven combat steps are unowned.");
+                DeferStep("continue-during-combat", "Stepped packages with Continue During Combat are suspended by combat; package-driven combat steps are unowned.");
             return;
         }
         var package = _aiPackage!;
         try
         {
-            if (progress.Anchor is null)
-                progress = progress with { Anchor = Combat.PackageSourcePoint(GlobalPosition) };
-            var observation = Observe(source, progress, delta);
+            _stepDelta += delta;
+            _stepDecisionRemaining -= delta;
+            if (_stepDecisionRemaining > 0)
+            {
+                Move(source, package, progress, _stepAction, delta);
+                return;
+            }
+            _stepDecisionRemaining = SteppedDecisionSeconds;
+            if (progress.Anchor is null) progress = progress with { Anchor = Combat.PackageSourcePoint(GlobalPosition) };
+            var observation = Observe(source, progress, _stepDelta);
+            _stepDelta = 0;
             var (next, action) = FalloutPackageSteps.Advance(source, progress, observation, Combat.PackageRandom, _stepSettings!);
             var leftStep = next.Step != progress.Step;
-            Apply(source, package, next, action, delta);
+            _stepAction = action;
+            Perform(source, package, next, action, delta);
             _steps = next;
             Combat.SetPackageSteps(package, next, clearMove: leftStep);
             if ((action & Action.CompletePackage) != 0) _packageEvents!.Complete();
@@ -105,13 +147,13 @@ internal partial class RuntimeNativeNpc
         else
         {
             if (location is { Type: not (1 or 2 or 6) })
-                FalloutPackageDeferral.Warn($"stepped-location:{location.Type}", $"Package location type {location.Type} has no resolver; the actor's start position is used.");
+                DeferStep($"stepped-location:{location.Type}", $"Package location type {location.Type} has no resolver; the actor's start position is used.");
             if (location is { Type: 1, Form: { } inCell } && inCell != world.Placement(actor).Cell) return null;
             (centre, cell) = (progress.Anchor!, world.Placement(actor).Cell);
         }
         if (world.TravelRegion(cell) != world.TravelRegion(world.Placement(actor).Cell))
         {
-            FalloutPackageDeferral.Warn("stepped-other-region", "Stepped package location is outside the actor's navigation region; the actor holds in place.");
+            DeferStep("stepped-other-region", "Stepped package location is outside the actor's navigation region; the actor holds in place.");
             return null;
         }
         return (centre, location is { Radius: > 0 } ? location.Radius : SteppedDefaultRadius);
@@ -144,15 +186,15 @@ internal partial class RuntimeNativeNpc
         };
     }
 
-    private bool PackageConditionsPass(FalloutPluginRecord package)
+    // The package's own CTDA through the same evaluator selection uses. An
+    // unowned function fails closed (the step re-travels) and stays visible.
+    private bool PackageConditionsPass(FalloutSteppedPackage source)
     {
-        try { return FalloutCondition.AllPass(FalloutCondition.Read(package), EvaluateAiCondition, evaluateRunOn: true); }
-        catch (NotSupportedException error)
+        try { return FalloutCondition.AllPass(_stepConditions, EvaluateAiCondition, evaluateRunOn: true); }
+        catch (Exception error) when (error is NotSupportedException or InvalidDataException)
         {
-            // Selection already admitted these conditions; a re-check reaching
-            // an unowned function keeps the step running and stays visible.
-            FalloutPackageDeferral.Warn($"stepped-condition:{package.FormKey}", error.Message);
-            return true;
+            DeferStep($"stepped-condition:{source.Form}", error.Message);
+            return false;
         }
     }
 
@@ -172,7 +214,7 @@ internal partial class RuntimeNativeNpc
 
     private FalloutPackageStepObservation ObserveUse(FalloutSteppedPackage source, FalloutPackageStepObservation observation)
     {
-        observation = observation with { ConditionsPass = PackageConditionsPass(_aiPackage!) };
+        observation = observation with { ConditionsPass = PackageConditionsPass(source) };
         if (source.Procedure == 8)
         {
             var kind = source.Target switch
@@ -182,15 +224,16 @@ internal partial class RuntimeNativeNpc
                 _ => 0,
             };
             var target = PackageTargetPoint(source.Target);
+            var performed = _stepUsePerformed;
+            _stepUsePerformed = false;
             return observation with
             {
                 UseKind = kind, HasUseTarget = target.Position is not null || source.Target is { Type: 1 or 2 },
                 HasUsedForm = source.Target is { Type: 1, Form: not null }, Seated = _sitting == 1,
-                ActionIdle = _animation is null,
+                ActionIdle = _animation is null, UsePerformed = performed,
             };
         }
         var category = source.Target is { Type: 2 } declaredCategory ? (int)declaredCategory.RawTarget : 12;
-        var weapon = Combat!.PackageWeapon(source.Target);
         var aim = PackageTargetPoint(source.AttackTarget);
         var zone = source.Zone is null ? null : SteppedLocation(source.Zone, _steps!);
         return observation with
@@ -198,14 +241,13 @@ internal partial class RuntimeNativeNpc
             CategoryAllowed = category is 0 or 12 or 13 or 21 or 22 or 23,
             WeaponsNone = category == 21,
             Equipped = WeaponDrawn,
-            EquippedMatches = weapon.Has,
-            HasMatchingWeapon = weapon.Has,
-            ClipRounds = weapon.Clip,
-            Melee = weapon.Melee,
+            EquippedMatches = _stepWeapon.Has,
+            HasMatchingWeapon = _stepWeapon.Has,
+            ClipRounds = _stepWeapon.Clip,
+            Melee = _stepWeapon.Melee,
             WeaponOut = WeaponDrawn || category == 21,
             AimSettled = source.AttackTarget is null || aim.Position is not null,
             TargetInZone = zone is null || aim.Position is { } point && Distance(point, zone.Value.Centre) <= zone.Value.Radius,
-            ShotsFired = _steppedShotPending ? 1 : 0,
         };
     }
 
@@ -224,7 +266,7 @@ internal partial class RuntimeNativeNpc
     private FalloutPackageStepObservation ObserveAmbush(FalloutSteppedPackage source, FalloutPackageStepProgress progress,
         FalloutPackageStepObservation observation, float[] here)
     {
-        FalloutPackageDeferral.Warn("ambush-player-trigger",
+        DeferStep("ambush-player-trigger",
             "Ambush player trigger uses the shared hostile-detection combat start; fAmbushOverRideRadiusforPlayerDetection and sneak ambush detection modifiers are unowned.");
         var wait = SteppedLocation(source.Location, progress);
         var victim = FalloutAmbushVictim.None;
@@ -232,7 +274,7 @@ internal partial class RuntimeNativeNpc
         if (source.Target is { } target)
         {
             if (target.Type is not (0 or 3))
-                FalloutPackageDeferral.Warn("ambush-object-victim", "Ambush object-ID victims have no find owner; the victim stays unresolved.");
+                DeferStep("ambush-object-victim", "Ambush object-ID victims have no find owner; the victim stays unresolved.");
             var point = PackageTargetPoint(target);
             var state = point.Reference is { } reference && !point.Player ? _aiWorld!.Get(reference) : null;
             victim = point.Reference is null ? FalloutAmbushVictim.Unresolved
@@ -270,20 +312,18 @@ internal partial class RuntimeNativeNpc
         };
     }
 
-    private bool _steppedShotPending;
-
-    private void Apply(FalloutSteppedPackage source, FalloutPluginRecord package, FalloutPackageStepProgress progress,
+    // One decision's effects: new movement requests, combat starts,
+    // activation and deferrals of unowned effects. Then the motion itself.
+    private void Perform(FalloutSteppedPackage source, FalloutPluginRecord package, FalloutPackageStepProgress progress,
         Action action, double delta)
     {
         var world = _aiWorld!;
         var actor = Appearance.Reference!.Value;
         var combat = Combat!;
-        var sneaking = (action & Action.Sneak) != 0 || source.Sneaking;
-        var weaponDrawn = source.WeaponDrawn || source.Procedure == 16 && FalloutPackageSteps.Current(source, progress) == FalloutPackageStep.UseWeapon;
-        _steppedShotPending = false;
         FalloutWanderProgress? request = null;
-        if ((action & Action.MoveToLocation) != 0 && SteppedLocation(source.Location, progress) is { } goal)
-            request = combat.PackageMoveRequest(source.Form) is { Arrived: false } current ? current : world.PackageMoveRequest(actor, goal.Centre);
+        if ((action & Action.MoveToLocation) != 0 && SteppedLocation(source.Location, progress) is { } goal &&
+            combat.PackageMoveRequest(source.Form) is not { Arrived: false })
+            request = world.PackageMoveRequest(actor, goal.Centre);
         if ((action & Action.WanderLeg) != 0 && SteppedLocation(source.Location, progress) is { } area)
         {
             try
@@ -291,7 +331,7 @@ internal partial class RuntimeNativeNpc
                 request = world.BeginPackageWander(actor, new Vector3(area.Centre[0], area.Centre[1], area.Centre[2]), area.Radius,
                     _aiStack!.NumericSettings, _aiGlobals, Skeleton.UnitsToMetres);
             }
-            catch (NotSupportedException error) { FalloutPackageDeferral.Warn("stepped-wander-leg", error.Message); }
+            catch (NotSupportedException error) { DeferStep("stepped-wander-leg", error.Message); }
         }
         if ((action & Action.MoveToHidingPoint) != 0 && SteppedLocation(source.Location, progress) is { } spot &&
             SteppedLocation(source.Zone, progress) is { } zone)
@@ -315,39 +355,61 @@ internal partial class RuntimeNativeNpc
                 request = world.PackageMoveRequest(actor, Enumerable.Range(0, 3).Select(index => here[index] + away[index] / length * distance).ToArray());
             }
         }
+        Move(source, package, progress, action, delta, request);
+        if ((action & Action.StartCombatWithPlayer) != 0) world.StartCombat(actor, _aiStack!.RuntimeFormKey(0x14));
+        if ((action & Action.StartCombatWithVictim) != 0 && PackageTargetPoint(source.Target).Reference is { } victim)
+            world.StartCombat(actor, victim);
+        if ((action & Action.ResolveVictim) != 0)
+            DeferStep("ambush-victim-search", "Ambush victim re-resolution has no find owner; the authored reference is retried.");
+        if ((action & (Action.Equip | Action.Unequip)) != 0)
+            DeferStep("use-weapon-equip", "UseWeapon equip/unequip (including Weapons: None) has no presented-weapon swap owner; the step holds.");
+        if ((action & Action.Reload) != 0)
+            DeferStep("use-weapon-reload", "UseWeapon reload and crouch-to-reload have no NPC package ammunition owner; the step holds.");
+        if ((action & Action.Fire) != 0)
+            DeferStep(_stepWeapon.Melee ? "use-weapon-melee" : "use-weapon-discharge",
+                "UseWeapon attacks have no package attack owner; the actor aims and holds, no shot is counted, and the package does not complete.");
+        if ((action & Action.WeaponTargetWarning) != 0)
+            DeferStep($"useitem-weapon:{source.Form}", $"UseItem package {source.EditorId} has a weapon target; should be UseWeapon.");
+        if ((action & Action.NonWeaponTargetWarning) != 0)
+            DeferStep($"useweapon-nonweapon:{source.Form}", $"UseWeapon package {source.EditorId} has a non-weapon target; should be UseItem.");
+        if ((action & Action.Activate) != 0) Activate(source);
+        if ((action & (Action.Sit | Action.PlayUseIdle | Action.ConsumeItem)) != 0)
+            DeferStep("useitem-interaction", "UseItemAt sitting, item-use idles and consumption have no package interaction owner; the step holds without counting a use.");
+    }
+
+    // An activator use goes through the ordinary reference activation owner.
+    private void Activate(FalloutSteppedPackage source)
+    {
+        if (PackageTargetPoint(source.Target).Reference is not { } target || RuntimeNativeReferenceEvents.Active(GetTree()) is not { } events)
+        {
+            DeferStep("useitem-activation-owner", "UseItemAt activation has no resident target or reference event owner; the step holds.");
+            return;
+        }
+        try
+        {
+            events.ScriptActivate(target, Appearance.Reference!.Value, runOnActivate: true);
+            _stepUsePerformed = true;
+        }
+        catch (Exception error) when (error is NotSupportedException or InvalidOperationException) { DeferStep("useitem-activation", error.Message); }
+    }
+
+    // Per-frame motion for the current decision: continue or start the
+    // accepted movement request, otherwise hold in place; keep the aim.
+    private void Move(FalloutSteppedPackage source, FalloutPluginRecord package, FalloutPackageStepProgress progress,
+        Action action, double delta, FalloutWanderProgress? request = null)
+    {
+        var combat = Combat!;
+        var sneaking = (action & Action.Sneak) != 0 || source.Sneaking;
+        var weaponDrawn = source.WeaponDrawn || source.Procedure == 16 && FalloutPackageSteps.Current(source, progress) == FalloutPackageStep.UseWeapon;
         var running = source.Running || (action & Action.Flee) != 0;
         request ??= (action & Action.Hold) == 0 ? combat.PackageMoveRequest(source.Form) : null;
         if (request is { Arrived: false } move) combat.AdvancePackageWander(package, move, running, weaponDrawn, delta, sneaking);
         else combat.AdvancePackageMotion(package, GlobalPosition, 0, false, delta, weaponDrawn, requireArrivalHeight: false, sneaking: sneaking);
-
         if ((action & Action.Aim) != 0 && PackageTargetPoint(source.AttackTarget ?? source.Target).Position is { } aim)
         {
             var direction = combat.PackageNativePoint(aim) - GlobalPosition;
             direction.Y = 0;
             if (direction.LengthSquared() > 1e-6f) combat.FacePackageDirection(direction.Normalized(), delta);
         }
-        if ((action & Action.StartCombatWithPlayer) != 0) world.StartCombat(actor, _aiStack!.RuntimeFormKey(0x14));
-        if ((action & Action.StartCombatWithVictim) != 0 && PackageTargetPoint(source.Target).Reference is { } victim)
-            world.StartCombat(actor, victim);
-        if ((action & Action.ResolveVictim) != 0)
-            FalloutPackageDeferral.Warn("ambush-victim-search", "Ambush victim re-resolution has no find owner; the authored reference is retried.");
-        if ((action & (Action.Equip | Action.Unequip)) != 0)
-            FalloutPackageDeferral.Warn("use-weapon-equip", "UseWeapon equip/unequip of a specific weapon has no presented-weapon swap owner; the actor's package weapon is used.");
-        if ((action & Action.Reload) != 0)
-            FalloutPackageDeferral.Warn("use-weapon-reload", "UseWeapon reload and crouch-to-reload have no NPC package ammunition owner.");
-        if ((action & Action.Fire) != 0)
-        {
-            if (combat.PackageWeapon(source.Target).Melee)
-                FalloutPackageDeferral.Warn("use-weapon-melee", "UseWeapon melee attacks have no package attack owner; the weighted attack choice is counted without a strike.");
-            else
-                FalloutPackageDeferral.Warn("use-weapon-discharge", "UseWeapon ranged shots have no package projectile owner; volleys are counted without a projectile (Always Hit/Do No Damage are inert).");
-            _steppedShotPending = true;
-        }
-        if ((action & Action.WeaponTargetWarning) != 0)
-            FalloutPackageDeferral.Warn($"useitem-weapon:{source.Form}", $"UseItem package {source.EditorId} has a weapon target; should be UseWeapon.");
-        if ((action & Action.NonWeaponTargetWarning) != 0)
-            FalloutPackageDeferral.Warn($"useweapon-nonweapon:{source.Form}", $"UseWeapon package {source.EditorId} has a non-weapon target; should be UseItem.");
-        if ((action & (Action.Sit | Action.Activate | Action.PlayUseIdle | Action.ConsumeItem)) != 0)
-            FalloutPackageDeferral.Warn("useitem-interaction", "UseItemAt sitting, activation, item-use idles and consumption have no package interaction owner; uses are counted in place.");
     }
 }

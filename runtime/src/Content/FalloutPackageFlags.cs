@@ -62,9 +62,9 @@ internal static class FalloutPackageFlags
         var unowned = data.Flags & ~(owned | SharedOwned);
         foreach (var (bit, name) in Names)
             if ((unowned & bit) != 0)
-                FalloutPackageDeferral.Warn($"pkdt-flag:{name}", $"PKDT general flag {name} has no runtime owner for procedure {data.Procedure} (first {record.FormKey}).");
+                FalloutScriptCommandDeferral.WarnPackage($"pkdt-flag:{name}", $"PKDT general flag {name} has no runtime owner for procedure {data.Procedure} (first {record.FormKey}).");
         if ((data.Flags & SkipFalloutBehavior) == 0 && data.BehaviorFlags != 0)
-            FalloutPackageDeferral.Warn("pkdt-behavior-flags", $"PKDT behaviour flags are inert; no Fallout behaviour lane owner (first {record.FormKey}).");
+            FalloutScriptCommandDeferral.WarnPackage("pkdt-behavior-flags", $"PKDT behaviour flags are inert; no Fallout behaviour lane owner (first {record.FormKey}).");
         return data.Flags;
     }
 
@@ -75,7 +75,7 @@ internal static class FalloutPackageFlags
         var specific = data.SpecificFlags ?? 0;
         for (var bit = 1; bit <= 0x8000; bit <<= 1)
             if ((specific & ~owned & bit) != 0)
-                FalloutPackageDeferral.Warn($"pkdt-specific:{data.Procedure}:0x{bit:x4}",
+                FalloutScriptCommandDeferral.WarnPackage($"pkdt-specific:{data.Procedure}:0x{bit:x4}",
                     $"PKDT type-specific flag 0x{bit:x4} has no runtime owner for procedure {data.Procedure} (first {record.FormKey}).");
         return specific;
     }

@@ -29,7 +29,7 @@ internal static partial class FurnitureContracts
                 Record("ALCH", 0x715, Field("ENIT", FoodHeader())), Record("ALCH", 0x716, Field("ENIT", FoodHeader())),
                 Record("DOBJ", 0x742, Field("DATA", CreatureFoodDefaults(0x740))),
                 Record("FLST", 0x740, Field("LNAM", BitConverter.GetBytes(0x715u)), Field("LNAM", BitConverter.GetBytes(0x716u))),
-                Record("CELL", 0x800, Field("DATA", [1])), References()));
+                Record("CELL", 0x800, Field("DATA", [1])), Record("CELL", 0x801, Field("DATA", [1])), References()));
             var sittingCondition = new byte[28]; BinaryPrimitives.WriteUInt16LittleEndian(sittingCondition.AsSpan(8), 159);
             File.WriteAllBytes(Path.Combine(directory, "Find.esp"), Join(Header("Seats.esm"),
                 Record("PGRE", 0x01000920, Field("NAME", BitConverter.GetBytes(0x718u)), Field("DATA", new byte[24]),

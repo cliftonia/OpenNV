@@ -1,6 +1,7 @@
 using Function = OpenNV.Runtime.Content.Definitions.FalloutConditionFunction;
 using System.Buffers.Binary;
 using OpenNV.Runtime.Gameplay.State;
+using OpenNV.Runtime.World.Cells;
 
 namespace OpenNV.Runtime.Content;
 
@@ -108,20 +109,39 @@ internal static class FalloutAiPackages
         }
     }
 
-    // Must Complete holds an unfinished package, and Must Reach Location holds
-    // one whose location is not yet reached, against a lower-priority (or no)
-    // selection while its schedule is active. A higher-priority package or an
-    // explicit reevaluation wins.
+    // Must Complete holds an unfinished package that can reach Done, and Must
+    // Reach Location holds one whose location an arrival owner has not yet
+    // reached, against a lower-priority (or no) selection. The hold ends when
+    // the package's schedule window ends or its own conditions lapse; a
+    // higher-priority package or an explicit reevaluation always wins.
+    // Procedures without a Done or arrival owner never hold (visible deferral).
     internal static bool RetainsMustPackage(FalloutPluginStack stack, FalloutFormKey npc, FalloutActorTemplateSelection? selection,
-        FalloutPluginRecord current, FalloutFormKey? selected, bool done, bool arrived, FalloutGameTime? clock)
+        FalloutPluginRecord current, FalloutFormKey? selected, bool done, bool? arrived, FalloutGameTime? clock,
+        Func<FalloutCondition, float> evaluate)
     {
-        // A package whose schedule window has ended is released, so a procedure
-        // without its own completion (Sleep, Sandbox) cannot hold forever.
+        var data = FalloutPackageData.Read(current);
+        var mustComplete = (data.Flags & FalloutPackageFlags.MustComplete) != 0 && !done;
+        var mustReach = (data.Flags & FalloutPackageFlags.MustReachLocation) != 0 && !done;
+        if (!mustComplete && !mustReach) return false;
+        if (mustComplete && !CanComplete(current))
+        {
+            FalloutScriptCommandDeferral.WarnPackage($"must-complete-no-done:{data.Procedure}",
+                $"Must Complete on procedure {data.Procedure} has no Done owner; the package does not hold selection.");
+            mustComplete = false;
+        }
+        if (mustReach && arrived is null)
+        {
+            FalloutScriptCommandDeferral.WarnPackage($"must-reach-no-arrival:{data.Procedure}",
+                $"Must Reach Location on procedure {data.Procedure} has no arrival owner; the package does not hold selection.");
+            mustReach = false;
+        }
+        if (!mustComplete && !(mustReach && arrived == false)) return false;
         if (!FalloutPackageSchedule.Read(current).IsActive(clock)) return false;
-        var flags = FalloutPackageData.Read(current).Flags;
-        var holds = (flags & FalloutPackageFlags.MustComplete) != 0 && !done ||
-            (flags & FalloutPackageFlags.MustReachLocation) != 0 && !arrived && !done;
-        if (!holds) return false;
+        try
+        {
+            if (!FalloutCondition.AllPass(FalloutCondition.Read(current), evaluate, evaluateRunOn: true)) return false;
+        }
+        catch (Exception error) when (error is NotSupportedException or InvalidDataException) { return false; }
         if (selected is not { } next) return true;
         var order = Stack(stack, npc, selection).Select(package => package.FormKey).ToList();
         var currentIndex = order.IndexOf(current.FormKey);
@@ -129,6 +149,15 @@ internal static class FalloutAiPackages
         // Script packages outside the authored stack take precedence.
         return currentIndex >= 0 && nextIndex > currentIndex;
     }
+
+    // Procedures with an owned Done: Travel and Escort arrival, and stepped
+    // packages that can finish without a PSDT duration.
+    private static bool CanComplete(FalloutPluginRecord package) => FalloutPackageData.Read(package).Procedure switch
+    {
+        2 or 6 => true,
+        5 or 8 or 9 or 10 or 11 or 16 => FalloutPackageSteps.CanComplete(FalloutSteppedPackage.Read(package)),
+        _ => false,
+    };
 
     internal static FalloutPluginRecord? Select(FalloutPluginStack stack, FalloutFormKey npc,
         Func<FalloutCondition, float> evaluate, FalloutActorTemplateSelection? selection = null, FalloutGameTime? clock = null,

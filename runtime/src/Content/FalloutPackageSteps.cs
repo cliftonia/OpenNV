@@ -34,8 +34,6 @@ internal enum FalloutPackageStepAction
 
 internal enum FalloutAmbushVictim { None, Unresolved, Deleted, DeadActor, Alive }
 
-internal enum FalloutMeleeAttack { PowerForward, PowerBackward, PowerLeft, PowerRight, StandardA, StandardB, Sneak }
-
 // Facts the actor adapter observed this tick. Each step reads only its own.
 internal sealed record FalloutPackageStepObservation(double NowHours, double DeltaSeconds)
 {
@@ -72,6 +70,7 @@ internal sealed record FalloutPackageStepObservation(double NowHours, double Del
     internal bool AimSettled { get; init; } = true;
     internal bool TargetInZone { get; init; } = true;
     internal bool Blocked { get; init; }
+    // Shots the actor's attack owner actually discharged since the last step.
     internal int ShotsFired { get; init; }
     // UseItemAt
     internal int UseKind { get; init; }
@@ -80,6 +79,9 @@ internal sealed record FalloutPackageStepObservation(double NowHours, double Del
     internal bool CanUse { get; init; } = true;
     internal bool Seated { get; init; }
     internal bool ActionIdle { get; init; } = true;
+    // Interactions the actor's owners actually performed since the last step.
+    internal bool UsePerformed { get; init; }
+    internal bool ItemConsumed { get; init; }
 }
 
 internal readonly record struct FalloutPackageStepResult(FalloutPackageStepProgress Progress, FalloutPackageStepAction Action);
@@ -92,6 +94,18 @@ internal static class FalloutPackageSteps
 
     internal static FalloutPackageStepProgress Start(FalloutSteppedPackage source, double nowHours, float[]? anchor) =>
         new(source.Form, 0, nowHours, anchor);
+
+    internal static void Validate(FalloutSteppedPackage source, FalloutPackageStepProgress progress)
+    {
+        progress.Validate();
+        if (progress.Package != source.Form || progress.Step >= source.Steps.Count)
+            throw new InvalidDataException("Package step progress differs from its package's step list.");
+    }
+
+    // Whether the procedure can reach Done by itself. Wander and Repeat Fire
+    // UseWeapon only finish through a PSDT duration.
+    internal static bool CanComplete(FalloutSteppedPackage source) => source.DurationHours > 0 ||
+        source.Procedure != 5 && !(source.Procedure == 16 && source.Weapon?.RepeatFire == true);
 
     internal static FalloutPackageStep Current(FalloutSteppedPackage source, FalloutPackageStepProgress progress) =>
         source.Steps[progress.Step];
@@ -109,8 +123,7 @@ internal static class FalloutPackageSteps
     internal static FalloutPackageStepResult Advance(FalloutSteppedPackage source, FalloutPackageStepProgress progress,
         FalloutPackageStepObservation observation, Func<uint, uint> random, FalloutPackageStepSettings settings)
     {
-        if (progress.Package != source.Form) throw new InvalidDataException("Package step progress belongs to another package.");
-        progress.Validate();
+        Validate(source, progress);
         // PSDT duration expiry always lands on Done (+3).
         if (source.DurationHours > 0 && Current(source, progress) != FalloutPackageStep.Done &&
             observation.NowHours - progress.StartedHours >= source.DurationHours)
@@ -138,10 +151,12 @@ internal static class FalloutPackageSteps
         if (!progress.DoneHandled)
             return new(progress with { DoneHandled = true }, FalloutPackageStepAction.CompletePackage | FalloutPackageStepAction.Hold |
                 (source.DurationHours == 0 ? FalloutPackageStepAction.ReevaluatePackages : 0));
-        // A Travel- or Acquire-first procedure that has left its location travels again.
-        if (source.Steps[0] is FalloutPackageStep.Travel or FalloutPackageStep.Acquire && !observation.AtLocation &&
+        // A Travel- or Acquire-first procedure that has left its location
+        // returns to its Travel step; the end event has already been consumed.
+        var travel = source.Steps.ToList().IndexOf(FalloutPackageStep.Travel);
+        if (travel >= 0 && source.Steps[0] is FalloutPackageStep.Travel or FalloutPackageStep.Acquire && !observation.AtLocation &&
             source.Location is not null)
-            return new(Jump(source, progress, -1), FalloutPackageStepAction.Hold);
+            return new(Jump(source, progress, travel - progress.Step), FalloutPackageStepAction.MoveToLocation);
         return new(progress, FalloutPackageStepAction.Hold);
     }
 
@@ -208,8 +223,6 @@ internal static class FalloutPackageSteps
         return new(progress, FalloutPackageStepAction.Hold);
     }
 
-    internal static bool UsedInPlace(int kind) => kind is 1 or 5 or 6 or 10 or 11 or 14 or 15 or 21 or >= 24 and <= 27;
-
     private static FalloutPackageStepResult UseItem(FalloutSteppedPackage source, FalloutPackageStepProgress progress,
         FalloutPackageStepObservation observation, Func<uint, uint> random, FalloutPackageStepSettings settings)
     {
@@ -231,25 +244,23 @@ internal static class FalloutPackageSteps
             case 4 or 19 when !observation.CanUse:
                 return new(Jump(source, progress, 2), FalloutPackageStepAction.Hold);
             case 1 or 4 or 19:
+                if (observation.UsePerformed) progress = progress with { Uses = progress.Uses + 1 };
                 if (progress.Uses >= 1 && idle) return new(Jump(source, progress, 2), FalloutPackageStepAction.Hold);
-                if (progress.Uses == 0)
-                {
-                    progress = progress with { Uses = 1 };
-                    return source.OncePerDay && source.DurationHours == 0 && idle
-                        ? new(Jump(source, progress, 2), FalloutPackageStepAction.Activate)
-                        : new(progress, FalloutPackageStepAction.Activate);
-                }
-                return new(progress, FalloutPackageStepAction.Hold);
+                return new(progress, progress.Uses == 0 ? FalloutPackageStepAction.Activate : FalloutPackageStepAction.Hold);
         }
+        // Only a performed use idle and an actual inventory removal advance the use.
+        if (observation.UsePerformed) progress = progress with { Uses = 1, Timer = 5 + random(5000) / 1000.0 };
         if (progress.Uses >= 1 && idle && progress.Timer <= 0)
-            return new(Jump(source, progress, 2), FalloutPackageStepAction.ConsumeItem | FalloutPackageStepAction.Hold);
+            return observation.ItemConsumed
+                ? new(Jump(source, progress, 2), FalloutPackageStepAction.Hold)
+                : new(progress, FalloutPackageStepAction.ConsumeItem | FalloutPackageStepAction.Hold);
         // An object-type target with nothing concrete (retail: furniture)
         // bounces back to Acquire; with Sit Down its net effect is staying seated.
         if (!observation.HasUsedForm && observation.UseKind != 0)
             return source.SitDown ? new(progress, FalloutPackageStepAction.Hold) : new(Jump(source, progress, -2), FalloutPackageStepAction.Hold);
         if (!observation.HasUsedForm) return new(progress, FalloutPackageStepAction.Hold);
         if (progress.Uses == 0 && idle)
-            return new(progress with { Uses = 1, Timer = 5 + random(5000) / 1000.0 }, FalloutPackageStepAction.PlayUseIdle);
+            return new(progress, FalloutPackageStepAction.PlayUseIdle);
         return new(progress with { Timer = progress.Timer - observation.DeltaSeconds }, FalloutPackageStepAction.Hold);
     }
 
@@ -313,32 +324,11 @@ internal static class FalloutPackageSteps
 
     private static int Range(int minimum, int maximum, Func<uint, uint> random) =>
         maximum <= minimum ? minimum : minimum + (int)random((uint)(maximum - minimum + 1));
-
-    // Four directional power attacks weigh 10 each, the two standard attacks
-    // 30 each. A moving power attack becomes standard A on d100 <= 20, else B.
-    // A sneaking actor whose sneak attack is available uses it instead.
-    internal static FalloutMeleeAttack ChooseMeleeAttack(Func<uint, uint> random, bool moving, bool sneakAttack)
-    {
-        if (sneakAttack) return FalloutMeleeAttack.Sneak;
-        var roll = random(100);
-        var attack = roll switch
-        {
-            < 10 => FalloutMeleeAttack.PowerForward,
-            < 20 => FalloutMeleeAttack.PowerBackward,
-            < 30 => FalloutMeleeAttack.PowerLeft,
-            < 40 => FalloutMeleeAttack.PowerRight,
-            < 70 => FalloutMeleeAttack.StandardA,
-            _ => FalloutMeleeAttack.StandardB,
-        };
-        if (moving && attack <= FalloutMeleeAttack.PowerRight)
-            attack = random(100) + 1 <= 20 ? FalloutMeleeAttack.StandardA : FalloutMeleeAttack.StandardB;
-        return attack;
-    }
 }
 
 // Game settings consumed by the step machine, read once from the owned table.
 internal sealed record FalloutPackageStepSettings(float UseWeaponDistance, float UseItemDistance, double MaxWanderSeconds,
-    double IdleWaitSeconds, float AmbushPlayerRadius)
+    double IdleWaitSeconds)
 {
     internal static FalloutPackageStepSettings Read(FalloutNumericGameSettings settings)
     {
@@ -348,12 +338,11 @@ internal sealed record FalloutPackageStepSettings(float UseWeaponDistance, float
         {
             var value = settings.Get(name);
             if (value >= 0 && double.IsFinite(value)) return (float)value;
-            World.Cells.FalloutPackageDeferral.Warn($"package-setting:{name}", $"Game setting {name} is absent; package steps use {fallback}.");
+            World.Cells.FalloutScriptCommandDeferral.WarnPackage($"package-setting:{name}", $"Game setting {name} is absent; package steps use {fallback}.");
             return fallback;
         }
         return new(Positive("fAIUseWeaponDistance", float.PositiveInfinity),
             Positive("fAIIdleAnimationDistance", float.PositiveInfinity),
-            Positive("fAIMaxWanderTime", 30), Positive("fAIIdleWaitTime", 5),
-            Positive("fAmbushOverRideRadiusforPlayerDetection", 0));
+            Positive("fAIMaxWanderTime", 30), Positive("fAIIdleWaitTime", 5));
     }
 }

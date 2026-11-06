@@ -27,7 +27,7 @@ internal sealed record FalloutTravelPackage(FalloutFormKey Form, uint Flags, int
         // Combat owns the actor's pose while engaged; the package resumes when
         // combat ends. Moving and firing at once has no shared owner yet.
         if (ContinueCombat && engaged && !complete)
-            FalloutPackageDeferral.Warn("continue-during-combat-travel",
+            FalloutScriptCommandDeferral.WarnPackage("continue-during-combat-travel",
                 "Travel with Continue During Combat is suspended by combat; simultaneous destination movement and firing are unowned.");
     }
 

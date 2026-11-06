@@ -212,7 +212,7 @@ internal sealed partial class FalloutReferenceWorld
         return state?.Level ?? 0;
     }
 
-    internal void LockReference(FalloutFormKey reference, double level = 0, double cellAccess = 0)
+    internal void LockReference(FalloutFormKey reference, double level = 0, double cellAccess = 0, FalloutFormKey? packageActor = null)
     {
         var difficulty = FalloutReferenceLockState.Integer(level);
         RequireCellAccess(cellAccess);
@@ -222,17 +222,17 @@ internal sealed partial class FalloutReferenceWorld
         instance.LockState = new(LockSourceHash(owner, Access(owner)),
             difficulty == 0 ? state?.Level ?? 0 : unchecked((byte)difficulty), true,
             state?.FailedPickAttempts ?? (state is null ? 0u : null),
-            state?.PickRewardCount ?? (state is null ? 0u : null));
+            state?.PickRewardCount ?? (state is null ? 0u : null), packageActor);
         instance.Unlocked = false;
     }
 
-    internal void UnlockReference(FalloutFormKey reference, double cellAccess = 0)
+    internal void UnlockReference(FalloutFormKey reference, double cellAccess = 0, FalloutFormKey? packageActor = null)
     {
         RequireCellAccess(cellAccess);
         var (state, _) = EffectiveLock(reference);
         if (state is null) return;
         var instance = Get(LockOwner(reference));
-        instance.LockState = state with { Locked = false, FailedPickAttempts = 0 };
+        instance.LockState = state with { Locked = false, FailedPickAttempts = 0, PackageActor = packageActor };
         instance.Unlocked = true;
     }
 
