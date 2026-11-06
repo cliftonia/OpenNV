@@ -22,10 +22,10 @@ internal sealed record FalloutFindFoodPackage(FalloutFindPackage Declaration)
             FalloutScriptPackage.HeadTrackingOffFlag | FalloutScriptPackage.WeaponsUnequippedFlag;
         if (declaration.Source.LocationDeclaration is not { Type: 2, Radius: > 0 } ||
             declaration.Target is not { Type: 2, RawTarget: 18, CountOrDistance: > 0, AuxiliaryBits: 0 } ||
-            (declaration.Data.Flags & ~supported) != 0 || (declaration.Data.Flags & 0x400) == 0 ||
-            declaration.Data.BehaviorFlags != 0 || declaration.Data.SpecificFlags is not (null or 0 or 0x200) ||
+            (FalloutPackageFlags.Admit(record, declaration.Data, supported) & 0x400) == 0 ||
             declaration.Source.Idles.Count != 0 || record.ReadSubrecords().Any(field => field.Signature is "PLD2" or "PTD2"))
             throw new NotSupportedException("Find Food requires its current-location once-per-day quota/empty-search owner.");
+        FalloutPackageFlags.AdmitSpecific(record, declaration.Data, 0x200);
         return new(declaration);
     }
 

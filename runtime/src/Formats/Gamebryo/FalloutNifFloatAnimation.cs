@@ -50,6 +50,8 @@ internal sealed class FalloutNifFloatAnimation : IFalloutNifScalarSampler
     private readonly int _count;
 
     float IFalloutNifScalarSampler.Sample(float sourceTime) => Sample(sourceTime);
+    internal bool Keyed => _spline is not null || _keys.Length != 0;
+    internal float FirstKeyTime => _spline?.StartTime ?? (_keys.Length == 0 ? 0 : _keys[0].Time);
 
     internal FalloutNifFloatAnimation(FalloutNifFile source, int interpolator)
     {

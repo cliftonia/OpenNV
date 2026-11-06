@@ -197,6 +197,10 @@ internal static partial class CompletenessReport
             var result = need.Lane switch
             {
                 "command" => Dispatched(statements, need.Name, need.Name),
+                // A condition function admitted by the script bridge executes only where the evaluator dispatches it.
+                "function" when FalloutConditionScriptNames.TryParse(need.Name, out var condition) &&
+                    Dispatched(conditions, condition.ToString(), "").Status == Status.Unsupported =>
+                    new(Status.Unsupported, "condition script bridge: the condition evaluator has no dispatch for it"),
                 "function" => Deferred(need.Name) ? new(Status.Deferred, "runtime function dispatch; deferral warning on at least one path") :
                     new Supply(Status.Executed, "runtime function dispatch admitted it"),
                 "operand" => new(Status.Unsupported, "runtime function dispatch has no owner and no declaration binds it"),
@@ -261,7 +265,7 @@ internal static partial class CompletenessReport
     private static bool Refusal(Exception error) => error is InvalidDataException or NotSupportedException or
         InvalidOperationException or KeyNotFoundException or OverflowException or ArgumentException;
 
-    private static string Operation(string name) => name[(name.LastIndexOf('.') + 1)..].ToLowerInvariant();
+    private static string Operation(string name) => FalloutScriptCommandNames.Operation(name);
 
     internal static string ConditionName(ushort function) => Enum.IsDefined((FalloutConditionFunction)function)
         ? $"{(FalloutConditionFunction)function} ({function})" : $"#{function} (unnamed in OpenNV definitions)";

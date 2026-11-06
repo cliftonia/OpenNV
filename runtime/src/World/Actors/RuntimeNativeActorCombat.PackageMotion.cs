@@ -398,6 +398,7 @@ internal sealed partial class RuntimeNativeActorCombat
             Wander: retained?.Package == package.FormKey ? retained.Wander : null,
             Sandbox: retained?.Package == package.FormKey ? retained.Sandbox : null,
             Sleep: retained?.Package == package.FormKey ? retained.Sleep : null,
+            Steps: retained?.Package == package.FormKey ? retained.Steps : null,
             PathTurn: pathTurn, AnimationLayers: CapturePackageAnimationLayers(), ArrivalTurn: arrivalTurn);
         if (deferred is not null)
         {

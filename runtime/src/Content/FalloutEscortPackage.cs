@@ -23,10 +23,9 @@ internal sealed record FalloutEscortPackage(FalloutFormKey Form, FalloutFormKey 
         }
         var data = FalloutPackageData.Read(record);
         if (data.Procedure != 2) throw new InvalidDataException("Package procedure is not Escort.");
-        var flags = data.Flags;
         const uint supportedFlags = 0x2 | 0x1000 | 0x2000 | 0x400000 | 0x800000 | 0x1000000;
-        if ((flags & ~supportedFlags) != 0 || data.BehaviorFlags != 0 || data.SpecificFlags is not (null or 0))
-            throw new NotSupportedException("Escort package needs its additional behavior or search-flag owner.");
+        var flags = FalloutPackageFlags.Admit(record, data, supportedFlags);
+        FalloutPackageFlags.AdmitSpecific(record, data, 0);
         if (fields.Any(field => field.Signature is "PLD2" or "PTD2"))
             throw new NotSupportedException("Escort search location or additional targets require their owner.");
         var location = Required("PLDT", 12).Span;

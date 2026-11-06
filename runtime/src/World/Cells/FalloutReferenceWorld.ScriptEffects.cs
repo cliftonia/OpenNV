@@ -15,10 +15,10 @@ internal static class FalloutScriptEffectCommands
 {
     private static readonly HashSet<string> Operations =
     [
-        "cios", "castimmediateonself", "addspell", "removespell", "dispel", "dispelallspells",
-        "pms", "playmagicshadervisuals", "sms", "stopmagicshadervisuals", "saa", "setactoralpha",
-        "preloadmagiceffect", "triggerscreensplatter", "setscreensplatterfade", "setweather", "sw",
-        "setcellimagespace", "setglobaltimemultiplier", "sgtm", "setrumble", "setsecexp", "setsecuritronexpression",
+        "castimmediateonself", "addspell", "removespell", "dispel", "dispelallspells",
+        "playmagicshadervisuals", "stopmagicshadervisuals", "setactoralpha",
+        "preloadmagiceffect", "triggerscreensplatter", "setscreensplatterfade", "setweather",
+        "setcellimagespace", "setglobaltimemultiplier", "setrumble", "setsecuritronexpression",
     ];
 
     internal static bool Supports(string operation) => Operations.Contains(operation);
@@ -26,7 +26,7 @@ internal static class FalloutScriptEffectCommands
     // PlayMagicShaderVisuals and SetActorAlpha without a calling reference
     // (a quest script, for example) act on the player.
     internal static FalloutFormKey Receiver(FalloutPluginStack records, FalloutFormKey target, string operation, bool global) =>
-        global && operation is "pms" or "playmagicshadervisuals" or "saa" or "setactoralpha" &&
+        global && operation is "playmagicshadervisuals" or "setactoralpha" &&
         records.RuntimeFormId(target) != 0x14 && records.GetEffective(target).Signature is not ("REFR" or "ACHR" or "ACRE")
             ? records.RuntimeFormKey(0x14) : target;
 
@@ -38,7 +38,7 @@ internal static class FalloutScriptEffectCommands
         {
             // Casting on self needs no aim or animation. Abilities are ignored;
             // other spells reach the caster's active-effect owner at once.
-            case "cios" or "castimmediateonself" when arguments.Count == 1:
+            case "castimmediateonself" when arguments.Count == 1:
                 var cast = Require(resolve.Form(arguments[0]), "SPEL");
                 if (SpellType(records, cast) == AbilitySpell) return null;
                 if (!world.IsScriptActor(target))
@@ -67,16 +67,16 @@ internal static class FalloutScriptEffectCommands
                 _ = world.DispelActorEffects(target, item => DispelledByDispelAll(records, item));
                 return null;
             // The duration defaults to -1: play until stopped or unloaded.
-            case "pms" or "playmagicshadervisuals" when arguments.Count is 1 or 2:
+            case "playmagicshadervisuals" when arguments.Count is 1 or 2:
                 var shader = Require(resolve.Form(arguments[0]), "EFSH");
                 var duration = arguments.Count == 2 ? resolve.Number(arguments[1]) : -1;
                 if (!double.IsFinite(duration)) throw new InvalidDataException("Magic shader duration is not finite.");
                 if (!world.SetMagicShader(target, shader, true)) return null;
                 return duration < 0 ? [arguments[0]] : [arguments[0], Literal(duration)];
-            case "sms" or "stopmagicshadervisuals" when arguments.Count == 1:
+            case "stopmagicshadervisuals" when arguments.Count == 1:
                 world.SetMagicShader(target, Require(resolve.Form(arguments[0]), "EFSH"), false);
                 return [arguments[0]];
-            case "saa" or "setactoralpha" when arguments.Count == 1:
+            case "setactoralpha" when arguments.Count == 1:
                 var alpha = resolve.Number(arguments[0]);
                 if (!double.IsFinite(alpha)) throw new InvalidDataException("Actor alpha is not finite.");
                 return world.SetActorAlpha(target, (float)alpha) is { } applied
@@ -100,7 +100,7 @@ internal static class FalloutScriptEffectCommands
                     throw new InvalidDataException("Screen splatter arguments are not finite.");
                 FalloutScriptCommandDeferral.Warn(operation, "splatter-fade-flag-semantics-unresolved");
                 return null;
-            case "setweather" or "sw" when global && arguments.Count is 1 or 2:
+            case "setweather" when global && arguments.Count is 1 or 2:
                 _ = Require(resolve.Form(arguments[0]), "WTHR");
                 return arguments.Count == 1 ? [arguments[0]] : [arguments[0], Literal(resolve.Number(arguments[1]))];
             // The cell's image space changes at once; a presented current cell
@@ -108,7 +108,7 @@ internal static class FalloutScriptEffectCommands
             case "setcellimagespace" when global && arguments.Count == 2:
                 world.SetCellImageSpace(Require(resolve.Form(arguments[0]), "CELL"), Require(resolve.Form(arguments[1]), "IMGS"));
                 return null;
-            case "setglobaltimemultiplier" or "sgtm" when global && arguments.Count is 1 or 2:
+            case "setglobaltimemultiplier" when global && arguments.Count is 1 or 2:
                 var multiplier = resolve.Number(arguments[0]);
                 if (!double.IsFinite(multiplier) || multiplier <= 0)
                     throw new InvalidDataException("Global time multiplier must be finite and positive.");
@@ -121,12 +121,16 @@ internal static class FalloutScriptEffectCommands
                     throw new InvalidDataException("Rumble motor strengths and duration must be finite and non-negative.");
                 return rumble.Select(Literal).ToArray();
             // A reference, then personality and emotion as two free strings
-            // (up to 511 characters each). Nothing happens without loaded 3D.
-            case "setsecuritronexpression" or "setsecexp" when global && arguments.Count == 3:
-                var face = resolve.Reference(arguments[0]);
-                _ = PlainString(arguments[1]); _ = PlainString(arguments[2]);
-                if (world.IsResident(face))
-                    FalloutScriptCommandDeferral.Warn("setsecuritronexpression", "securitron-face-presentation-unbound");
+            // (up to 511 characters each). A reference without loaded 3D ignores
+            // the command; otherwise the pair is kept on the reference and its
+            // resident screen re-applies it.
+            case "setsecuritronexpression" when global && arguments.Count == 3:
+                var securitron = resolve.Reference(arguments[0]);
+                if (records.GetEffective(securitron).Signature is not ("ACHR" or "ACRE"))
+                    throw new InvalidDataException("Securitron expression target is not a placed actor.");
+                var personality = SecuritronWord(arguments[1]);
+                var emotion = SecuritronWord(arguments[2]);
+                if (world.IsResident(securitron)) world.SetSecuritronFace(securitron, personality, emotion);
                 return null;
             default:
                 throw new InvalidDataException($"{operation} has an invalid target or argument count ({arguments.Count}).");
@@ -177,6 +181,9 @@ internal static class FalloutScriptEffectCommands
         var text = token.Length >= 2 && token[0] == '"' && token[^1] == '"' ? token[1..^1] : token;
         return text.Length is > 0 and <= 511 ? text : throw new InvalidDataException("Script string argument is empty or exceeds 511 characters.");
     }
+
+    // An empty word is valid here: it selects no face texture.
+    private static string SecuritronWord(string token) => FalloutSecuritronFace.Word(token == "\"\"" ? "" : PlainString(token));
 
     private static FalloutFormKey Require(FalloutPluginRecord record, string signature) => record.Signature == signature
         ? record.FormKey : throw new InvalidDataException($"Script effect argument is {record.Signature}, not {signature}.");

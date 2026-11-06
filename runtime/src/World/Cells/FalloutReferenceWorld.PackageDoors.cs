@@ -4,39 +4,65 @@ namespace OpenNV.Runtime.World.Cells;
 
 internal sealed partial class FalloutReferenceWorld
 {
-    // Native package door actions require an existing effective lock; they do
-    // not manufacture a lock on an otherwise lockless teleport door. This owns
-    // only the empty work set, without approximating lock/ownership/CELL writes.
-    internal void RequirePackageDoorActions(FalloutFormKey actor, FalloutScriptPackage package, string kind)
+    // PKDT door flags lock or unlock the lockable doors of the package
+    // location's interior CELL: 0x8 lock / 0x40 unlock at start, 0x10 lock /
+    // 0x80 unlock at end or change. Start actions apply only when the actor is
+    // already in that CELL. A lockless door is never given a lock, and a door
+    // whose lock a script or the player changed is left alone. Everything else
+    // (exterior CELLs, unresolved locations, "at location" bits) is deferred.
+    internal void ApplyPackageDoorActions(FalloutFormKey actor, FalloutScriptPackage package, string kind)
     {
-        var flags = kind switch
+        var (lockFlag, unlockFlag) = kind switch
         {
-            "POBA" => package.Flags & 0x48u,
-            "POEA" or "POCA" => package.Flags & 0x90u,
+            "POBA" => (0x8u, 0x40u),
+            "POEA" or "POCA" => (0x10u, 0x80u),
             _ => throw new InvalidDataException("Package door actions have no typed lifecycle phase.")
         };
-        if (flags == 0) return;
-        _ = FalloutSleepPackage.Read(records.GetEffective(package.Form));
-        var actorState = Get(actor);
-        if (records.GetEffective(actorState.Base).Signature != "NPC_")
-            throw new NotSupportedException("Sleep door actions require their resident humanoid package owner.");
-        var cell = Placement(actor).Cell;
+        if ((package.Flags & 0x120u) != 0)
+            FalloutScriptCommandDeferral.WarnPackage("package-doors-at-location", "PKDT lock/unlock doors at location has no arrival owner.");
+        var locking = (package.Flags & lockFlag) != 0;
+        var unlocking = (package.Flags & unlockFlag) != 0;
+        if (!locking && !unlocking) return;
+        if (PackageLocationCell(actor, package) is not { } cell)
+        {
+            FalloutScriptCommandDeferral.WarnPackage("package-doors-location", "PKDT door actions need a resolvable package location CELL.");
+            return;
+        }
+        if (kind == "POBA" && Placement(actor).Cell != cell)
+        {
+            FalloutScriptCommandDeferral.WarnPackage("package-doors-start-away", "PKDT start door actions before the actor reaches its location CELL have no owner.");
+            return;
+        }
         if (!_placementSourceCells.TryGetValue(cell, out var scene))
             _placementSourceCells.Add(cell, scene = FalloutCellSceneReader.Read(records, cell));
         if ((scene.Cell.Flags & 1) == 0)
-            throw new NotSupportedException("Exterior package door actions require their world-space traversal owner.");
-        // Include the complete interior source set and runtime moved-in doors.
-        // This is a conservative absence proof. A nonempty set is not declared
-        // eligible without the native distance/ownership/teleport policy.
+        {
+            FalloutScriptCommandDeferral.WarnPackage("package-doors-exterior", "PKDT door actions in exterior CELLs have no world-space owner.");
+            return;
+        }
         var doors = scene.References.Where(reference => scene.BaseObjects[reference.Base].Signature == "DOOR")
             .Select(reference => reference.FormKey).Concat(_instances.Values
                 .Where(instance => instance.Placement?.Cell == cell && records.GetEffective(instance.Base).Signature == "DOOR")
                 .Select(instance => instance.Reference)).Distinct().ToArray();
         foreach (var door in doors)
         {
-            if (Placement(door).Cell != cell) continue;
-            if (EffectiveLock(door).State is not null)
-                throw new NotSupportedException($"Package {package.Form} {kind} has potential door-lock work at {door}; native eligibility and connected-CELL effects remain unowned.");
+            if (Placement(door).Cell != cell || EffectiveLock(door).State is null) continue;
+            var owner = Get(LockOwner(door));
+            if (owner.LockState is { PackageActor: null } || owner.LockState is null && owner.Unlocked) continue;
+            // A record asking for both in one phase is resolved in favour of unlocking.
+            if (unlocking) UnlockReference(door, packageActor: actor);
+            else LockReference(door, packageActor: actor);
         }
     }
+
+    private FalloutFormKey? PackageLocationCell(FalloutFormKey actor, FalloutScriptPackage package) =>
+        package.LocationDeclaration switch
+        {
+            { Type: 0, Form: { } reference } => Placement(reference).Cell,
+            { Type: 1, Form: { } cell } => cell,
+            { Type: 2 } => Get(actor).PackageStartLocation?.Cell ?? Placement(actor).Cell,
+            { Type: 3 } => EditorPlacement(actor).Cell,
+            { Type: 6 } => GetLinkedRef(actor) is { } linked ? Placement(linked).Cell : null,
+            _ => null,
+        };
 }

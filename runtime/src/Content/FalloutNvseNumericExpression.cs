@@ -65,7 +65,7 @@ internal static class FalloutNvseNumericExpression
         FalloutScriptFunction? Resolve(string token)
         {
             if (!token.AsSpan(token.LastIndexOf('.') + 1).Equals("call", StringComparison.OrdinalIgnoreCase))
-                return function?.Invoke(token) ?? values.Arrays?.Function(token);
+                return function?.Invoke(Definitions.FalloutScriptCommandNames.Canonical(token)) ?? values.Arrays?.Function(token);
             if (at >= tokens.Count || !Identifier(tokens[at]))
                 throw new NotSupportedException("Call needs a bound function identity.");
             return (userFunction ?? throw new NotSupportedException("Call has no user-function owner."))(
@@ -172,7 +172,7 @@ internal static class FalloutNvseNumericExpression
                         @"^[A-Za-z_][A-Za-z0-9_]*$", RegexOptions.CultureInvariant))
                         throw new InvalidDataException("Postfix reference call needs a method name.");
                     var name = tokens[at++];
-                    var command = values.ReferenceFunction?.Invoke(name) ??
+                    var command = values.ReferenceFunction?.Invoke(Definitions.FalloutScriptCommandNames.Canonical(name)) ??
                         throw new NotSupportedException($"Postfix reference function {name} has no runtime owner.");
                     var arguments = Arguments(name, command);
                     var receiver = left;
@@ -214,7 +214,7 @@ internal static class FalloutNvseNumericExpression
             // not to the preceding optional integer index. This also keeps
             // `GetAuxVar "name" SomeReference` distinct from an index read.
             return required != FalloutScriptArgumentKind.Number || !Identifier(token) ||
-                function?.Invoke(token) is not null || values.IsForm?.Invoke(token) != true;
+                function?.Invoke(Definitions.FalloutScriptCommandNames.Canonical(token)) is not null || values.IsForm?.Invoke(token) != true;
         }
     }
 

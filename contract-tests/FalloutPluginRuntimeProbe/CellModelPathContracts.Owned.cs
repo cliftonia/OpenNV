@@ -38,13 +38,37 @@ internal static partial class CellModelPathContracts
                 $"bytes={bytes.Length} sha256={nif.Sha256} blocks={nif.Blocks.Count} sourceUnchanged=true rendering=unverified");
             checkedModels++;
         }
+        // Every SpeedTree base parses, generates deterministically for each of
+        // its seeds and resolves its billboard, bark and leaf textures.
+        var trees = 0;
+        foreach (var record in records.EffectiveRecords("TREE"))
+        {
+            var tree = FalloutSpeedTree.Read(record, "textures\\trees\\billboards", "textures\\trees\\leaves");
+            if (!source.TryRead(tree.Model, null, out var spt, out _)) throw new FileNotFoundException("Owned SpeedTree source is missing.", tree.Model);
+            if (tree.GeometryUnsupported is not null || tree.LeafTexture is null) throw new InvalidDataException($"Owned SpeedTree cannot feed geometry: {tree.GeometryUnsupported}");
+            var parsed = FalloutSpeedTreeSource.Read(spt);
+            foreach (var texture in new[] { tree.Billboard, tree.LeafTexture, "textures\\trees\\branches\\" + Path.ChangeExtension(parsed.BarkTexture, ".dds") })
+                if (!source.TryRead(texture, null, out _, out _)) throw new FileNotFoundException("Owned SpeedTree texture is missing.", texture);
+            foreach (var seed in tree.Seeds.DefaultIfEmpty(parsed.Seed))
+            {
+                var geometry = FalloutSpeedTreeGenerator.Generate(parsed, seed, 1, tree.BranchDimming);
+                var repeated = FalloutSpeedTreeGenerator.Generate(parsed, seed, 1, tree.BranchDimming);
+                if (!geometry.BranchVertices.SequenceEqual(repeated.BranchVertices) || geometry.Leaves.Count != repeated.Leaves.Count || geometry.Leaves.Count == 0)
+                    throw new InvalidDataException("Owned SpeedTree generation is not deterministic or has no leaves.");
+                Console.WriteLine($"OPENNV_OWNED_SPEEDTREE source={record.FormKey} model={tree.Model} seed={seed} levels={parsed.Levels.Count} " +
+                    $"leafMaps={parsed.LeafMaps.Count} size={geometry.Size:0.#} branchVertices={geometry.BranchVertices.Count} leaves={geometry.Leaves.Count} " +
+                    $"height={geometry.BranchVertices.Max(vertex => vertex.Position.Z):0.#}");
+            }
+            trees++;
+        }
+        if (trees == 0) throw new InvalidDataException("Owned plugins have no SpeedTree bases.");
         foreach (var (path, before) in files)
         {
             var file = new FileInfo(path);
             if ((file.Length, file.LastWriteTimeUtc) != before)
                 throw new InvalidDataException("Owned model audit observed a changed installation input.");
         }
-        Console.WriteLine($"OPENNV_OWNED_TREE_NIF_MODELS_PASS models={checkedModels} winningRecords=true exactBsaBytes=true nifHeaders=true sourceUnchanged=true nativePresentation=separate");
+        Console.WriteLine($"OPENNV_OWNED_TREE_NIF_MODELS_PASS models={checkedModels} speedTrees={trees} winningRecords=true exactBsaBytes=true nifHeaders=true sourceUnchanged=true nativePresentation=separate");
 
         void RetainFile(string path)
         {

@@ -13,7 +13,12 @@ internal sealed record FalloutPackageLocation(int Type, uint RawLocation, Fallou
         if (locations.Length == 0) return null;
         if (locations.Length != 1 || locations[0].Data.Length != 12)
             throw new InvalidDataException($"Package requires at most one complete {signature} location declaration.");
-        var data = locations[0].Data.Span;
+        return Decode(record, locations[0].Data.Span);
+    }
+
+    internal static FalloutPackageLocation Decode(FalloutPluginRecord record, ReadOnlySpan<byte> data)
+    {
+        if (data.Length != 12) throw new InvalidDataException("Package location declaration has an invalid extent.");
         var type = BinaryPrimitives.ReadInt32LittleEndian(data);
         var raw = BinaryPrimitives.ReadUInt32LittleEndian(data[4..]);
         var radius = BinaryPrimitives.ReadInt32LittleEndian(data[8..]);

@@ -21,7 +21,7 @@ internal sealed partial class FalloutGameModeProgram
         var command = failure.Groups["command"].Value;
         var arguments = int.Parse(failure.Groups["arguments"].Value, CultureInfo.InvariantCulture);
         var sites = Enumerable.Range(0, _lines.Count).Where(index =>
-            _lines[index][0].Equals(command, StringComparison.OrdinalIgnoreCase) &&
+            Definitions.FalloutScriptCommandNames.Canonical(_lines[index][0]).Equals(Definitions.FalloutScriptCommandNames.Canonical(command), StringComparison.OrdinalIgnoreCase) &&
             _lines[index].Length == arguments + 1 && !IsExpressionStatement(_lines[index])).ToArray();
         if (statement is { } captured)
         {

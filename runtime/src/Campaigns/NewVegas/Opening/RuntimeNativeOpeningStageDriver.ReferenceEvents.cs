@@ -113,6 +113,7 @@ internal partial class RuntimeNativeOpeningStageDriver
                 IsDead: DialogueActorDead, HealthPercentage: ActorHealthPercentage,
                 MiscStatistic: name => _scripts.MiscStatistics.Read(FalloutMiscStatisticNames.Index(
                     RuntimeLiveContentSource.Current ?? throw new InvalidOperationException("Statistic declarations have no owned source."), name)),
+                SetQuestDelay: _scripts.SetQuestDelay,
                 IsSneaking: actor => _pluginStack.RuntimeFormId(actor) == 0x14 ? _player.Activity.Sneaking :
                     throw new NotSupportedException("NPC sneaking query has no retained actor activity owner."),
                 IsImageSpaceActive: modifier => _imageSpaceState.Active.Any(active => active.Source.Form == modifier)));
@@ -285,8 +286,8 @@ internal partial class RuntimeNativeOpeningStageDriver
                 (_pipBoy ?? throw new InvalidOperationException("Pip-Boy state owner is absent.")).Reset();
                 break;
             case FalloutReferenceEffectKind.ScriptActivate:
-                GetTree().Root.FindChildren("*", "", true, false).OfType<RuntimeNativeReferenceEvents>()
-                    .Single(owner => owner.IsProcessing()).ScriptActivate(effect.Target!.Value, effect.Argument!.Value, effect.Enable);
+                (RuntimeNativeReferenceEvents.Active(GetTree()) ?? throw new InvalidOperationException("Script activation has no processing reference event owner."))
+                    .ScriptActivate(effect.Target!.Value, effect.Argument!.Value, effect.Enable);
                 break;
             case FalloutReferenceEffectKind.Hardcore:
                 SetHardcore(effect.Enable);

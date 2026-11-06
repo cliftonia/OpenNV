@@ -708,8 +708,8 @@ public partial class RuntimeCoordinator
         grass.Register(root.GetChildren().OfType<RuntimeNativeLandscapeTransport>());
         root.AddChild(grass);
         var trees = new RuntimeNativeSpeedTreeOwner();
-        trees.Configure(RuntimeLiveContentSource.Current!, sky, _configuration.World.GameUnitsToMeters,
-            _configuration.ContentCompiler.SpeedTree.BillboardAlphaCutoff);
+        trees.Configure(RuntimeLiveContentSource.Current!, _nativePluginStack!, sky, _configuration.World.GameUnitsToMeters,
+            _configuration.ContentCompiler.SpeedTree, quality.TreeGeometryDistanceScale);
         root.AddChild(trees);
         var wind = new RuntimeNativeWind { Name = "ExteriorWindOwner" };
         FalloutFormKey? windWeather = null;

@@ -47,9 +47,8 @@ internal sealed record FalloutFollowPackage(FalloutFormKey Form, FalloutFormKey 
             // Accompany. Defensive combat is handled by the engagement owner.
             const uint supported = 0x200 | 0x1000 | 0x2000 | FalloutScriptPackage.HeadTrackingOffFlag |
                 0x400000 | 0x04000000;
-            if ((data.Flags & ~supported) != 0 || data.SpecificFlags is not (null or 0) ||
-                (data.Flags & 0x1000) == 0 && data.BehaviorFlags != 0 ||
-                fields.Any(field => field.Signature is "PTD2" or "PKFD"))
+            FalloutPackageFlags.Admit(record, data, supported);
+            if (fields.Any(field => field.Signature is "PTD2" or "PKFD"))
                 throw new NotSupportedException("Accompany has additional unowned behavior or target inputs.");
             if (FalloutScriptPackage.Read(record).Idles.Count != 0)
                 throw new NotSupportedException("Accompany has an unowned waiting-idle collection.");

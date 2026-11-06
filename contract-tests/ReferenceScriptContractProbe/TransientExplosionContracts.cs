@@ -195,6 +195,16 @@ internal static class TransientExplosionContracts
             "v73 saves were not admitted before critical stages existed.");
         Reject(() => FalloutNativeCampaignSave.AdmitPreviousOwnerSchema(v73 with
             { ActorOverrides = [new(new("Test.esm", 0x91), new string('0', 64), [], [], CriticalStage: 2)] }));
+        var v76 = admitted with { Schema = FalloutNativeCampaignSave.BeforePackageStepsSchema };
+        Check(FalloutNativeCampaignSave.AdmitPreviousOwnerSchema(v76).Schema == FalloutNativeCampaignSave.ExpectedSchema,
+            "v76 saves were not admitted before package step progress existed.");
+        var steppedMotion = new FalloutActorPackageMotion(Key(0x95), new string('a', 64), "idle", new string('b', 64), 0, false,
+            [0, 0, 0], [0, 0, 0, 1], Steps: new(Key(0x95), 1, 0));
+        var stepped = new OpenNV.Runtime.World.Cells.FalloutReferenceSnapshot(Key(0x96), Key(0x97), Key(0x98), null, null,
+            new Dictionary<uint, double>(), null, PackageMotion: steppedMotion);
+        Reject(() => FalloutNativeCampaignSave.AdmitPreviousOwnerSchema(v76 with { References = [stepped] }));
+        Reject(() => FalloutNativeCampaignSave.AdmitPreviousOwnerSchema(v76 with { References = [stepped with { PackageMotion = null,
+            LockState = new(new string('c', 64), 0, true, PackageActor: Key(0x96)) }] }));
         // A v73 mine's JSON damage has none of the post-threshold fields; admission restores neutral terms.
         var damageJson = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(new FalloutWeaponDamage(30, 1, 50, 1)))!.AsObject();
         foreach (var name in new[] { "PerkScale", "PerkOffset", "ThresholdReduction", "ResistanceActorValue", "Critical", "AutomaticMeleeRounds" })

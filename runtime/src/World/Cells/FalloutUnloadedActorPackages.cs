@@ -82,6 +82,11 @@ internal sealed class FalloutUnloadedActorPackages(FalloutPluginStack records, F
             var selected = FalloutAiPackages.Select(records, state.Base, condition => Evaluate(actor, condition),
                 templates, clock, evaluateRunOn: true,
                 eligible: package => world.PackageEligible(actor, package, clock, events.Active?.Form, events.Done));
+            // An unloaded actor has no arrival owner; only Must Complete holds.
+            if (events is { Active: { } held, Done: false } && selected?.FormKey != held.Form &&
+                FalloutAiPackages.RetainsMustPackage(records, state.Base, templates, records.GetEffective(held.Form), selected?.FormKey,
+                    false, null, clock, condition => Evaluate(actor, condition)))
+                selected = records.GetEffective(held.Form);
             var predecessor = state.DeferredPackageContinuation?.RetainedAssignment ??
                 (state.PackageMotion is { } previousMotion && state.PackageAssignment is { } previousAssignment &&
                     previousMotion.Package == previousAssignment.Package ? previousAssignment : null);
@@ -259,13 +264,14 @@ internal sealed class FalloutUnloadedActorPackages(FalloutPluginStack records, F
         var state = world.Get(actor);
         try
         {
-            if (kind == "POBA") world.MarkPackageStart(actor, records.GetEffective(package.Form), clock);
+            if (kind == "POBA") world.MarkPackageStart(actor);
             world.PackageEvents.Mark(actor, package.Form, kind switch
             {
                 "POBA" => FalloutReferencePackageEventKind.Start,
                 "POCA" => FalloutReferencePackageEventKind.Change,
                 _ => throw new InvalidDataException("Unloaded actor cannot publish native arrival.")
             });
+            if ((package.Flags & FalloutPackageFlags.DoorFlags) != 0) world.ApplyPackageDoorActions(actor, package, kind);
             if (package.EventPrograms.GetValueOrDefault(kind) is { } program) execute(program, actor);
             if (package.Events.GetValueOrDefault(kind) is not null)
                 throw new NotSupportedException("Unloaded package event idle requires its native animation continuation.");

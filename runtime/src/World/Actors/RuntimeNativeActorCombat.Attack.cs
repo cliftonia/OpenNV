@@ -323,7 +323,7 @@ internal sealed partial class RuntimeNativeActorCombat
             _opponent.ReceiveMeleeKnockback(_actor.GlobalPosition, resolvedDamage.Amount);
             ++_hits;
         }
-        if (_enemyWeapon?.IsMeleeWeapon == true)
+        if (_enemyWeapon?.IsMeleeWeapon == true && !PackageSuppressesWeaponWear)
             _enemyWeaponHandling!.ApplyMeleeConditionWear(_enemyWeapon, _records);
         if (_enemyWeapon?.Sounds.TryGetValue("empty", out var swing) == true) _enemySounds!.DispatchSound(swing);
         _lastAttack = new

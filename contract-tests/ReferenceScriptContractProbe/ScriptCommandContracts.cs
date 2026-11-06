@@ -131,8 +131,8 @@ internal static class ScriptCommandContracts
                 FalloutScriptEffectCommands.ChangeSpell(records, world, Key(0x900), true, known) &&
                 !FalloutScriptEffectCommands.ChangeSpell(records, world, Key(0x905), true, known),
                 "AddSpell/RemoveSpell returned the wrong change result.");
-            Require(Execute(records, world, Key(0x900), "cios", false, "Ability") is null &&
-                Execute(records, world, Key(0x900), "cios", false, "KnownSpell") is ["KnownSpell"],
+            Require(Execute(records, world, Key(0x900), "castimmediateonself", false, "Ability") is null &&
+                Execute(records, world, Key(0x900), "castimmediateonself", false, "KnownSpell") is ["KnownSpell"],
                 "CastImmediateOnSelf cast an ability or dropped an actor effect.");
             Require(FalloutScriptEffectCommands.DispelledByDispelAll(records, known) &&
                 FalloutScriptEffectCommands.DispelledByDispelAll(records, Key(0x153)) &&
@@ -141,12 +141,12 @@ internal static class ScriptCommandContracts
 
             // Visual commands on a loaded actor; unloading drops the transient state.
             var revision = world.PresentationRevision;
-            Require(Execute(records, world, Key(0x900), "saa", false, "1.5") is ["1"] && world.ActorAlpha(Key(0x900)) == 1,
+            Require(Execute(records, world, Key(0x900), "setactoralpha", false, "1.5") is ["1"] && world.ActorAlpha(Key(0x900)) == 1,
                 "SetActorAlpha did not clamp.");
-            Require(Execute(records, world, Key(0x900), "saa", false, "0.25") is ["0.25"] &&
+            Require(Execute(records, world, Key(0x900), "setactoralpha", false, "0.25") is ["0.25"] &&
                 world.ActorAlpha(Key(0x900)) == .25f && world.PresentationRevision > revision,
                 "SetActorAlpha did not publish its value to presentation.");
-            Require(Execute(records, world, Key(0x900), "pms", false, "Shader") is ["Shader"] &&
+            Require(Execute(records, world, Key(0x900), "playmagicshadervisuals", false, "Shader") is ["Shader"] &&
                 world.MagicShaders(Key(0x900)).SequenceEqual([Key(0x150)]), "PlayMagicShaderVisuals lost its default duration.");
             world.UnloadCell(Key(0x800));
             Require(world.ActorAlpha(Key(0x900)) == 1 && world.MagicShaders(Key(0x900)).Count == 0,

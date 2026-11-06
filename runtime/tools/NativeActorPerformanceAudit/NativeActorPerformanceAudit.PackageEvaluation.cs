@@ -63,7 +63,7 @@ public partial class NativeActorPerformanceAudit
             {
                 if (field.Data.Length != 4) throw new InvalidDataException("Fixture package identity has an invalid extent.");
                 var packageKey = packageOwner.Plugin.AdjustFormId(BinaryPrimitives.ReadUInt32LittleEndian(field.Data.Span));
-                world.MarkPackageStart(caller, records.GetEffective(packageKey), clock);
+                world.MarkPackageCompleted(caller, records.GetEffective(packageKey), clock);
             }
             presentation = new Node3D();
             if (stoppedFailure) presentation.Basis = new(Vector3.Back * 2, Vector3.Up * 2, Vector3.Left * 2);

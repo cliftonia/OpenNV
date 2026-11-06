@@ -8,7 +8,7 @@ internal sealed partial class FalloutGameModeProgram
         var operand = _lines[0].Skip(1).SkipWhile(token => token == "(").FirstOrDefault();
         return operand is not null && operand.Split('.') is [var receiver, var operation] &&
             FalloutScriptBindings.IsPlayer(receiver) && operation.Equals("GetDead", StringComparison.OrdinalIgnoreCase) &&
-            functions(operand) is { ReadOnly: true } && CanRetryMissingRead(operand, functions);
+            functions(Definitions.FalloutScriptCommandNames.Canonical(operand)) is { ReadOnly: true } && CanRetryMissingRead(operand, functions);
     }
 
     internal bool CanRetryMissingCommand(string command, Func<string, FalloutScriptFunction?> functions, int argumentCount = 2)
@@ -17,10 +17,10 @@ internal sealed partial class FalloutGameModeProgram
         var priorMutation = false;
         foreach (var tokens in _lines)
         {
-            if (tokens[0].Equals(command, StringComparison.OrdinalIgnoreCase))
+            if (Definitions.FalloutScriptCommandNames.Canonical(tokens[0]).Equals(Definitions.FalloutScriptCommandNames.Canonical(command), StringComparison.OrdinalIgnoreCase))
             {
                 if (priorMutation || tokens.Length != argumentCount + 1) return false;
-                if (tokens.Skip(1).Any(token => functions(token) is { ReadOnly: false } ||
+                if (tokens.Skip(1).Any(token => functions(Definitions.FalloutScriptCommandNames.Canonical(token)) is { ReadOnly: false } ||
                     token.Equals("eval", StringComparison.OrdinalIgnoreCase) || token.Equals("call", StringComparison.OrdinalIgnoreCase) ||
                     FalloutNvseNumericExpression.IsAssignment(token) || token is "++" or "--" or ".")) return false;
                 found = true;
@@ -32,7 +32,7 @@ internal sealed partial class FalloutGameModeProgram
             { priorMutation = true; continue; }
             foreach (var token in tokens.Skip(1))
                 if (token.Equals("eval", StringComparison.OrdinalIgnoreCase) || token.Equals("call", StringComparison.OrdinalIgnoreCase) ||
-                    FalloutNvseNumericExpression.IsAssignment(token) || token is "++" or "--" or "." || functions(token) is { ReadOnly: false })
+                    FalloutNvseNumericExpression.IsAssignment(token) || token is "++" or "--" or "." || functions(Definitions.FalloutScriptCommandNames.Canonical(token)) is { ReadOnly: false })
                     return false;
         }
         return found;
@@ -42,7 +42,7 @@ internal sealed partial class FalloutGameModeProgram
     // necessarily preceded every mutation, without invoking any query here.
     internal bool CanRetryMissingRead(string operand, Func<string, FalloutScriptFunction?> functions)
     {
-        if (functions(operand) is null) return false;
+        if (functions(Definitions.FalloutScriptCommandNames.Canonical(operand)) is null) return false;
         var firstMutation = _lines.Count;
         for (var index = 0; index < _lines.Count; ++index)
             if (_lines[index][0].ToLowerInvariant() is not ("if" or "elseif" or "else" or "endif"))
@@ -67,7 +67,7 @@ internal sealed partial class FalloutGameModeProgram
             {
                 if (token.Equals("eval", StringComparison.OrdinalIgnoreCase) || token.Equals("call", StringComparison.OrdinalIgnoreCase) ||
                     FalloutNvseNumericExpression.IsAssignment(token) || token is "++" or "--" or ".") return false;
-                if (!token.Equals(operand, StringComparison.OrdinalIgnoreCase) && functions(token) is { ReadOnly: false }) return false;
+                if (!token.Equals(operand, StringComparison.OrdinalIgnoreCase) && functions(Definitions.FalloutScriptCommandNames.Canonical(token)) is { ReadOnly: false }) return false;
             }
         }
         return true;

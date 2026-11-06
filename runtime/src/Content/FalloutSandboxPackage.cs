@@ -23,10 +23,7 @@ internal sealed record FalloutSandboxPackage(FalloutFormKey Form, uint Flags, in
         var data = FalloutPackageData.Read(record);
         const uint supported = 0x200 | 0x1000 | 0x2000 | 0x400000 | 0x800000 | FalloutScriptPackage.HeadTrackingOffFlag |
             FalloutScriptPackage.WeaponsUnequippedFlag;
-        if ((data.Flags & ~supported) != 0)
-            throw new NotSupportedException($"Sandbox package flags 0x{data.Flags & ~supported:x8} have no execution owner.");
-        if ((data.Flags & 0x1000) == 0 && data.BehaviorFlags != 0)
-            throw new NotSupportedException($"Sandbox behavior flags 0x{data.BehaviorFlags:x4} have no execution owner.");
+        FalloutPackageFlags.Admit(record, data, supported);
         if (source.Idles.Count != 0)
             throw new NotSupportedException("Sandbox package idle collection has no execution owner.");
         if (record.ReadSubrecords().Any(field => field.Signature is "PLD2" or "PTDT" or "PTD2"))

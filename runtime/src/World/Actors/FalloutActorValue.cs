@@ -23,10 +23,10 @@ internal sealed record FalloutActorValue(float Base, float Permanent = 0, float 
     internal bool IsFinite => float.IsFinite(Base) && float.IsFinite(Permanent) && float.IsFinite(Temporary) &&
         float.IsFinite(Damage) && float.IsFinite(Current);
 
-    internal static FalloutActorValueRead? Query(string method) => method.ToLowerInvariant() switch
+    internal static FalloutActorValueRead? Query(string method) => FalloutScriptCommandNames.Operation(method) switch
     {
-        "getav" or "getactorvalue" => FalloutActorValueRead.Current,
-        "getbaseav" or "getbaseactorvalue" => FalloutActorValueRead.Base,
+        "getactorvalue" => FalloutActorValueRead.Current,
+        "getbaseactorvalue" => FalloutActorValueRead.Base,
         "getpermanentactorvalue" => FalloutActorValueRead.Permanent,
         _ => null,
     };

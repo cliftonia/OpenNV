@@ -19,9 +19,12 @@ internal sealed partial class FalloutReferenceWorld
         return (clock ?? throw new NotSupportedException("Once-per-day package has no simulation clock.")).DaysPassed - previous.DaysPassed >= 1;
     }
 
-    internal void MarkPackageStart(FalloutFormKey actor, FalloutPluginRecord package, FalloutGameTime? clock)
+    internal void MarkPackageStart(FalloutFormKey actor) => Get(actor).SandboxRescan = null;
+
+    // Once Per Day: the day a package completes is recorded against it, and
+    // selection skips it until a day has passed.
+    internal void MarkPackageCompleted(FalloutFormKey actor, FalloutPluginRecord package, FalloutGameTime? clock)
     {
-        Get(actor).SandboxRescan = null;
         if (!OncePerDay(package)) return;
         _ = Actor(actor);
         var state = Get(actor);

@@ -104,11 +104,11 @@ internal sealed partial class FalloutPlayerSkills
         var operand = FalloutPlayerActorValues.SignedInteger(argument);
         var value = RequireSkill(name);
         var before = _skillPools.GetValueOrDefault(value) ?? new();
-        switch (operation.ToLowerInvariant())
+        switch (OpenNV.Runtime.Content.Definitions.FalloutScriptCommandNames.Operation(operation))
         {
-            case "setav" or "setactorvalue": WriteUnmodifiedSkill(value, operand); return;
-            case "modav" or "modactorvalue": Publish(value, before with { Permanent = before.Permanent + operand }); return;
-            case "forceav" or "forceactorvalue":
+            case "setactorvalue": WriteUnmodifiedSkill(value, operand); return;
+            case "modactorvalue": Publish(value, before with { Permanent = before.Permanent + operand }); return;
+            case "forceactorvalue":
                 var difference = operand - ReadSkill(value, FalloutActorValueRead.Current);
                 Publish(value, before with { Permanent = before.Permanent + difference }); return;
             default: throw new NotSupportedException($"Player skill command {operation} has no pool owner.");

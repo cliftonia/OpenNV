@@ -1,6 +1,7 @@
 using Function = OpenNV.Runtime.Content.Definitions.FalloutConditionFunction;
 using System.Buffers.Binary;
 using OpenNV.Runtime.Gameplay.State;
+using OpenNV.Runtime.World.Cells;
 
 namespace OpenNV.Runtime.Content;
 
@@ -94,9 +95,9 @@ internal static class FalloutAiPackages
     internal static FalloutPluginRecord TemplateOwner(FalloutPluginStack stack, FalloutPluginRecord record, ushort flag)
         => FalloutActorTemplateOwner.Resolve(stack, record, flag);
 
-    internal static FalloutPluginRecord? Select(FalloutPluginStack stack, FalloutFormKey npc,
-        Func<FalloutCondition, float> evaluate, FalloutActorTemplateSelection? selection = null, FalloutGameTime? clock = null,
-        bool evaluateRunOn = false, Func<FalloutPluginRecord, bool>? eligible = null)
+    // The actor's authored package stack, in priority order (first = highest).
+    internal static IEnumerable<FalloutPluginRecord> Stack(FalloutPluginStack stack, FalloutFormKey npc,
+        FalloutActorTemplateSelection? selection = null)
     {
         var owner = FalloutActorTemplateOwner.Resolve(stack, stack.GetEffective(npc), 32, selection);
         foreach (var field in owner.ReadSubrecords().Where(field => field.Signature == "PKID"))
@@ -104,6 +105,66 @@ internal static class FalloutAiPackages
             if (field.Data.Length != 4) throw new InvalidDataException("NPC package identity has an invalid extent.");
             var package = stack.GetEffective(owner.Plugin.AdjustFormId(BinaryPrimitives.ReadUInt32LittleEndian(field.Data.Span)));
             if (package.Signature != "PACK") throw new InvalidDataException("NPC package identity is not PACK.");
+            yield return package;
+        }
+    }
+
+    // Must Complete holds an unfinished package that can reach Done, and Must
+    // Reach Location holds one whose location an arrival owner has not yet
+    // reached, against a lower-priority (or no) selection. The hold ends when
+    // the package's schedule window ends or its own conditions lapse; a
+    // higher-priority package or an explicit reevaluation always wins.
+    // Procedures without a Done or arrival owner never hold (visible deferral).
+    internal static bool RetainsMustPackage(FalloutPluginStack stack, FalloutFormKey npc, FalloutActorTemplateSelection? selection,
+        FalloutPluginRecord current, FalloutFormKey? selected, bool done, bool? arrived, FalloutGameTime? clock,
+        Func<FalloutCondition, float> evaluate)
+    {
+        var data = FalloutPackageData.Read(current);
+        var mustComplete = (data.Flags & FalloutPackageFlags.MustComplete) != 0 && !done;
+        var mustReach = (data.Flags & FalloutPackageFlags.MustReachLocation) != 0 && !done;
+        if (!mustComplete && !mustReach) return false;
+        if (mustComplete && !CanComplete(current))
+        {
+            FalloutScriptCommandDeferral.WarnPackage($"must-complete-no-done:{data.Procedure}",
+                $"Must Complete on procedure {data.Procedure} has no Done owner; the package does not hold selection.");
+            mustComplete = false;
+        }
+        if (mustReach && arrived is null)
+        {
+            FalloutScriptCommandDeferral.WarnPackage($"must-reach-no-arrival:{data.Procedure}",
+                $"Must Reach Location on procedure {data.Procedure} has no arrival owner; the package does not hold selection.");
+            mustReach = false;
+        }
+        if (!mustComplete && !(mustReach && arrived == false)) return false;
+        if (!FalloutPackageSchedule.Read(current).IsActive(clock)) return false;
+        try
+        {
+            if (!FalloutCondition.AllPass(FalloutCondition.Read(current), evaluate, evaluateRunOn: true)) return false;
+        }
+        catch (Exception error) when (error is NotSupportedException or InvalidDataException) { return false; }
+        if (selected is not { } next) return true;
+        var order = Stack(stack, npc, selection).Select(package => package.FormKey).ToList();
+        var currentIndex = order.IndexOf(current.FormKey);
+        var nextIndex = order.IndexOf(next);
+        // Script packages outside the authored stack take precedence.
+        return currentIndex >= 0 && nextIndex > currentIndex;
+    }
+
+    // Procedures with an owned Done: Travel and Escort arrival, and stepped
+    // packages that can finish without a PSDT duration.
+    private static bool CanComplete(FalloutPluginRecord package) => FalloutPackageData.Read(package).Procedure switch
+    {
+        2 or 6 => true,
+        5 or 8 or 9 or 10 or 11 or 16 => FalloutPackageSteps.CanComplete(FalloutSteppedPackage.Read(package)),
+        _ => false,
+    };
+
+    internal static FalloutPluginRecord? Select(FalloutPluginStack stack, FalloutFormKey npc,
+        Func<FalloutCondition, float> evaluate, FalloutActorTemplateSelection? selection = null, FalloutGameTime? clock = null,
+        bool evaluateRunOn = false, Func<FalloutPluginRecord, bool>? eligible = null)
+    {
+        foreach (var package in Stack(stack, npc, selection))
+        {
             // Schedules precede conditions, in authored priority order. An
             // inactive candidate cannot run condition queries or side effects.
             if (!FalloutPackageSchedule.Read(package).IsActive(clock)) continue;

@@ -821,6 +821,12 @@ if (args is ["--else-payload-contracts"])
     return;
 }
 
+if (args is ["--script-name-contracts"])
+{
+    ScriptNameContracts.Run();
+    return;
+}
+
 if (args is ["--owned-strip-gate-activation", var stripGateData, var stripGate, var stripGateActor])
 {
     OwnedStripGateActivationProbe.Run(stripGateData, stripGate, stripGateActor);
@@ -1115,6 +1121,7 @@ if (args is ["--package-data-contracts"])
     IdleMarkerReservationContracts.Run();
     SandboxIdleSelectionContracts.Run();
     PackageDataContracts.Run();
+    PackageStepContracts.Run();
     EditorTravelContracts.Run();
     TravelContracts.Run();
     return;
@@ -2016,6 +2023,7 @@ IdleCollectionSourceContracts.Run();
 IdleMarkerReservationContracts.Run();
 SandboxIdleSelectionContracts.Run();
 PackageDataContracts.Run();
+PackageStepContracts.Run();
 EditorTravelContracts.Run();
 TravelContracts.Run();
 ObjectPhysicsContracts.Run();
@@ -2038,6 +2046,7 @@ DefaultActivationContracts.Run();
 ScriptManualSaveContracts.Run();
 ReferenceInstanceCacheContracts.Run();
 HardcoreQueryContracts.Run();
+ScriptNameContracts.Run();
 TutorialActorQueryContracts.Run();
 GameTimeCommandContracts.Run();
 ActorAlertContracts.Run();
@@ -2079,6 +2088,7 @@ SayToContracts.Run();
 SpeechCompletionContracts.Run();
 RadioConversationContracts.Run();
 ScreenBloodContracts.Run();
+VisualEffectContracts.Run();
 QuestMenuContracts.Run();
 QuestUpdateContracts.Run();
 QuestStateQueryContracts.Run();

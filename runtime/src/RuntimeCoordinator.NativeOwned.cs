@@ -721,6 +721,7 @@ public partial class RuntimeCoordinator
             _nativeReferences.PlayerNotes.Restore(restore.State.PlayerNotes);
             _nativeReferences.PlayerCaravanCards.Restore(restore.State.PlayerCaravanCards);
             _nativeReferences.CasinoWinnings.Restore(restore.State.CasinoWinnings);
+            _nativeReferences.RestoreSecuritronFaces(restore.State.SecuritronFaces);
             _nativeReferences.RestoreDroppedItems(restore.State.DroppedItems);
         }
         else if (_nativeBootstrap is null)
@@ -1245,12 +1246,13 @@ public partial class RuntimeCoordinator
             baseObject.ModelPath.EndsWith(".spt", StringComparison.OrdinalIgnoreCase))
         {
             if (!_nativeSpeedTrees.TryGetValue(baseObject.FormKey, out var tree))
-                _nativeSpeedTrees.Add(baseObject.FormKey, tree = FalloutSpeedTree.Read(
-                    _nativePluginStack!.GetEffective(baseObject.FormKey), _configuration.ContentCompiler.SpeedTree.BillboardDirectory));
+                _nativeSpeedTrees.Add(baseObject.FormKey, tree = FalloutSpeedTree.Read(_nativePluginStack!.GetEffective(baseObject.FormKey),
+                    _configuration.ContentCompiler.SpeedTree.BillboardDirectory, _configuration.ContentCompiler.SpeedTree.LeafDirectory));
             var marker = new RuntimeNativeSpeedTreeReference
             {
                 Name = $"Reference_{reference.FormKey}",
                 Definition = tree,
+                SeedIndex = FalloutSpeedTree.ReadSeedIndex(_nativePluginStack!.GetEffective(reference.FormKey)),
                 Transform = ReferenceTransform(reference),
             };
             marker.SetMeta("opennv_reference_form_key", reference.FormKey.ToString());

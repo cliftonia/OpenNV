@@ -68,7 +68,8 @@ internal sealed record RendererQualityProfile(
     int SunShadowSplits,
     float SunShadowDistanceScale,
     int DirectionalShadowAtlasPixels,
-    float GrassStartFadeScale);
+    float GrassStartFadeScale,
+    float TreeGeometryDistanceScale);
 
 internal sealed record PlayerConfiguration(
     ConfigurationProvenance Provenance,
@@ -782,12 +783,15 @@ internal sealed record ContentCompilerConfiguration(
 internal sealed record SpeedTreeCompilerConfiguration(
     ConfigurationProvenance Provenance,
     string BillboardDirectory,
+    string BranchDirectory,
+    string LeafDirectory,
     float BillboardAlphaCutoff)
 {
     internal void Validate()
     {
-        if (string.IsNullOrWhiteSpace(BillboardDirectory) || BillboardDirectory.EndsWith(".dds", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("SpeedTree billboard directory must name a texture directory.");
+        if (new[] { BillboardDirectory, BranchDirectory, LeafDirectory }.Any(directory =>
+            string.IsNullOrWhiteSpace(directory) || directory.EndsWith(".dds", StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException("SpeedTree billboard, branch and leaf directories must name texture directories.");
         if (!float.IsFinite(BillboardAlphaCutoff) ||
             BillboardAlphaCutoff <= 0.0f || BillboardAlphaCutoff > 1.0f)
             throw new InvalidOperationException(

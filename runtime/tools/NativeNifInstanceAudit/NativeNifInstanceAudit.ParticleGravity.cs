@@ -50,13 +50,16 @@ public partial class NativeNifInstanceAudit
                 throw new InvalidDataException("Sequence override changed immutable gravity/controller declarations.");
             first.Bind(source, link with { Interpolator = 18 }).Apply(0);
             Near(GravityStrength(first, "Gravity"), -3);
-            first.Bind(source, link with { ControllerType = "NiPSysEmitterCtlr", Variable1 = "Emitter", Variable2 = "BirthRate", Interpolator = 7 }).Apply(0);
+            // The first controller sample primes the emitter clock; the next
+            // sample's interval emits before the modifiers run.
+            var birth = first.Bind(source, link with { ControllerType = "NiPSysEmitterCtlr", Variable1 = "Emitter", Variable2 = "BirthRate", Interpolator = 7 });
+            birth.Apply(0); birth.Apply(1f / 60);
             Advance(first, 1f / 60);
             if (first.ActiveCount == 0) throw new InvalidDataException("Gravity fixture emitted no particles.");
             first.EmissionEnabled = false;
             var before = GravityVelocity(first);
             Advance(first, 1f / 60);
-            var expected = GamebryoCoordinate.ConvertVector(Vector3.Back).Normalized() * (-3f / 60);
+            var expected = GamebryoCoordinate.ConvertVector(Vector3.Back).Normalized() * (-3f * FalloutNifParticleForces.GravityStrengthScale / 60);
             Near((GravityVelocity(first) - before - expected).Length(), 0);
             if (sibling.BirthCount != 0) throw new InvalidDataException("Gravity simulation advanced a sibling.");
             Reject(() => first.Bind(source, link with { Variable1 = "Emitter" }));
@@ -87,10 +90,15 @@ public partial class NativeNifInstanceAudit
             var turbulentSource = FalloutNifFile.Read(ParticleGravityFixture(turbulence: 5));
             var turbulent = Create(turbulentSource);
             var zero = turbulent.Bind(turbulentSource, link with { Interpolator = 19 }); zero.Apply(0);
-            turbulent.Bind(turbulentSource, link with { ControllerType = "NiPSysEmitterCtlr", Variable1 = "Emitter", Variable2 = "BirthRate", Interpolator = 7 }).Apply(0);
+            var turbulentBirth = turbulent.Bind(turbulentSource, link with { ControllerType = "NiPSysEmitterCtlr", Variable1 = "Emitter", Variable2 = "BirthRate", Interpolator = 7 });
+            turbulentBirth.Apply(0); turbulentBirth.Apply(1f / 60);
             Advance(turbulent, 1f / 60); turbulent.EmissionEnabled = false;
             Advance(turbulent, .1f);
-            Near(GravityVelocity(turbulent).Length(), 0);
+            // Turbulence is white noise of Turbulence x Scale x 500 per component,
+            // independent of strength: one 0.1 s update stays inside that bound.
+            var noise = GravityVelocity(turbulent).Abs();
+            if (noise.Length() == 0 || Math.Max(noise.X, Math.Max(noise.Y, noise.Z)) > 5 * FalloutNifParticleForces.TurbulenceScale * .1f + 1e-3f)
+                throw new InvalidDataException("Zero-strength turbulence is not bounded white noise.");
             turbulent.Bind(turbulentSource, link with { Interpolator = 18 }).Apply(0);
             Advance(turbulent, .1f);
             var velocity = GravityVelocity(turbulent);
@@ -98,7 +106,7 @@ public partial class NativeNifInstanceAudit
             if ((velocity - axis * velocity.Dot(axis)).Length() <= 1e-8f)
                 throw new InvalidDataException("Animated strength did not reach turbulent acceleration.");
             if (!SHA256.HashData(bytes).SequenceEqual(hash)) throw new InvalidDataException("Gravity audit changed source bytes.");
-            GD.Print("OPENNV_PARTICLE_GRAVITY_PASS scalarLayout=true sequenceInterpolatorOverride=true signedAcceleration=true turbulenceZeroAndNonzero=true independentInstances=true reset=true retiredChannelRefused=true invalidOwnersAndLayoutsRefused=true populationCold=unverified pixels=unverified");
+            GD.Print("OPENNV_PARTICLE_GRAVITY_PASS scalarLayout=true sequenceInterpolatorOverride=true signedAcceleration=true strengthScale=1.6 turbulenceWhiteNoise=true independentInstances=true reset=true retiredChannelRefused=true invalidOwnersAndLayoutsRefused=true populationCold=unverified pixels=unverified");
         }
         finally { fixture.Free(); }
 

@@ -49,10 +49,13 @@ public partial class NativeNifInstanceAudit
                 declaration.GetProperty("type").GetString() != "NiParticleSystem")
                 throw new InvalidDataException("Dormant particle source lost its typed declaration or invented a birth.");
             var link = new FalloutNifControllerLink("Particles", "", "NiPSysEmitterCtlr", "Emitter", "BirthRate", 7, 9, 0);
-            runtime.Bind(file, link).Apply(0);
+            // Each update follows an emitter-controller sample, as in play.
+            var birth = runtime.Bind(file, link);
+            birth.Apply(0); birth.Apply(.1f);
             runtime.EmissionEnabled = false; Advance(.1f);
             if (runtime.BirthCount != 0) throw new InvalidDataException("Disabled particle emission sampled an unbound source.");
             runtime.EmissionEnabled = true;
+            birth.Apply(.1f + 1f / 60);
             try { Advance(1f / 60); }
             catch (NotSupportedException error) when (error.Message.Contains("retained position-slot semantics", StringComparison.Ordinal))
             {

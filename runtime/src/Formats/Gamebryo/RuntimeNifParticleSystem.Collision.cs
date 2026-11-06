@@ -110,14 +110,12 @@ internal sealed partial class RuntimeNifParticleSystem
             var normal = (selectedPose.Normal * new Vector3(contact.Normal.X, contact.Normal.Y, contact.Normal.Z)).Normalized();
             ref var particle = ref _particles[index];
             particle.Position = selectedPoint;
-            var incoming = particle.Velocity.Dot(normal);
-            if (collider is FalloutNifParticlePlanarCollider)
-            {
-                var response = FalloutNifParticlePlane.Respond(new(particle.Velocity.X, particle.Velocity.Y, particle.Velocity.Z),
-                    new(normal.X, normal.Y, normal.Z), collider.Bounce, contact.Fraction == 1, .001f * _units);
-                particle.Velocity = new(response.X, response.Y, response.Z);
-            }
-            else particle.Velocity -= normal * ((1 + collider.Bounce) * incoming);
+            var incoming = new System.Numerics.Vector3(particle.Velocity.X, particle.Velocity.Y, particle.Velocity.Z);
+            var direction = new System.Numerics.Vector3(normal.X, normal.Y, normal.Z);
+            var response = collider is FalloutNifParticlePlanarCollider
+                ? FalloutNifParticlePlane.Respond(incoming, direction, collider.Bounce, contact.Fraction == 0, .001f * _units)
+                : FalloutNifParticleSphere.Respond(incoming, direction, collider.Bounce);
+            particle.Velocity = new(response.X, response.Y, response.Z);
             particle.MotionSeconds *= 1 - contact.Fraction;
             var atContact = particle;
             // A lifecycle observer may synchronously move a source node.

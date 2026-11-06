@@ -62,6 +62,10 @@ public partial class NativeNifInstanceAudit : Node
             {
                 ExerciseParticleShapesColors(); GetTree().Quit(); return;
             }
+            if (OS.GetCmdlineUserArgs() is ["--particle-channels"])
+            {
+                ExerciseParticleChannels(); GetTree().Quit(); return;
+            }
             if (OS.GetCmdlineUserArgs() is ["--particle-transform-cache"])
             {
                 ExerciseParticleTransformCache(); GetTree().Quit(); return;

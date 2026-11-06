@@ -10,22 +10,22 @@ internal sealed partial class RuntimeNifParticleSystem : Node3D
 {
     private FalloutNifParticleSystem _source = null!;
     private FalloutNifParticleData _data = null!;
-    private FalloutNifParticleModifier[] _modifiers = [];
+    private FalloutNifParticleModifier[] _modifiers = [], _emitterModifiers = [], _updateModifiers = [];
     private FalloutNifParticleModifier[] _drawModifiers = [], _activeDrawModifiers = [];
     private readonly Dictionary<string, bool> _active = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, float> _rates = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, FalloutNifParticleEmitterClock> _emitters = new(StringComparer.Ordinal);
+    private readonly Dictionary<(string Emitter, object Sequence), FalloutNifParticleEmitterCurves> _emitterCurves = [];
+    private readonly float[] _emissionAges = new float[FalloutNifParticleEmitterClock.MaximumPerAdvance];
     private readonly Dictionary<string, float> _speeds = new(StringComparer.Ordinal);
     private readonly Dictionary<string, float> _lifespans = new(StringComparer.Ordinal);
     private readonly Dictionary<string, float> _initialRadii = new(StringComparer.Ordinal);
     private readonly Dictionary<string, float> _gravityStrengths = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, double> _remainders = new(StringComparer.Ordinal);
     private readonly Dictionary<int, FalloutNifMeshData> _meshes = [];
     private readonly Dictionary<int, FalloutNifParticleSystem> _particleMeshSources = [];
     private string? _emissionError;
     private IReadOnlyDictionary<int, Node3D> _nodes = null!;
     private readonly Dictionary<int, Transform3D> _stepTransforms = [];
     private readonly Random _random = new();
-    private FastNoiseLite? _turbulence;
     private Particle[] _particles = [];
     private float[] _drawBuffer = [];
     private NativeParticleDrawOrder[] _drawOrder = [];
@@ -82,7 +82,7 @@ internal sealed partial class RuntimeNifParticleSystem : Node3D
             { _speeds[modifier.Name] = mesh.Emitter.Speed; _lifespans[modifier.Name] = mesh.Emitter.Life; _initialRadii[modifier.Name] = mesh.Emitter.Radius; }
             else if (modifier is FalloutNifParticleGravity gravity) _gravityStrengths[modifier.Name] = gravity.Strength;
         }
-        foreach (var name in _rates.Keys) { _rates[name] = 0; _remainders[name] = 0; }
+        foreach (var clock in _emitters.Values) clock.Reset();
         ResetLifecycle();
         BirthCount = DeathCount = CollisionCount = 0; SimulatedSeconds = 0; EmissionEnabled = false;
         _nextBoundsRefresh = 0; _publishedBounds = default;
@@ -112,12 +112,11 @@ internal sealed partial class RuntimeNifParticleSystem : Node3D
             modifier.Name,
             modifier.Order,
             active = _active[modifier.Name],
-            rate = _rates.GetValueOrDefault(modifier.Name),
+            emitterTime = _emitters.TryGetValue(modifier.Name, out var clock) && double.IsFinite(clock.Stored) ? clock.Stored : (double?)null,
             speed = _speeds.GetValueOrDefault(modifier.Name),
             lifespan = _lifespans.GetValueOrDefault(modifier.Name),
             initialRadius = _initialRadii.GetValueOrDefault(modifier.Name),
             gravityStrength = modifier is FalloutNifParticleGravity ? (float?)_gravityStrengths[modifier.Name] : null,
-            remainder = _remainders.GetValueOrDefault(modifier.Name)
         }).ToArray(),
         // Packed fields preserve float32 values, including signed zero; the
         // render trace stores these exact bytes alongside the MultiMesh buffer.
@@ -191,6 +190,7 @@ internal sealed partial class RuntimeNifParticleSystem : Node3D
             throw new NotSupportedException($"Particle data {_data.Block.Index} has unsupported runtime fields.");
         _modifiers = source.Modifiers.Select(index => file.ReadObject(index) as FalloutNifParticleModifier ??
             throw new InvalidDataException("Particle modifier reference is not a modifier.")).OrderBy(value => value.Order).ToArray();
+        (_emitterModifiers, _updateModifiers) = FalloutNifParticleUpdate.Schedule(_modifiers);
         Mark("source-and-modifier-read");
         _parentVelocity = _modifiers.OfType<FalloutNifParticleParentVelocity>().SingleOrDefault();
         if (_parentVelocity?.Damping < 0) throw new InvalidDataException("Parent velocity damping is negative.");
@@ -249,7 +249,6 @@ internal sealed partial class RuntimeNifParticleSystem : Node3D
                     RequireNode(gravity.Object);
                     if (gravity.ForceType > 1 || gravity.Decay < 0 || gravity.Turbulence < 0 || gravity.TurbulenceScale < 0)
                         throw new NotSupportedException("Particle gravity has an invalid force, decay or turbulence declaration.");
-                    if (gravity.Turbulence > 0) _turbulence ??= CreateParticleTurbulence();
                     break;
                 case FalloutNifParticleDrag drag:
                     RequireNode(drag.Object);
@@ -286,7 +285,6 @@ internal sealed partial class RuntimeNifParticleSystem : Node3D
         if (emitter.Radius < 0 || emitter.RadiusVariation < 0 || emitter.Life <= 0 || emitter.LifeVariation < 0 ||
             emitter.SpeedVariation < 0 || emitter.DeclinationVariation < 0 || emitter.PlanarVariation < 0)
             throw new InvalidDataException("Particle emitter has an invalid range.");
-        _rates.Add(emitter.Name, 0); _remainders.Add(emitter.Name, 0);
         _lifespans.Add(emitter.Name, emitter.Life);
         _initialRadii.Add(emitter.Name, emitter.Radius);
     }
@@ -296,7 +294,10 @@ internal sealed partial class RuntimeNifParticleSystem : Node3D
         if (!_nodes.ContainsKey(index)) throw new InvalidDataException($"Particle transform {index} is not reachable.");
     }
 
-    internal RuntimeNifControllerChannel Bind(FalloutNifFile file, FalloutNifControllerLink link)
+    // `sequence` identifies the owning controller sequence and its clock range;
+    // a direct controller binds its own time controller's range.
+    internal RuntimeNifControllerChannel Bind(FalloutNifFile file, FalloutNifControllerLink link,
+        (object Key, double Start, double Stop, bool Loops)? sequence = null)
     {
         RequireConfigured();
         if (link.ControllerType == "NiPSysGravityStrengthCtlr")
@@ -354,19 +355,29 @@ internal sealed partial class RuntimeNifParticleSystem : Node3D
             });
         }
         if (!_active.ContainsKey(link.Variable1)) throw new InvalidDataException("Particle controller targets a missing modifier.");
-        if (link.ControllerType == "NiPSysEmitterCtlr" && link.Variable2 == "BirthRate" && _rates.ContainsKey(link.Variable1))
+        // The emitter controller only records its time here; the system update
+        // emits from it before any modifier runs.
+        if (link.ControllerType == "NiPSysEmitterCtlr" && link.Variable2 == "BirthRate" && _lifespans.ContainsKey(link.Variable1))
         {
             var sampler = new FalloutNifFloatAnimation(file, link.Interpolator);
-            return new(time =>
+            var (clock, curves) = EmitterCurves(file, link, sequence);
+            curves.Rate = time =>
             {
-                RequireConfigured();
                 var rate = sampler.Sample(time);
-                if (!float.IsFinite(rate)) throw new InvalidDataException("Particle emitter birth rate is not finite.");
-                _rates[link.Variable1] = Math.Max(0, rate);
-            });
+                return float.IsFinite(rate) ? Math.Max(0, rate) : throw new InvalidDataException("Particle emitter birth rate is not finite.");
+            };
+            curves.RateBegin = sampler.FirstKeyTime; curves.RateKeyed = sampler.Keyed;
+            return new(time => { RequireConfigured(); clock.Apply(curves, time); });
         }
-        if (link.ControllerType == "NiPSysEmitterCtlr" && link.Variable2 == "EmitterActive" && _rates.ContainsKey(link.Variable1) ||
-            link.ControllerType == "NiPSysModifierActiveCtlr" && link.Variable2.Length == 0)
+        if (link.ControllerType == "NiPSysEmitterCtlr" && link.Variable2 == "EmitterActive" && _lifespans.ContainsKey(link.Variable1))
+        {
+            var sampler = new FalloutNifBoolAnimation(file, link.Interpolator);
+            var (clock, curves) = EmitterCurves(file, link, sequence);
+            if (sampler.ConstantValue is { } constant) { curves.Active = _ => constant; curves.ActiveKeys = null; }
+            else { curves.Active = sampler.Sample; curves.ActiveKeys = sampler.BoundaryTimes.Order().ToArray(); }
+            return new(time => { RequireConfigured(); clock.Apply(curves, time); });
+        }
+        if (link.ControllerType == "NiPSysModifierActiveCtlr" && link.Variable2.Length == 0)
         {
             var sampler = new FalloutNifBoolAnimation(file, link.Interpolator);
             return new(time =>
@@ -376,6 +387,24 @@ internal sealed partial class RuntimeNifParticleSystem : Node3D
             }, sampler.BoundaryTimes);
         }
         throw new NotSupportedException($"Particle channel {link.Variable1}/{link.Variable2} is unsupported.");
+    }
+
+    // One clock per emitter; one set of curves per emitter and sequence, so
+    // every sequence keeps its own birth-rate and activity interpolators.
+    private (FalloutNifParticleEmitterClock, FalloutNifParticleEmitterCurves) EmitterCurves(FalloutNifFile file,
+        FalloutNifControllerLink link, (object Key, double Start, double Stop, bool Loops)? sequence)
+    {
+        if (!_emitters.TryGetValue(link.Variable1, out var clock)) _emitters.Add(link.Variable1, clock = new());
+        if (sequence is null)
+        {
+            var controller = file.ReadObject(link.Controller) as FalloutNifParticleController ??
+                throw new InvalidDataException("Particle emitter channel has no source controller.");
+            sequence = (link.Controller, controller.Time.StartTime, controller.Time.StopTime, ((controller.Time.Flags >> 1) & 3) == 0);
+        }
+        var (key, start, stop, loops) = sequence.Value;
+        if (!_emitterCurves.TryGetValue((link.Variable1, key), out var curves))
+            _emitterCurves.Add((link.Variable1, key), curves = new() { LoopStart = start, LoopStop = stop, Loops = loops });
+        return (clock, curves);
     }
 
     public override void _Ready()
@@ -402,16 +431,10 @@ internal sealed partial class RuntimeNifParticleSystem : Node3D
         _advancing = true;
         try
         {
-            double remaining = delta;
-            while (remaining > 0)
-            {
-                var step = (float)Math.Min(remaining, 1f / 60f);
-                var next = remaining - step;
-                if (step <= 0 || next >= remaining)
-                    throw new InvalidDataException("Particle lifetime cannot represent advancing time.");
-                _stepOrdinal = checked(_stepOrdinal + 1);
-                Step(step); remaining = Math.Max(0, next); SimulatedSeconds += step;
-            }
+            // One variable step per update; each particle then advances by
+            // the time since its own last integration.
+            _stepOrdinal = checked(_stepOrdinal + 1);
+            Step(delta);
             SimulatedSeconds = end;
         }
         finally { _advancing = false; }
@@ -424,119 +447,73 @@ internal sealed partial class RuntimeNifParticleSystem : Node3D
         // simulation steps or reuse one while callbacks own that possibility.
         _stepTransforms.Clear();
         for (var i = 0; i < ActiveCount; i++) _particles[i].MotionSeconds = delta;
-        foreach (var modifier in _modifiers)
+        EmitFromControllers();
+        foreach (var modifier in _updateModifiers)
         {
             if (!_active[modifier.Name]) continue;
-            if (modifier is FalloutNifParticleVolumeEmitter or FalloutNifParticleMeshEmitter)
+            switch (modifier)
             {
-                if (!EmissionEnabled) continue;
-                EmitScheduled(modifier, delta);
-            }
-            else if (modifier is FalloutNifParticleAgeDeath age) AgeAndRetire(age, delta);
-            else if (modifier is FalloutNifParticleColliderManager manager) Collide(manager);
-            else if (modifier is FalloutNifParticleGravity gravity)
-            {
-                var transform = TransformOf(gravity.Object);
-                var axis = Convert(gravity.Axis);
-                if (!gravity.WorldAligned) axis = transform.Basis * axis;
-                var axisDirection = gravity.ForceType == 1 ? default : axis.Normalized();
-                var strength = _gravityStrengths[gravity.Name];
-                if (gravity.ForceType != 1 && gravity.Decay == 0 && gravity.Turbulence == 0)
-                {
-                    // The source transform and force stay fixed for this
-                    // modifier pass. Preserve the original operation order
-                    // while sharing the identical acceleration across particles.
-                    var acceleration = axisDirection * strength;
-                    var change = acceleration * (_units * delta);
-                    for (var i = 0; i < ActiveCount; i++) _particles[i].Velocity += change;
-                    continue;
-                }
-                for (var i = 0; i < ActiveCount; i++)
-                {
-                    var offset = gravity.ForceType == 1 || gravity.Decay != 0
-                        ? transform.Origin - _particles[i].Position : default;
-                    var direction = gravity.ForceType == 1 ? offset.Normalized() : axisDirection;
-                    var decay = gravity.Decay == 0 ? 1 : MathF.Exp(-gravity.Decay * offset.Length() / _units);
-                    var acceleration = direction * strength;
-                    if (gravity.Turbulence > 0)
+                case FalloutNifParticleAgeDeath age: AgeAndRetire(age); break;
+                case FalloutNifParticleColliderManager manager: Collide(manager); break;
+                case FalloutNifParticleGravity gravity: ApplyGravity(gravity); break;
+                case FalloutNifParticleWind wind: ApplyWind(wind); break;
+                case FalloutNifParticleBomb bomb: ApplyBomb(bomb); break;
+                case FalloutNifParticleDrag drag: ApplyDrag(drag); break;
+                case FalloutNifParticleRotation:
+                    for (var i = 0; i < ActiveCount; i++) _particles[i].Angle += _particles[i].Spin * _particles[i].MotionSeconds;
+                    break;
+                case { Block.TypeName: "NiPSysPositionModifier" }:
+                    for (var i = 0; i < ActiveCount; i++)
                     {
-                        var position = _particles[i].Position / _units;
-                        var time = (float)SimulatedSeconds;
-                        var noise = new Vector3(_turbulence!.GetNoise3D(position.X + time, position.Y, position.Z),
-                            _turbulence.GetNoise3D(position.Y + time, position.Z + 137, position.X),
-                            _turbulence.GetNoise3D(position.Z + time, position.X + 271, position.Y));
-                        acceleration += noise * (strength * gravity.Turbulence * gravity.TurbulenceScale);
+                        _particles[i].Position += _particles[i].Velocity * _particles[i].MotionSeconds;
+                        _particles[i].MotionSeconds = 0;
                     }
-                    _particles[i].Velocity += acceleration * (decay * _units * delta);
-                }
-            }
-            else if (modifier is FalloutNifParticleWind wind)
-            {
-                var velocity = OpenNV.Runtime.World.Cells.RuntimeNativeWind.SampleFor(this) * (wind.Strength * _units);
-                if (!_source.WorldSpace) velocity = _parentInverse.Basis * velocity;
-                for (var i = 0; i < ActiveCount; i++) _particles[i].Velocity += velocity * delta;
-            }
-            else if (modifier is FalloutNifParticleBomb bomb)
-            {
-                var transform = TransformOf(bomb.Object);
-                var axis = (transform.Basis * Convert(bomb.Axis)).Normalized();
-                for (var i = 0; i < ActiveCount; i++)
-                {
-                    var offset = _particles[i].Position - transform.Origin;
-                    var direction = bomb.Symmetry switch
-                    {
-                        1 => offset - axis * offset.Dot(axis),
-                        2 => axis * offset.Dot(axis),
-                        _ => offset,
-                    };
-                    var distance = direction.Length() / _units;
-                    var decay = bomb.DecayType switch
-                    {
-                        1 => bomb.Decay == 0 ? 0 : Math.Max(0, 1 - distance / bomb.Decay),
-                        2 => bomb.Decay == 0 ? 0 : MathF.Exp(-distance / bomb.Decay),
-                        _ => 1,
-                    };
-                    _particles[i].Velocity += direction.Normalized() * (bomb.DeltaVelocity * decay * _units * delta);
-                }
-            }
-            else if (modifier is FalloutNifParticleDrag drag)
-            {
-                var transform = TransformOf(drag.Object);
-                var axis = (transform.Basis * Convert(drag.Axis)).Normalized();
-                for (var i = 0; i < ActiveCount; i++)
-                {
-                    var distance = _particles[i].Position.DistanceTo(transform.Origin) / _units;
-                    var weight = distance <= drag.Range ? 1 : drag.Falloff == 0 ? 0 : Math.Clamp(1 - (distance - drag.Range) / drag.Falloff, 0, 1);
-                    var reduction = Math.Clamp(drag.Percentage * weight * delta, 0, 1);
-                    _particles[i].Velocity -= axis * (_particles[i].Velocity.Dot(axis) * reduction);
-                }
-            }
-            else if (modifier.Block.TypeName == "NiPSysPositionModifier")
-            {
-                for (var i = 0; i < ActiveCount; i++)
-                {
-                    _particles[i].Position += _particles[i].Velocity * _particles[i].MotionSeconds;
-                    _particles[i].MotionSeconds = 0;
-                    _particles[i].Angle += _particles[i].Spin * delta;
-                }
+                    break;
             }
         }
     }
 
-    private void Emit(FalloutNifParticleModifier modifier)
+    // Emission belongs to the emitter controllers and precedes every modifier.
+    // Each age is the time since that particle's exact birth.
+    private void EmitFromControllers()
     {
-        FalloutNifParticleEmitter emitter;
+        foreach (var modifier in _emitterModifiers)
+        {
+            if (!_emitters.TryGetValue(modifier.Name, out var clock)) continue;
+            var count = clock.Advance(_lifespans[modifier.Name], _emissionAges);
+            if (!EmissionEnabled || !_active[modifier.Name]) continue;
+            for (var index = 0; index < count; index++)
+                if (!Emit(modifier, _emissionAges[index])) break;
+        }
+    }
+
+    // One birth of the given age; false when capacity stops this emission call.
+    private bool Emit(FalloutNifParticleModifier modifier, float age)
+    {
+        var emitter = modifier switch
+        {
+            FalloutNifParticleVolumeEmitter source => source.Emitter,
+            FalloutNifParticleMeshEmitter source => source.Emitter,
+            _ => throw new InvalidOperationException("Particle source is not an emitter."),
+        };
+        // Life and speed vary by half their range each way; angles and radius by the full range.
+        var life = Vary(_lifespans[emitter.Name], emitter.LifeVariation);
+        if (age > life) return true;
+        if (ActiveCount >= _particles.Length) { EmitterCapacityRefusals = checked(EmitterCapacityRefusals + 1); return false; }
+        var speed = Vary(_speeds[modifier.Name], emitter.SpeedVariation) * _units;
+        var direction = Convert(FalloutNifParticleEmission.Direction(emitter.Declination + emitter.DeclinationVariation * Signed(),
+            emitter.PlanarAngle + emitter.PlanarVariation * Signed()));
         Transform3D transform;
-        Vector3 point, direction;
+        Vector3 point, velocity;
         if (modifier is FalloutNifParticleVolumeEmitter volume)
         {
-            emitter = volume.Emitter; transform = TransformOf(volume.Object);
+            transform = TransformOf(volume.Object);
             point = VolumePoint(volume) * _units;
-            direction = Convert(Direction(emitter));
+            velocity = (transform.Basis * direction).Normalized() * speed;
         }
-        else if (modifier is FalloutNifParticleMeshEmitter mesh)
+        else
         {
-            emitter = mesh.Emitter;
+            var mesh = (FalloutNifParticleMeshEmitter)modifier;
             var index = mesh.Meshes[_random.Next(mesh.Meshes.Length)];
             if (_particleMeshSources.TryGetValue(index, out var particleSource))
             {
@@ -548,62 +525,73 @@ internal sealed partial class RuntimeNifParticleSystem : Node3D
             }
             transform = TransformOf(index);
             var geometry = _meshes[index];
-            var vertex = _random.Next(geometry.Vertices.Length);
-            point = Convert(geometry.Vertices[vertex]);
-            direction = mesh.VelocityType == 0 ? Convert(geometry.Normals[vertex]) :
-                mesh.VelocityType == 2 ? Convert(mesh.Axis) : RandomDirection();
+            Vector3 normal;
             if (mesh.EmissionType == 3)
             {
+                // Face surface: s = sqrt(u1) towards a point on the opposite edge.
                 var triangle = geometry.Triangles[_random.Next(geometry.Triangles.Length)];
-                var a = (float)_random.NextDouble(); var b = (float)_random.NextDouble();
-                if (a + b > 1) { a = 1 - a; b = 1 - b; }
-                point = Convert(geometry.Vertices[triangle.A]) * a + Convert(geometry.Vertices[triangle.B]) * b +
-                    Convert(geometry.Vertices[triangle.C]) * (1 - a - b);
-                if (mesh.VelocityType == 0)
-                    direction = Convert(geometry.Normals[triangle.A]) * a + Convert(geometry.Normals[triangle.B]) * b +
-                        Convert(geometry.Normals[triangle.C]) * (1 - a - b);
+                Vector3 v0 = Convert(geometry.Vertices[triangle.A]), v1 = Convert(geometry.Vertices[triangle.B]), v2 = Convert(geometry.Vertices[triangle.C]);
+                var reach = MathF.Sqrt(_random.NextSingle());
+                point = v1 + (v0 + (v2 - v0) * _random.NextSingle() - v1) * reach;
+                normal = mesh.VelocityType == 0 ? (Convert(geometry.Normals[triangle.A]) + Convert(geometry.Normals[triangle.B]) +
+                    Convert(geometry.Normals[triangle.C])).Normalized() : default;
+            }
+            else
+            {
+                var vertex = _random.Next(geometry.Vertices.Length);
+                point = Convert(geometry.Vertices[vertex]);
+                normal = mesh.VelocityType == 0 ? Convert(geometry.Normals[vertex]) : default;
             }
             point *= _units;
+            velocity = mesh.VelocityType switch
+            {
+                0 => (transform.Basis * normal).Normalized() * MathF.Abs(speed),
+                // A random direction is not turned by the mesh transform.
+                1 => new Vector3(Signed(), Signed(), Signed()).Normalized() * speed,
+                _ => (transform.Basis * Convert(mesh.Axis)).Normalized() * speed,
+            };
         }
-        else throw new InvalidOperationException("Particle source is not an emitter.");
         var particle = new Particle
         {
             Position = transform * point,
-            Velocity = (transform.Basis * direction).Normalized() * (Vary(_speeds[modifier.Name], emitter.SpeedVariation) * _units),
-            Life = Math.Max(float.Epsilon, Vary(_lifespans[emitter.Name], emitter.LifeVariation)),
-            Radius = Math.Max(0, Vary(_initialRadii[emitter.Name], emitter.RadiusVariation)) * _units * transform.Basis.Scale.Abs().X,
+            Velocity = velocity,
+            // Age/death adds the birth age through MotionSeconds, so it is counted once.
+            MotionSeconds = age,
+            Life = Math.Max(float.Epsilon, life),
+            Radius = Math.Max(0, _initialRadii[emitter.Name] + emitter.RadiusVariation * Signed()) * _units * transform.Basis.Scale.Abs().X,
             InitialColor = ToColor(emitter.Color),
             SourceBirth = emitter.Block.Index,
             Texture = _data.Subtextures.Length == 0 ? 0 : _random.Next(_data.Subtextures.Length),
         };
         if (_source.WorldSpace && _parentSeconds > 0 && _parentVelocity is { } inherit && _active[inherit.Name])
             particle.Velocity += (particle.Position - _previousParent * (_parentInverse * particle.Position)) * (inherit.Damping / _parentSeconds);
-        foreach (var rotation in _modifiers.OfType<FalloutNifParticleRotation>().Where(value => _active[value.Name]))
+        foreach (var update in _updateModifiers)
         {
-            particle.Angle = rotation.Angle + rotation.AngleVariation * Centered() * 2;
-            particle.Spin = rotation.Speed + rotation.SpeedVariation * Centered() * 2;
+            if (update is not FalloutNifParticleRotation rotation || !_active[rotation.Name]) continue;
+            particle.Angle = rotation.Angle + rotation.AngleVariation * Signed();
+            particle.Spin = rotation.Speed + rotation.SpeedVariation * Signed();
             if (rotation.RandomSign && _random.Next(2) == 0) particle.Spin = -particle.Spin;
         }
         AppendParticle(particle, false, modifier.Block.Index, "emitter");
+        return true;
     }
 
-    private FalloutNifVector3 Direction(FalloutNifParticleEmitter emitter)
-    {
-        var declination = Vary(emitter.Declination, emitter.DeclinationVariation);
-        var angle = Vary(emitter.PlanarAngle, emitter.PlanarVariation);
-        return new(MathF.Sin(declination) * MathF.Cos(angle), MathF.Sin(declination) * MathF.Sin(angle), MathF.Cos(declination));
-    }
-
+    // Sphere and cylinder radii are linear in u, so births favour the centre;
+    // the sphere's two angles both span a full turn.
     private Vector3 VolumePoint(FalloutNifParticleVolumeEmitter volume)
     {
         if (volume is FalloutNifParticleBoxEmitter box)
-            return Convert(new(box.Dimensions.X * Centered(), box.Dimensions.Y * Centered(), box.Dimensions.Z * Centered()));
+            return Convert(new FalloutNifVector3(box.Dimensions.X * Centered(), box.Dimensions.Y * Centered(), box.Dimensions.Z * Centered()));
         if (volume is FalloutNifParticleSphereEmitter sphere)
-            return RandomDirection() * (MathF.Cbrt(_random.NextSingle()) * sphere.SphereRadius);
+        {
+            var radius = sphere.SphereRadius * _random.NextSingle();
+            var azimuth = _random.NextSingle() * MathF.Tau; var polar = _random.NextSingle() * MathF.Tau;
+            return Convert(new FalloutNifVector3(radius * MathF.Sin(polar) * MathF.Cos(azimuth), radius * MathF.Sin(polar) * MathF.Sin(azimuth), radius * MathF.Cos(polar)));
+        }
         if (volume is FalloutNifParticleCylinderEmitter cylinder)
         {
-            var angle = _random.NextSingle() * MathF.Tau; var radius = MathF.Sqrt(_random.NextSingle()) * cylinder.CylinderRadius;
-            return Convert(new(radius * MathF.Cos(angle), radius * MathF.Sin(angle), Centered() * cylinder.Height));
+            var angle = _random.NextSingle() * MathF.Tau; var radius = _random.NextSingle() * cylinder.CylinderRadius;
+            return Convert(new FalloutNifVector3(radius * MathF.Cos(angle), radius * MathF.Sin(angle), Centered() * cylinder.Height));
         }
         throw new NotSupportedException("Particle volume has no source sampler.");
     }
@@ -620,12 +608,7 @@ internal sealed partial class RuntimeNifParticleSystem : Node3D
     }
     private float Centered() => (float)_random.NextDouble() - .5f;
     private float Vary(float value, float variation) => value + variation * Centered();
-    private Vector3 RandomDirection()
-    {
-        var z = Centered() * 2; var angle = (float)_random.NextDouble() * MathF.Tau;
-        var radius = MathF.Sqrt(1 - z * z);
-        return new(radius * MathF.Cos(angle), z, radius * MathF.Sin(angle));
-    }
+    private float Signed() => _random.NextSingle() * 2 - 1;
 
     internal void Publish()
     {
@@ -727,5 +710,6 @@ internal sealed partial class RuntimeNifParticleSystem : Node3D
     }
 
     private static Vector3 Convert(FalloutNifVector3 value) => GamebryoCoordinate.ConvertVector(new Vector3(value.X, value.Y, value.Z));
+    private static Vector3 Convert(System.Numerics.Vector3 value) => GamebryoCoordinate.ConvertVector(new Vector3(value.X, value.Y, value.Z));
     private static Color ToColor(FalloutNifVector4 value) => new(value.X, value.Y, value.Z, value.W);
 }

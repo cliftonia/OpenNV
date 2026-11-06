@@ -16,9 +16,8 @@ internal sealed record FalloutEatPackage(FalloutFormKey Form, uint Flags, Fallou
         var data = FalloutPackageData.Read(record);
         var supported = 0x2000u | FalloutScriptPackage.HeadTrackingOffFlag | FalloutScriptPackage.WeaponsUnequippedFlag |
             (creature ? 6u | FalloutScriptPackage.AllowFallsFlag : 0u);
-        if ((data.Flags & ~supported) != 0 || data.BehaviorFlags != 0 ||
-            (creature ? data.SpecificFlags is not (null or 0 or 0x200) : data.SpecificFlags is not (null or 0)))
-            throw new NotSupportedException("Eat has unowned package behavior or specific flags.");
+        FalloutPackageFlags.Admit(record, data, supported);
+        FalloutPackageFlags.AdmitSpecific(record, data, creature ? (ushort)0x200 : (ushort)0);
         if (declaration.Procedure != 3 || declaration.LocationDeclaration is not { Type: 0 or 1 or 2 or 3 } location)
             throw new NotSupportedException("Eat requires its standard source location.");
         var fields = record.ReadSubrecords().ToArray();

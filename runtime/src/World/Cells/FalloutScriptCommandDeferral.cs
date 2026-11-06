@@ -21,6 +21,10 @@ internal static class FalloutScriptCommandDeferral
     // A combat rule reached in play whose consumer owner is absent.
     internal static void WarnCombat(string rule, string reason) => Report("COMBAT", rule, reason);
 
+    // An accepted AI package input whose engine behaviour has no owner; the
+    // actor's AI keeps running.
+    internal static void WarnPackage(string key, string reason) => Report("PACKAGE", key, reason);
+
     private static void Report(string channel, string name, string reason)
     {
         lock (Gate)

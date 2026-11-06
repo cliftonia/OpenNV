@@ -138,8 +138,7 @@ internal sealed partial class FalloutReferenceScripts
                 return true;
             // Remaining names have no OpenNV consumer for their engine effect:
             // item barter value overrides, unowned overrides, door path cost, navmesh travel exclusion,
-            // and 3D/animation reset. ("do", DamageObject's short name, is owned
-            // by FalloutScriptActorCommands with DamageObject.)
+            // and 3D/animation reset. DamageObject is owned by FalloutScriptActorCommands.
             // Outside an inventory item's script, SetItemValue edits the base
             // record's value for every instance; no base-value owner exists.
             case "setitemvalue":
@@ -169,7 +168,7 @@ internal sealed partial class FalloutReferenceScripts
                 _ = world.Get(context.Target);
                 FalloutScriptCommandDeferral.Warn(operation, "reset-sequence-and-cached-animation-state-have-no-owner");
                 return true;
-            case "setcellpublicflag" or "setpublic" when context.PathLength == 1:
+            case "setcellpublicflag" when context.PathLength == 1:
                 RequireArguments(context, 2, 2);
                 world.SetCellPublic(FormArgument(context, arguments[0]), Flag(context.Number(arguments[1]), context.Command));
                 return true;

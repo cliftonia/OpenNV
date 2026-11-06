@@ -145,9 +145,8 @@ internal sealed partial class FalloutGameModeProgram
 
     internal IEnumerable<string> CommandNames => _lines
         .Where(tokens => !IsExpressionStatement(tokens))
-        .Select(tokens => tokens[0].ToLowerInvariant())
-        .Where(command => command is not ("if" or "elseif" or "else" or "endif" or "while" or "loop" or "break" or "continue" or "set" or "let" or "eval" or "return"))
-        .Select(command => command[(command.LastIndexOf('.') + 1)..]);
+        .Where(tokens => tokens[0].ToLowerInvariant() is not ("if" or "elseif" or "else" or "endif" or "while" or "loop" or "break" or "continue" or "set" or "let" or "eval" or "return"))
+        .Select(tokens => Definitions.FalloutScriptCommandNames.Operation(tokens[0]));
 
     internal static FalloutGameModeProgram Read(ReadOnlySpan<byte> source, string blockName = "GameMode", uint? argument = null) =>
         Read(AsciiSource(source), blockName, argument);
@@ -393,7 +392,7 @@ internal sealed partial class FalloutGameModeProgram
                     if (IsExpressionStatement(tokens) || values.Arrays?.Function(tokens[0]) is not null)
                         _ = typed ? Expression(tokens) :
                             FalloutNvseNumericExpression.Evaluate(tokens, variable, assign, function, userFunction);
-                    else call(tokens[0], tokens[1..]);
+                    else call(Definitions.FalloutScriptCommandNames.Canonical(tokens[0]), tokens[1..]);
                     break;
             }
             yield return true;
@@ -424,7 +423,7 @@ internal sealed partial class FalloutGameModeProgram
             }
             else if (!double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out left))
             {
-                if (function?.Invoke(token) is { } command)
+                if (function?.Invoke(Definitions.FalloutScriptCommandNames.Canonical(token)) is { } command)
                 {
                     var arguments = new List<FalloutScriptArgument>();
                     foreach (var kind in command.Arguments)
@@ -486,21 +485,27 @@ internal sealed partial class FalloutGameModeProgram
         }
         if (!Separators(line.AsSpan(at))) throw new NotSupportedException("Script contains an unbound token.");
         var tokens = new List<string>();
-        foreach (Match match in matches)
+        for (var index = 0; index < matches.Count; ++index)
         {
+            var value = matches[index].Value;
+            // The source compiler reads `Ref. Command` as `Ref.Command`: a
+            // receiver's trailing dot binds the next name across whitespace.
+            if (index + 1 < matches.Count && value.EndsWith('.') && Regex.IsMatch(value, @"^[A-Za-z_][A-Za-z0-9_]*\.$",
+                RegexOptions.CultureInvariant) && Regex.IsMatch(matches[index + 1].Value, "^[A-Za-z_]", RegexOptions.CultureInvariant))
+                value += matches[++index].Value;
             // Preserve compiled qualified names such as Quest.local and
             // PlayerRef.GetAV. Only a separate postfix dot starts a method
             // chain on an expression result.
-            if (tokens.LastOrDefault() == "." && Regex.IsMatch(match.Value,
+            if (tokens.LastOrDefault() == "." && Regex.IsMatch(value,
                 @"^[A-Za-z_][A-Za-z0-9_.]*$", RegexOptions.CultureInvariant))
             {
-                foreach (var part in match.Value.Split('.'))
+                foreach (var part in value.Split('.'))
                 {
                     if (tokens[^1] != ".") tokens.Add(".");
                     tokens.Add(part);
                 }
             }
-            else tokens.Add(match.Value);
+            else tokens.Add(value);
         }
         return tokens.ToArray();
 

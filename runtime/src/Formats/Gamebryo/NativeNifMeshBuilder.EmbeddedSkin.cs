@@ -52,6 +52,7 @@ internal static partial class RuntimeNativeNifMeshBuilder
                         Visible = FalloutNifHardwareSkin.VisibleOnIntactBody(partition.BodyPart)
                     };
                     rendered.SetMeta("opennv_nif_geometry_block", geometry.Block.Index);
+                    PreserveMaterialName(rendered, geometry);
                     rendered.SetMeta("opennv_nif_skin_instance", instance.Block.Index);
                     rendered.SetMeta("opennv_nif_skin_partition", partition.PartitionIndex);
                     rendered.SetMeta("opennv_nif_skin_vertex_map", partition.VertexMap.Select(value => (int)value).ToArray());

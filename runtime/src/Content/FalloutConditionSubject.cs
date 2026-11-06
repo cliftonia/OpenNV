@@ -3,9 +3,10 @@ using System.Buffers.Binary;
 namespace OpenNV.Runtime.Content;
 
 // Caller, target and linked reference are invocation state, never identities
-// borrowed from whichever consumer happens to evaluate the declaration.
+// borrowed from whichever consumer happens to evaluate the declaration. A
+// script query resolves its caller only when the function reads a subject.
 internal readonly record struct FalloutConditionScope(FalloutFormKey? Caller = null, FalloutFormKey? Target = null,
-    Func<FalloutFormKey, FalloutFormKey?>? LinkedReference = null)
+    Func<FalloutFormKey, FalloutFormKey?>? LinkedReference = null, Func<FalloutFormKey>? ScriptCaller = null)
 {
     internal FalloutFormKey Resolve(FalloutCondition condition) => Subject(condition, null) ??
         throw new NotSupportedException($"Condition run-on {condition.RunOn} resolved no subject.");
@@ -34,7 +35,7 @@ internal readonly record struct FalloutConditionScope(FalloutFormKey? Caller = n
         _ => null,
     };
 
-    private FalloutFormKey ActualCaller => Caller ??
+    private FalloutFormKey ActualCaller => Caller ?? ScriptCaller?.Invoke() ??
         throw new NotSupportedException("Condition has no calling-reference owner.");
 
     private static FalloutFormKey PackageTarget(FalloutCondition condition)
