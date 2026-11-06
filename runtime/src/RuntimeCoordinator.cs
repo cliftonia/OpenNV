@@ -1096,7 +1096,8 @@ public partial class RuntimeCoordinator : Node3D
         GD.Print($"OPENNV_QUALITY profile={_quality.Kind.ToString().ToLowerInvariant()} source={_quality.Source} " +
             $"processor=\"{OS.GetProcessorName()}\" renderScale={scale:0.00} scalingMode={viewport.Scaling3DMode} " +
             $"sunShadowSplits={profile.SunShadowSplits} sunShadowDistanceScale={profile.SunShadowDistanceScale:0.00} " +
-            $"directionalShadowAtlas={profile.DirectionalShadowAtlasPixels} grassStartFadeScale={profile.GrassStartFadeScale:0.00}");
+            $"directionalShadowAtlas={profile.DirectionalShadowAtlasPixels} grassStartFadeScale={profile.GrassStartFadeScale:0.00} " +
+            $"treeGeometryDistanceScale={profile.TreeGeometryDistanceScale:0.00}");
         if (_frameHitches is null && Diagnostics.RuntimeFrameHitches.FromEnvironment() is { } hitches) AddChild(_frameHitches = hitches);
         if (_options.ContainsKey("show-fps") && _frameRateOverlay is null) AddChild(_frameRateOverlay = new(scale));
     }

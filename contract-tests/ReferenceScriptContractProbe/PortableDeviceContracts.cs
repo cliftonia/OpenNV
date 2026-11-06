@@ -40,7 +40,7 @@ internal static class PortableDeviceContracts
         }
         finally { root.Delete(recursive: true); }
 
-        static RendererQualityProfile Profile(float scale) => new(scale, 2, 1, 4096, 1);
+        static RendererQualityProfile Profile(float scale) => new(scale, 2, 1, 4096, 1, 0);
         var profiles = new RendererQualityProfiles(Profile(1), Profile(.75f), Profile(.5f));
         RuntimePresentationQuality Resolve(params (string Key, string Value)[] options) =>
             RuntimePresentationQuality.Resolve(options.ToDictionary(option => option.Key, option => option.Value), profiles);

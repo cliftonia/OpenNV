@@ -121,12 +121,16 @@ internal static class FalloutScriptEffectCommands
                     throw new InvalidDataException("Rumble motor strengths and duration must be finite and non-negative.");
                 return rumble.Select(Literal).ToArray();
             // A reference, then personality and emotion as two free strings
-            // (up to 511 characters each). Nothing happens without loaded 3D.
+            // (up to 511 characters each). A reference without loaded 3D ignores
+            // the command; otherwise the pair is kept on the reference and its
+            // resident screen re-applies it.
             case "setsecuritronexpression" when global && arguments.Count == 3:
-                var face = resolve.Reference(arguments[0]);
-                _ = PlainString(arguments[1]); _ = PlainString(arguments[2]);
-                if (world.IsResident(face))
-                    FalloutScriptCommandDeferral.Warn("setsecuritronexpression", "securitron-face-presentation-unbound");
+                var securitron = resolve.Reference(arguments[0]);
+                if (records.GetEffective(securitron).Signature is not ("ACHR" or "ACRE"))
+                    throw new InvalidDataException("Securitron expression target is not a placed actor.");
+                var personality = SecuritronWord(arguments[1]);
+                var emotion = SecuritronWord(arguments[2]);
+                if (world.IsResident(securitron)) world.SetSecuritronFace(securitron, personality, emotion);
                 return null;
             default:
                 throw new InvalidDataException($"{operation} has an invalid target or argument count ({arguments.Count}).");
@@ -177,6 +181,9 @@ internal static class FalloutScriptEffectCommands
         var text = token.Length >= 2 && token[0] == '"' && token[^1] == '"' ? token[1..^1] : token;
         return text.Length is > 0 and <= 511 ? text : throw new InvalidDataException("Script string argument is empty or exceeds 511 characters.");
     }
+
+    // An empty word is valid here: it selects no face texture.
+    private static string SecuritronWord(string token) => FalloutSecuritronFace.Word(token == "\"\"" ? "" : PlainString(token));
 
     private static FalloutFormKey Require(FalloutPluginRecord record, string signature) => record.Signature == signature
         ? record.FormKey : throw new InvalidDataException($"Script effect argument is {record.Signature}, not {signature}.");

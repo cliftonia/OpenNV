@@ -73,7 +73,8 @@ internal sealed record FalloutNativeCampaignState(
     FalloutRuntimeReferencesSnapshot? RuntimeReferences = null, IReadOnlyList<FalloutDynamicMineSnapshot>? DynamicMines = null,
     FalloutDeliveredEffectsSnapshot? DeliveredEffects = null, FalloutCellOwnershipSnapshot? CellOwnership = null,
     FalloutCasinoWinningsSnapshot? CasinoWinnings = null, FalloutActorNamesSnapshot? ActorNames = null,
-    IReadOnlyList<FalloutCellImageSpaceChange>? CellImageSpaces = null);
+    IReadOnlyList<FalloutCellImageSpaceChange>? CellImageSpaces = null,
+    FalloutSecuritronFacesSnapshot? SecuritronFaces = null);
 internal sealed record FalloutNativeCampaignRestore(
     FalloutNativeCampaignState State,
     FalloutCampaignInventory Inventory,
@@ -81,7 +82,8 @@ internal sealed record FalloutNativeCampaignRestore(
 
 internal static class FalloutNativeCampaignSave
 {
-    internal const string ExpectedSchema = "opennv-native-fnv-campaign-save/v77";
+    internal const string ExpectedSchema = "opennv-native-fnv-campaign-save/v78";
+    internal const string BeforeSecuritronFacesSchema = "opennv-native-fnv-campaign-save/v77";
     internal const string BeforePackageStepsSchema = "opennv-native-fnv-campaign-save/v76";
     internal const string BeforeScriptCommandStateSchema = "opennv-native-fnv-campaign-save/v75";
     internal const string BeforeCriticalStageSchema = "opennv-native-fnv-campaign-save/v74";
@@ -453,6 +455,7 @@ internal static class FalloutNativeCampaignSave
             references.PlayerNotes.Restore(state.PlayerNotes);
             references.PlayerCaravanCards.Restore(state.PlayerCaravanCards);
             references.CasinoWinnings.Restore(state.CasinoWinnings);
+            references.RestoreSecuritronFaces(state.SecuritronFaces);
             references.RestoreDroppedItems(state.DroppedItems);
         }
         validatedValues?.Arrays.ValidateRestoredRoots();
@@ -656,6 +659,11 @@ internal static class FalloutNativeCampaignSave
 
     internal static FalloutNativeCampaignState AdmitPreviousOwnerSchema(FalloutNativeCampaignState state)
     {
+        if (state.Schema != ExpectedSchema && state.SecuritronFaces is not null)
+            throw new InvalidDataException("Earlier campaign schemas cannot own Securitron faces.");
+        if (state.SecuritronFaces is not null && state.References is null)
+            throw new InvalidDataException("Saved Securitron faces have no reference world.");
+        if (state.Schema == BeforeSecuritronFacesSchema) state = state with { Schema = ExpectedSchema };
         if (state.Schema != ExpectedSchema && state.References?.Any(reference => reference.PackageMotion?.Steps is not null ||
             reference.LockState?.PackageActor is not null) == true)
             throw new InvalidDataException("Earlier campaign schemas cannot own package step progress.");

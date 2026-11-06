@@ -1,30 +1,41 @@
 using System.Buffers.Binary;
-using System.Text;
 
 namespace OpenNV.Runtime.Content;
 
-// TREE records name a SpeedTreeCAD 4 procedural .spt (generation parameters,
-// not geometry). The geometry generator is proprietary; the presentation draws
-// the record's authored billboard, which retail itself uses beyond tree LOD.
-// CNAM: leaf curvature, min/max leaf angle, branch/leaf dimming, shadow radius,
-// rock speed, rustle speed. BNAM: billboard width and height in game units.
+// TREE records name a SpeedTree 4 procedural .spt (generation parameters, not
+// geometry). CNAM: leaf curvature, min/max leaf angle, branch/leaf dimming,
+// shadow radius (int32; negative means 128), rock speed, rustle speed. BNAM:
+// billboard width and height in game units. SNAM lists the shape seeds that
+// placed references select by XSED index. ICON names the leaf composite atlas.
+// The billboard needs only MODL, BNAM and the wind/dimming fields; a record
+// that cannot feed generated geometry keeps its billboard and names the gap
+// in GeometryUnsupported.
 internal sealed record FalloutSpeedTree(
     FalloutFormKey Form,
     string Model,
     string Billboard,
+    string? LeafTexture,
+    IReadOnlyList<int> Seeds,
     float BillboardWidth,
     float BillboardHeight,
+    float LeafCurvature,
+    float MinLeafAngle,
+    float MaxLeafAngle,
+    float BranchDimming,
     float LeafDimming,
+    int ShadowRadius,
     float RockSpeed,
-    float RustleSpeed)
+    float RustleSpeed,
+    string? GeometryUnsupported)
 {
-    private static readonly byte[] SptMagic = "__IdvSpt_02_"u8.ToArray();
+    private const int DefaultShadowRadius = 128;
+    private const byte UnassignedSeedIndex = 255;
 
-    internal static FalloutSpeedTree Read(FalloutPluginRecord record, string billboardDirectory)
+    internal static FalloutSpeedTree Read(FalloutPluginRecord record, string billboardDirectory, string leafDirectory)
     {
         if (record.Signature != "TREE") throw new InvalidDataException("SpeedTree source requires TREE.");
-        if (string.IsNullOrWhiteSpace(billboardDirectory))
-            throw new ArgumentException("SpeedTree billboard directory must not be empty.", nameof(billboardDirectory));
+        if (string.IsNullOrWhiteSpace(billboardDirectory) || string.IsNullOrWhiteSpace(leafDirectory))
+            throw new ArgumentException("SpeedTree texture directories must not be empty.");
         var fields = record.ReadSubrecords().ToArray();
         var model = FalloutCellSceneReader.NormalizeModelPath(
             FalloutDialogueTopic.Text(Single(fields, "MODL").Span), "TREE");
@@ -37,35 +48,52 @@ internal sealed record FalloutSpeedTree(
         float At(ReadOnlySpan<byte> data, int index) => BinaryPrimitives.ReadSingleLittleEndian(data[(index * 4)..]);
         var width = At(dimensions, 0);
         var height = At(dimensions, 1);
-        var leafDimming = At(parameters, 4);
-        var rock = At(parameters, 6);
-        var rustle = At(parameters, 7);
+        float[] values = [At(parameters, 0), At(parameters, 1), At(parameters, 2), At(parameters, 3), At(parameters, 4), At(parameters, 6), At(parameters, 7)];
         if (!float.IsFinite(width) || !float.IsFinite(height) || width <= 0 || height <= 0)
             throw new InvalidDataException($"TREE {record.FormKey} billboard dimensions are not positive.");
-        if (!float.IsFinite(leafDimming) || !float.IsFinite(rock) || !float.IsFinite(rustle) || rock < 0 || rustle < 0)
+        if (!float.IsFinite(values[4]) || !float.IsFinite(values[5]) || !float.IsFinite(values[6]) || values[5] < 0 || values[6] < 0)
             throw new InvalidDataException($"TREE {record.FormKey} wind/dimming parameters are invalid.");
-        // The billboard shares the .spt base name, as the shipped
-        // textures\trees\billboards set does for every FNV tree.
-        var billboard = billboardDirectory.TrimEnd('\\', '/') + "\\" + Path.GetFileNameWithoutExtension(model.Replace('\\', '/')) + ".dds";
-        return new(record.FormKey, model, billboard.ToLowerInvariant(), width, height, Math.Clamp(leafDimming, 0, 1), rock, rustle);
+        string? unsupported = values[..4].All(float.IsFinite) ? null : "CNAM leaf curvature, leaf angles or branch dimming are not finite";
+        var shadowRadius = BinaryPrimitives.ReadInt32LittleEndian(parameters[20..]);
+        // Each four-byte SNAM entry is one seed; zero entries are dropped at load.
+        var seeds = new List<int>();
+        foreach (var field in fields.Where(field => field.Signature == "SNAM"))
+        {
+            if (field.Data.Length % 4 != 0) { unsupported ??= "SNAM is not a list of int32 seeds"; continue; }
+            for (var offset = 0; offset < field.Data.Length; offset += 4)
+                if (BinaryPrimitives.ReadInt32LittleEndian(field.Data.Span[offset..]) is var seed and not 0) seeds.Add(seed);
+        }
+        var iconFields = fields.Where(field => field.Signature == "ICON").ToArray();
+        var icon = iconFields.Length == 1 ? FalloutDialogueTopic.Text(iconFields[0].Data.Span).Replace('/', '\\').TrimStart('\\') : "";
+        if (icon.Length == 0 || icon.Contains("..", StringComparison.Ordinal) || Path.IsPathRooted(icon.Replace('\\', '/')))
+        {
+            unsupported ??= "ICON does not name one relative leaf texture";
+            icon = "";
+        }
+        var name = Path.GetFileNameWithoutExtension(model.Replace('\\', '/'));
+        return new(record.FormKey, model, Join(billboardDirectory, name + ".dds"), icon.Length == 0 ? null : Join(leafDirectory, icon), seeds,
+            width, height, values[0], values[1], values[2], float.IsFinite(values[3]) ? Math.Clamp(values[3], 0, 1) : 0, Math.Clamp(values[4], 0, 1),
+            shadowRadius < 0 ? DefaultShadowRadius : shadowRadius, values[5], values[6], unsupported);
     }
 
-    // Validates the procedural container header and returns its bark texture
-    // name (token 2000), the first authored resource in every shipped tree.
-    internal static string ReadBarkTexture(ReadOnlySpan<byte> spt)
+    // REFR XSED is one byte, or a legacy int32 truncated to its low byte. It
+    // indexes SNAM modulo the list length. An unassigned index (255) or an
+    // empty list falls back to the base form's own default: the SPT seed.
+    internal int ReferenceSeed(byte? index, int sourceSeed) =>
+        index is null or UnassignedSeedIndex || Seeds.Count == 0 ? sourceSeed : Seeds[index.Value % Seeds.Count];
+
+    internal static byte? ReadSeedIndex(FalloutPluginRecord reference)
     {
-        if (spt.Length < 24 || BinaryPrimitives.ReadInt32LittleEndian(spt) != 1000 ||
-            BinaryPrimitives.ReadInt32LittleEndian(spt[4..]) != SptMagic.Length || !spt.Slice(8, SptMagic.Length).SequenceEqual(SptMagic))
-            throw new InvalidDataException("SpeedTree source is not an __IdvSpt_02_ container.");
-        var offset = 8 + SptMagic.Length;
-        if (BinaryPrimitives.ReadInt32LittleEndian(spt[offset..]) != 1002 || BinaryPrimitives.ReadInt32LittleEndian(spt[(offset + 4)..]) != 2000)
-            throw new NotSupportedException("SpeedTree container does not open with its general/bark section.");
-        var length = BinaryPrimitives.ReadInt32LittleEndian(spt[(offset + 8)..]);
-        if (length < 0 || offset + 12 + length > spt.Length)
-            throw new InvalidDataException("SpeedTree bark texture name exceeds the container.");
-        var path = Encoding.Latin1.GetString(spt.Slice(offset + 12, length));
-        return path[(Math.Max(path.LastIndexOf('\\'), path.LastIndexOf('/')) + 1)..];
+        var fields = reference.ReadSubrecords().Where(field => field.Signature == "XSED").ToArray();
+        return fields switch
+        {
+            [] => null,
+            [{ Data.Length: 1 or 4 } field] => field.Data.Span[0],
+            _ => throw new InvalidDataException($"Reference {reference.FormKey} XSED is not a single one- or four-byte seed index."),
+        };
     }
+
+    private static string Join(string directory, string file) => (directory.TrimEnd('\\', '/') + "\\" + file).ToLowerInvariant();
 
     private static ReadOnlyMemory<byte> Single(FalloutPluginSubrecord[] fields, string signature) =>
         fields.Where(field => field.Signature == signature).Select(field => field.Data).SingleOrDefault() is { Length: > 0 } data
