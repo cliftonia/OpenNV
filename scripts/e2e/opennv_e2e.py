@@ -385,15 +385,18 @@ def test_rest() -> str:
         time.sleep(3)
         require("OPENNV_REST_MENU_OPEN" not in game.log_text(), "Wait opened while a player control was disabled")
         # Both of Doc Mitchell's beds are his; activating one must refuse sleep.
-        for bed in ("FalloutNV.esm:103e3a", "FalloutNV.esm:103e5b"):
+        # Doc's closing greeting holds modal input for a while, so retry.
+        refused = None
+        for bed in ("FalloutNV.esm:103e3a", "FalloutNV.esm:103e5b") * 3:
+            game.dismiss_popups(1)
+            game.settle(5)
             game.command({"op": "bot", "mode": "interact", "reference": bed, "distance": 2.0, "pauseAfter": False})
             try:
-                refused = game.wait_log("OPENNV_REST_REFUSED", 60)
+                refused = game.wait_log("OPENNV_REST_REFUSED", 45)
                 break
             except Failure:
                 continue
-        else:
-            raise Failure("no owned bed in Doc Mitchell's house could be activated")
+        require(refused is not None, "no owned bed in Doc Mitchell's house could be activated")
         require("reason=sNoSleepInOwnedBed" in refused, f"owned bed was not refused: {refused}")
         require(not game.fatal_errors(), f"fatal errors: {game.fatal_errors()[:3]}")
     require(SAVE.exists(), f"save to copy is missing: {SAVE}")
