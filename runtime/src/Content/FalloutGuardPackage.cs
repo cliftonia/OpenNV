@@ -19,9 +19,9 @@ internal sealed record FalloutGuardPackage(FalloutFormKey Form, uint Flags, int 
             throw new NotSupportedException("Guard requires its reference-marker or editor-location owner.");
         var fields = record.ReadSubrecords().ToArray();
         var data = FalloutPackageData.Read(record);
-        var flags = data.Flags;
         const uint supported = 0x1000 | 0x2000 | 0x800000 | 0x04000000 | 0x10000000;
-        if ((flags & ~supported) != 0 || data.BehaviorFlags != 0 || data.SpecificFlags is not (null or 0) || source.Idles.Count != 0 ||
+        var flags = FalloutPackageFlags.Admit(record, data, supported);
+        if (source.Idles.Count != 0 ||
             fields.Any(field => field.Signature is "PLD2" or "PTD2"))
             throw new NotSupportedException("Guard has additional unowned behavior or idle inputs.");
         var targets = fields.Where(field => field.Signature == "PTDT").ToArray();

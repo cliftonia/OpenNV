@@ -25,7 +25,9 @@ internal static partial class EscortContracts
             Require(escort.Distance == 320 && escort.Target == new FalloutFormKey("Patch.esp", 0x15) &&
                 escort.Destination == new FalloutFormKey("Patch.esp", 0x30), "Escort lost winning override or adjusted reference identities.");
             Require(FalloutEscortPackage.Read(Source(2)).Distance == 0, "Zero authored distance was replaced with an invented default.");
-            foreach (var id in new uint[] { 3, 4, 5, 6, 7, 8 }) Reject(() => FalloutEscortPackage.Read(Source(id)));
+            foreach (var id in new uint[] { 3, 4, 5, 6, 8 }) Reject(() => FalloutEscortPackage.Read(Source(id)));
+            // A package door flag is a shared lifecycle action, not an Escort refusal.
+            Require(FalloutEscortPackage.Read(Source(7)).Flags == 0x8, "Escort refused or dropped its package door flag.");
             var initial = new FalloutEscortProgress(false, false);
             var acquire = escort.Advance(initial, 400, 800, 900, false);
             Require(acquire.Action == FalloutEscortAction.ApproachTarget && !acquire.Progress.TargetAcquired, "Escort began leading before reaching its target.");

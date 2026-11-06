@@ -81,7 +81,8 @@ internal sealed record FalloutNativeCampaignRestore(
 
 internal static class FalloutNativeCampaignSave
 {
-    internal const string ExpectedSchema = "opennv-native-fnv-campaign-save/v76";
+    internal const string ExpectedSchema = "opennv-native-fnv-campaign-save/v77";
+    internal const string BeforePackageStepsSchema = "opennv-native-fnv-campaign-save/v76";
     internal const string BeforeScriptCommandStateSchema = "opennv-native-fnv-campaign-save/v75";
     internal const string BeforeCriticalStageSchema = "opennv-native-fnv-campaign-save/v74";
     internal const string BeforeHardcoreNeedsSchema = "opennv-native-fnv-campaign-save/v73";
@@ -655,6 +656,10 @@ internal static class FalloutNativeCampaignSave
 
     internal static FalloutNativeCampaignState AdmitPreviousOwnerSchema(FalloutNativeCampaignState state)
     {
+        if (state.Schema != ExpectedSchema && state.References?.Any(reference => reference.PackageMotion?.Steps is not null ||
+            reference.LockState?.PackageActor is not null) == true)
+            throw new InvalidDataException("Earlier campaign schemas cannot own package step progress.");
+        if (state.Schema == BeforePackageStepsSchema) state = state with { Schema = ExpectedSchema };
         if (state.Schema != ExpectedSchema && (state.CellImageSpaces is not null ||
             state.References?.Any(reference => reference.OwnershipOverride is { Owner: null }) == true))
             throw new InvalidDataException("Earlier campaign schemas cannot own cell image spaces or cleared ownership.");

@@ -1115,6 +1115,7 @@ if (args is ["--package-data-contracts"])
     IdleMarkerReservationContracts.Run();
     SandboxIdleSelectionContracts.Run();
     PackageDataContracts.Run();
+    PackageStepContracts.Run();
     EditorTravelContracts.Run();
     TravelContracts.Run();
     return;
@@ -2005,6 +2006,7 @@ IdleCollectionSourceContracts.Run();
 IdleMarkerReservationContracts.Run();
 SandboxIdleSelectionContracts.Run();
 PackageDataContracts.Run();
+PackageStepContracts.Run();
 EditorTravelContracts.Run();
 TravelContracts.Run();
 ObjectPhysicsContracts.Run();

@@ -47,7 +47,12 @@ internal static class FollowPackageContracts
                 throw new InvalidOperationException("Accompany lost its target, distance or defensive target protection policy.");
             Reject(() => FalloutFollowPackage.ReadAccompany(Source(1)));
             Reject(() => FalloutFollowPackage.Read(Source(6)));
-            foreach (var id in new uint[] { 7, 8, 9, 10, 11 }) Reject(() => FalloutFollowPackage.ReadAccompany(Source(id)));
+            foreach (var id in new uint[] { 8, 9, 10 }) Reject(() => FalloutFollowPackage.ReadAccompany(Source(id)));
+            // Offers Services is admitted with a visible deferral; a stale
+            // type-specific bit outside Accompany's own (none) is masked away.
+            if (FalloutFollowPackage.ReadAccompany(Source(7)).Flags != 0x04501001 ||
+                FalloutPackageData.Read(Source(11)).SpecificFlags != 0 || !FalloutFollowPackage.ReadAccompany(Source(11)).Accompany)
+                throw new InvalidOperationException("Accompany refused an admitted general flag or kept a stale type-specific bit.");
             if (FalloutFollowContinuation.ReadResident(Source(1)).Form != shortFollow.Form ||
                 !FalloutFollowContinuation.ReadResident(Source(6)).Accompany)
                 throw new InvalidOperationException("Resident actor follower lost source type or target binding.");

@@ -13,7 +13,8 @@ internal sealed record FalloutActorPackageMotion(FalloutFormKey Package, string 
     FalloutWanderProgress? Wander = null, FalloutSandboxActivityProgress? Sandbox = null, FalloutActorEatProgress? Eat = null,
     FalloutActorSleepProgress? Sleep = null, FalloutActorEatPackageProgress? EatPackage = null,
     FalloutActorPathTurn? PathTurn = null, FalloutActorPackageAnimationLayers? AnimationLayers = null,
-    FalloutActorPathTurn? ArrivalTurn = null, FalloutFindFoodProgress? FindFood = null)
+    FalloutActorPathTurn? ArrivalTurn = null, FalloutFindFoodProgress? FindFood = null,
+    FalloutPackageStepProgress? Steps = null)
 {
     // Captures and restores must not share mutable route, pose or activity
     // buffers with the live owner or a caller retaining the snapshot.
@@ -27,7 +28,8 @@ internal sealed record FalloutActorPackageMotion(FalloutFormKey Package, string 
         Guard = Guard is { } guard ? CopyTravel(guard) : null,
         Wander = Wander is { } wander ? wander with { Destination = (float[])wander.Destination.Clone() } : null,
         Sandbox = Sandbox is { } sandbox ? sandbox with { Preferences = (byte[])sandbox.Preferences.Clone() } : null,
-        Eat = Eat is { } eat ? eat with { Objects = eat.Objects?.ToArray() } : null
+        Eat = Eat is { } eat ? eat with { Objects = eat.Objects?.ToArray() } : null,
+        Steps = Steps?.Copy()
     };
 
     private static FalloutTravelProgress CopyTravel(FalloutTravelProgress travel) => travel with
@@ -56,6 +58,11 @@ internal sealed record FalloutActorPackageMotion(FalloutFormKey Package, string 
         Sleep?.Validate();
         EatPackage?.Validate();
         FindFood?.Validate();
+        Steps?.Validate();
+        // A stepped package moves only through its accepted movement request.
+        if (Steps is not null && (Steps.Package != Package || new object?[] { Patrol, Escort, EditorTravel, Travel, Guard, AccompanyPortal,
+            Sandbox, Eat, Sleep, EatPackage, FindFood }.Any(value => value is not null) || DialogueCompleted))
+            throw new InvalidDataException("Stepped package progress conflicts with another procedure continuation.");
         if (FindFood is not null && (new object?[] { Patrol, Escort, EditorTravel, Travel, Guard, AccompanyPortal, Sandbox, Eat, Sleep, EatPackage }
             .Any(value => value is not null) || DialogueCompleted || Wander is not null && FindFood.Phase != FalloutFindFoodPhase.Wander))
             throw new InvalidDataException("Find Food conflicts with another package procedure continuation.");

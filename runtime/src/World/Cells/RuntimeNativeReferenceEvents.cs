@@ -317,6 +317,10 @@ internal partial class RuntimeNativeReferenceEvents : Node
         throw new NotSupportedException($"Default activation for {type} {reference} has no runtime interaction owner.");
     }
 
+    // The processing reference event owner of the running session, if any.
+    internal static RuntimeNativeReferenceEvents? Active(SceneTree tree) =>
+        tree.Root.FindChildren("*", "", true, false).OfType<RuntimeNativeReferenceEvents>().SingleOrDefault(owner => owner.IsProcessing());
+
     internal void ScriptActivate(FalloutFormKey reference, FalloutFormKey actor, bool runOnActivate)
     {
         if (!_bindings.TryGetValue(reference, out var binding)) throw new NotSupportedException("Script activation target has no resident event owner.");

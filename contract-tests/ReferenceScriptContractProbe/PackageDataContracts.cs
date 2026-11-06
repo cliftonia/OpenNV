@@ -347,7 +347,7 @@ internal static class PackageDataContracts
                 FalloutPluginRecord Source(uint offset) => records.GetEffective(Key(first + offset));
                 var data = FalloutPackageData.Read(Source(7));
                 Require(data.Flags == 0x89abcdef && data.Procedure == 17 && data.BehaviorFlags == 0x1234 &&
-                    data.SourceExtent == extent && data.SpecificFlags == (extent == 8 ? null : (ushort?)0x5678),
+                    data.SourceExtent == extent && data.SpecificFlags == (extent == 8 ? null : (ushort?)0), // procedure 17 defines no type-specific bits
                     "Package data lost common fields, source extent or absent type-specific flags.");
                 Require(FalloutPackageData.CurrentAiPackageCode(FalloutPackageData.Read(Source(6)).Procedure) == 34 &&
                     FalloutPackageData.CurrentAiPackageCode(FalloutPackageData.Read(Source(5)).Procedure) == 35 &&
@@ -369,10 +369,12 @@ internal static class PackageDataContracts
             }
             foreach (var id in lengths.Select((_, index) => 0x500u + (uint)index).Append(0x510u).Append(0x511u).Append(0x700u))
                 Reject(() => FalloutPackageData.Read(records.GetEffective(Key(id))));
-            Reject(() => FalloutEditorTravelPackage.Read(records.GetEffective(Key(0x482))));
-            Reject(() => FalloutTravelPackage.Read(records.GetEffective(Key(0x482))));
-            Reject(() => FalloutEditorTravelPackage.Read(records.GetEffective(Key(0x483))));
-            Reject(() => FalloutTravelPackage.Read(records.GetEffective(Key(0x483))));
+            // Behaviour flags are an inert lane and Travel defines no type-specific
+            // bits: both are admitted (the former with a visible deferral).
+            foreach (var id in new uint[] { 0x482, 0x483 })
+                Require(FalloutEditorTravelPackage.Read(records.GetEffective(Key(id))).Radius == 0 &&
+                    FalloutTravelPackage.Read(records.GetEffective(Key(id))).LocationType == 3,
+                    "Travel refused inert behaviour flags or a stale type-specific bit.");
             Require(FalloutPackageData.Read(records.GetEffective(Key(0x484))).SourceExtent == 8,
                 "Package data admission substituted schedule validation for its source extent.");
             Reject(() => FalloutPackageSchedule.Read(records.GetEffective(Key(0x484))));

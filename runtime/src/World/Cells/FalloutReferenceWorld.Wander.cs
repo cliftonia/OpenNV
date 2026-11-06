@@ -16,6 +16,14 @@ internal sealed partial class FalloutReferenceWorld
         return new(cell, TravelNavigation(cell).SourceSha256, [point.X, point.Y, point.Z], false);
     }
 
+    // A movement request to an explicit source point (package location,
+    // flee point, hiding point) on the actor's current navigation region.
+    internal FalloutWanderProgress PackageMoveRequest(FalloutFormKey actor, float[] destination)
+    {
+        var cell = ReferenceSpatialCell(Get(actor));
+        return new(cell, TravelNavigation(cell).SourceSha256, (float[])destination.Clone(), false);
+    }
+
     internal void ValidatePackageWander(FalloutFormKey actor, FalloutWanderProgress progress)
     {
         progress.Validate();
