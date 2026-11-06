@@ -4,8 +4,7 @@ namespace OpenNV.Runtime.Content;
 
 internal static class FalloutGameTimeCommands
 {
-    internal static FalloutScriptFunction? Function(string operation, FalloutGameTime? clock,
-        Func<bool>? isHardcore = null) => operation switch
+    internal static FalloutScriptFunction? Function(string operation, FalloutGameTime? clock) => operation switch
         {
             "getgamedayspassed" => new([FalloutScriptArgumentKind.OptionalNumber, FalloutScriptArgumentKind.OptionalNumber,
             FalloutScriptArgumentKind.OptionalNumber], arguments => Require(clock).GetDaysPassed(
@@ -15,13 +14,9 @@ internal static class FalloutGameTimeCommands
             { ReadOnly = true },
             "setgamehour" => new([FalloutScriptArgumentKind.Number], arguments =>
             {
+                // Hardcore needs absorb the jump through their elapsed-time anchors.
                 var hour = FalloutGameTime.SourceHour(arguments[0].Number);
-                var owner = Require(clock);
-                if (isHardcore is null)
-                    throw new NotSupportedException("SetGameHour has no authoritative player Hardcore query.");
-                if (isHardcore())
-                    throw new NotSupportedException("SetGameHour requires the original forced Hardcore-needs update owner.");
-                owner.SetHour(hour);
+                Require(clock).SetHour(hour);
                 return 0;
             }),
             _ => null,

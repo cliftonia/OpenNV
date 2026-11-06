@@ -40,7 +40,7 @@ internal partial class RuntimeNativeOpeningStageDriver
         _vigorEntry is not null ? "special-menu" : _tagSkillEntry is not null ? "tag-menu" :
         _traitEntry is not null ? "trait-menu" : _recipeMenu is not null ? "recipe-menu" :
         _barterMenu is not null ? "barter-menu" : _caravanMenu is not null ? "caravan-menu" :
-        _restMenu is not null ? "sleep-wait-menu" : _repairServicesMenu is not null ? "repair-services-menu" :
+        _restMenu is not null ? "sleep-wait-menu" : _scripts.Session.PlayerSleeping || _scripts.Session.PlayerSleepHours > 0 ? "player-rest" : _repairServicesMenu is not null ? "repair-services-menu" :
         _casinoMenu is not null ? "casino-menu" :
         TerminalSaveBlocker;
     private string? SaveContinuationBlocker => SaveInteractionBlocker ?? (
@@ -305,6 +305,7 @@ internal partial class RuntimeNativeOpeningStageDriver
             ActorBaseFlags = _scripts.References.ActorBaseFlags.Capture(),
             CellOwnership = _scripts.References.CaptureCellOwnership(),
             ActorNames = _scripts.References.CaptureActorNames(),
+            CellImageSpaces = _scripts.References.CaptureCellImageSpaces(),
             PlayerNotes = _scripts.References.PlayerNotes.Capture(),
             PlayerCaravanCards = _scripts.References.PlayerCaravanCards.Capture(),
             CasinoWinnings = _scripts.References.CasinoWinnings.Capture(),

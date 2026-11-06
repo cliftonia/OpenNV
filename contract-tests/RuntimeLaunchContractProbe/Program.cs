@@ -54,7 +54,16 @@ if (flatPresentation.ContainsKey("vr")) throw new InvalidOperationException("Des
 foreach (var presentation in new[] { "first-person", "hex-tactical" })
     MustReject<ArgumentException>(() => RuntimeLaunchValidator.NormalizePresentation(
         new Dictionary<string, string> { ["presentation"] = presentation, ["vr"] = "true" }));
-Console.WriteLine("OPENNV_RUNTIME_LAUNCH_CONTRACT_PASS campaigns=4 wrongCampaign=rejected unsupportedViews=rejected xrPresentation=normalized conflictingViews=rejected");
+var fileArguments = RuntimeLaunchArgumentsFile.Parse(
+    ["# iPad launch", "", "  --data-root {documents}/Fallout New Vegas  ", "--show-fps", "--render-scale\t0.6", "--campaign fallout-new-vegas"],
+    "/sandbox/Documents");
+string[] expectedFileArguments =
+    ["--data-root", "/sandbox/Documents/Fallout New Vegas", "--show-fps", "--render-scale", "0.6", "--campaign", "fallout-new-vegas"];
+if (!fileArguments.SequenceEqual(expectedFileArguments))
+    throw new InvalidOperationException("Launch argument file lines were not split into the command-line form: " + string.Join('|', fileArguments));
+if (RuntimeLaunchArgumentsFile.PathIn("/sandbox/Documents") != Path.Combine("/sandbox/Documents", "OpenNV", "launch-args.txt"))
+    throw new InvalidOperationException("Launch argument file moved out of the Documents/OpenNV folder.");
+Console.WriteLine("OPENNV_RUNTIME_LAUNCH_CONTRACT_PASS campaigns=4 wrongCampaign=rejected unsupportedViews=rejected xrPresentation=normalized conflictingViews=rejected argumentFile=parsed");
 
 static void MustReject<TException>(Action action) where TException : Exception
 {

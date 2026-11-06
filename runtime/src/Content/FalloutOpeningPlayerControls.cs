@@ -14,6 +14,15 @@ internal readonly record struct FalloutPlayerControlState(
 {
     internal static FalloutPlayerControlState AllEnabled { get; } =
         new(true, true, true, true, true, true, true);
+
+    // Bits follow DisablePlayerControls argument order; true when any queried
+    // control is currently disabled.
+    internal bool AnyDisabled(uint mask)
+    {
+        if (mask > 0x7f) throw new InvalidDataException("Player control mask has more than seven flags.");
+        bool[] enabled = [Movement, PipBoy, Fighting, PointOfView, Looking, RolloverText, Sneaking];
+        return enabled.Where((value, index) => (mask & (1u << index)) != 0 && !value).Any();
+    }
 }
 
 internal sealed record FalloutPlayerControlCommand(

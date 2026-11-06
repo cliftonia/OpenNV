@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using OpenNV.Runtime.Content;
+using OpenNV.Runtime.World.Cells;
 
 internal static partial class QuestGraphAudit
 {
@@ -16,6 +17,45 @@ internal static partial class QuestGraphAudit
         if (winners.Count != records.WinnerRecordCount)
             throw new InvalidDataException("Quest inventory differs from the actual source winner denominator.");
         return winners;
+    }
+
+    // The runtime's static inspector: metadata-only bindings, no world state.
+    internal static FalloutReferenceScripts StaticInspector(FalloutPluginStack records, FalloutReferenceWorld world) =>
+        new(records, world, new(records), new((_, _) => throw new InvalidOperationException("Static audit queried furniture."),
+            _ => throw new InvalidOperationException("Static audit applied gameplay.")));
+
+    // Standalone scripts declare their own blocks; embedded results run as one GameMode block.
+    internal static IReadOnlyList<FalloutScriptEventProgram> SourceEvents(string signature, string text,
+        IEnumerable<FalloutPluginSubrecord> compiled) => signature == "SCPT"
+        ? FalloutGameModeProgram.ReadEvents(text, FalloutGameModeProgram.CompiledBody(compiled))
+        : [new FalloutScriptEventProgram("Result", null, FalloutGameModeProgram.Read("begin GameMode\n" + text + "\nend"))];
+
+    // Admits an operand only when a declaration or compiled binding owns it;
+    // anything else is refused and reported to the caller first.
+    internal static Action<string> OperandInspector(FalloutPluginStack records, FalloutPluginRecord record, string signature,
+        IReadOnlyList<FalloutPluginSubrecord> body, Action<Exception> declarationFailure, Action<string>? unresolved = null)
+    {
+        var localScript = signature == "SCPT" ? record : FalloutScriptLocals.AttachedScript(records, record);
+        var locals = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (localScript is not null)
+        {
+            try { locals.UnionWith(FalloutScriptLocals.ReadDeclarations(localScript).Keys); }
+            catch (Exception error)
+            {
+                // Standalone declaration failures were already recorded. They
+                // cannot suppress inspection of the successfully parsed source.
+                if (signature != "SCPT") declarationFailure(error);
+            }
+        }
+        var declarationBindings = new FalloutScriptBindings(records, record, record, body);
+        return name =>
+        {
+            if (name.Equals("this", StringComparison.OrdinalIgnoreCase) || locals.Contains(name) ||
+                FalloutScriptBindings.IsPlayer(name) && declarationBindings.HasPlayerReference ||
+                declarationBindings.TryForm(name) is not null || declarationBindings.HasVariable(name)) return;
+            unresolved?.Invoke(name);
+            throw new NotSupportedException($"Operand {name} needs a declared value/function or runtime caller context.");
+        };
     }
 
     internal static bool IsProgramField(string signature) =>
@@ -54,7 +94,7 @@ internal static partial class QuestGraphAudit
         return result;
     }
 
-    private static void RequireOutputOutsideInputs(string output, IEnumerable<string> roots)
+    internal static void RequireOutputOutsideInputs(string output, IEnumerable<string> roots)
     {
         var destination = Path.GetFullPath(output);
         foreach (var input in roots)

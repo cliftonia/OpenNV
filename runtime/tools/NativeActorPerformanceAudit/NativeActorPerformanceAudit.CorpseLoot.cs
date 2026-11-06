@@ -73,7 +73,7 @@ public partial class NativeActorPerformanceAudit
                     actor.Transform = Placement(owner, placed);
                     RuntimeNativeActorContacts.Configure(actor, actor.Skeleton, 2);
                     var context = new NativeActorCombatContext(() => null, () => saved.Vitals,
-                        (_, _) => throw new InvalidDataException("Loot fixture cannot apply gameplay damage."),
+                        (_, _, _) => throw new InvalidDataException("Loot fixture cannot apply gameplay damage."),
                         (_, _) => throw new InvalidDataException("Loot fixture cannot plan combat movement."), _ => true,
                         () => level, globals, config.Player.StepHeightMeters, config.Simulation.GravityMetersPerSecondSquared);
                     actor.Combat = RuntimeNativeActorCombat.Attach(actor, actor.Skeleton, actor.Appearance.SkeletonPath,

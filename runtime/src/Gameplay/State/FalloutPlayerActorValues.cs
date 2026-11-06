@@ -205,6 +205,12 @@ internal sealed class FalloutPlayerActorValues
         if (after != previous) Publish(22, after);
     }
 
+    // Removes every point of damage from an existing pool (end of a natural sleep).
+    internal void ClearDamage(int actorValue)
+    {
+        if (_values.TryGetValue(actorValue, out var value) && value.Damage != 0) Publish(actorValue, value with { Damage = 0 });
+    }
+
     internal static int SignedInteger(double value)
     {
         return FalloutActorValueCommands.Integer(value);

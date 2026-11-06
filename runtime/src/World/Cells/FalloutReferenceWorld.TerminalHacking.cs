@@ -56,6 +56,14 @@ internal sealed partial class FalloutReferenceWorld
         };
     }
 
+    // ResetAllTerminals (debug): every terminal, loaded or not, returns to its
+    // unhacked, unlocked-out state. Uninstantiated terminals already are.
+    internal void ResetAllTerminals()
+    {
+        foreach (var instance in _instances.Values)
+            if (instance.TerminalHackState is { Error: null } state) instance.TerminalHackState = state with { RawState = 0 };
+    }
+
     internal bool TerminalHackLockedOut(FalloutFormKey reference, Func<float>? ignoreLockedTerminal = null)
     {
         var failures = TerminalHackResult(reference).Failures;

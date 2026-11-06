@@ -127,7 +127,7 @@ public partial class NativePipBoyAudit : Node
                 saved.PlayerName, FalloutNativeTagSkillResolver.Resolve(records, FalloutOpeningPlayerControlResolver.Resolve(records, ["VCG00", "VCG01"])).Skills, saved.TagSkills, saved.Traits,
                 mapSource.World, new(mapSource.Position.X, mapSource.Position.Y, mapSource.Position.Z), 0, actorValue: skillsOwner.Value)
             {
-                InventoryHardcore = () => saved.Scripts?.Session?.Hardcore ?? false,
+                Hardcore = () => saved.Scripts?.Session?.Hardcore ?? false,
                 InventoryCarryCapacity = () => FalloutPlayerPerkNumericEffects.Apply(22, skillsOwner.Value("CarryWeight"),
                     skillsOwner.PerkEntries, skillsOwner.AbilityCondition),
                 ActiveEffects = () => saved.Ingestibles ?? new FalloutIngestiblesSnapshot([]),

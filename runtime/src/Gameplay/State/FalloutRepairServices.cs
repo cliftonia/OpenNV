@@ -32,10 +32,7 @@ internal static class FalloutRepairServices
     {
         if (target <= condition || target > 1) throw new InvalidDataException("Vendor repair does not improve the item.");
         var value = item.Value ?? throw new NotSupportedException($"Item {item.FormKey} has no source value for repair pricing.");
-        float Worth(float at) => FalloutInventoryItemStatistics.ConditionValue(value, at,
-            records.NumericSettings.Float("fItemConditionValueBase"),
-            records.NumericSettings.Float("fItemConditionValueMult"),
-            records.NumericSettings.Float("fItemConditionValueExp"));
+        float Worth(float at) => FalloutInventoryItemStatistics.ConditionValue(records, value, at);
         var cost = Math.Ceiling((double)(Worth(target) - Worth(condition)) * records.NumericSettings.Float("fItemRepairCostMult"));
         if (!double.IsFinite(cost) || cost < 0 || cost > int.MaxValue)
             throw new NotSupportedException($"Item {item.FormKey} repair price exceeds runtime storage.");

@@ -16,10 +16,10 @@ internal static class PlayerActorValueContracts
         {
             File.WriteAllBytes(Path.Combine(directory, "Values.esm"), Fixture());
             using var records = FalloutPluginStack.Load(directory, ["Values.esm"]);
-            Require(FalloutRadiationStage.MenuMaximum(records) == 1001 && FalloutRadiationStage.Read(records)[0].Threshold == 1001 &&
-                FalloutRadiationStage.DisplayRads(.1f) == 1 && FalloutRadiationStage.DisplayRads(1.49f) == 1 && FalloutRadiationStage.DisplayRads(1.4999999f) == 1 &&
-                FalloutRadiationStage.DisplayRads(1.5f) == 2 && FalloutRadiationStage.DisplayRads(2.5f) == 3 &&
-                FalloutRadiationStage.DisplayRads(-1) == 0,
+            Require(FalloutActorValueStage.MenuMaximum(records) == 1001 && FalloutActorValueStage.Read(records)[0].Threshold == 1001 &&
+                FalloutActorValueStage.DisplayRads(.1f) == 1 && FalloutActorValueStage.DisplayRads(1.49f) == 1 && FalloutActorValueStage.DisplayRads(1.4999999f) == 1 &&
+                FalloutActorValueStage.DisplayRads(1.5f) == 2 && FalloutActorValueStage.DisplayRads(2.5f) == 3 &&
+                FalloutActorValueStage.DisplayRads(-1) == 0,
                 "RAD display used a fixed scale, lost winning threshold order or used text rounding for displayed rads.");
             var globals = new FalloutGlobalState([new(Key(19), "Switch", (byte)'f', 0, "synthetic")]);
             var inventory = new FalloutPlayerInventory();

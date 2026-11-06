@@ -75,7 +75,7 @@ public partial class NativePlayerPresentationAudit
                 finally { referenceRoot.Free(); }
             }
             player.ConfigureLocomotion(records, () => vitals.State);
-            player.ConfigureCombat(records, FalloutGlobalState.Read(records), () => 1, value => value switch { 13 => 250, 21 => 100, 46 or 72 => 0, < 32 => 5, _ => 100 }, () => [], _ => 0, (_, _) => { });
+            player.ConfigureCombat(records, FalloutGlobalState.Read(records), () => 1, value => value switch { 13 => 250, 21 => 100, 46 or 72 => 0, < 32 => 5, _ => 100 }, () => [], _ => 0, (_, _, _) => { });
             player.ConfigureExplosionExposure(() => saved.ActiveCell, amount => vitals.Publish(vitals.State with { RadiationRads = vitals.State.RadiationRads + amount }), new());
             for (var frame = 0; frame < 5; frame++) await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
             if (xrOnly)

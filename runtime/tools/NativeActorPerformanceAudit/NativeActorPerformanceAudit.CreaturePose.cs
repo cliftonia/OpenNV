@@ -72,7 +72,7 @@ public partial class NativeActorPerformanceAudit
             floor.AddChild(new CollisionShape3D { Shape = new BoxShape3D { Size = new(200, .1f, 200) } }); fixture.AddChild(floor);
             var context = new NativeActorCombatContext(() => null,
                 () => throw new NotSupportedException("Isolated creature pose fixture has no player vitals."),
-                (_, _) => throw new NotSupportedException("Isolated creature pose fixture cannot damage the player."),
+                (_, _, _) => throw new NotSupportedException("Isolated creature pose fixture cannot damage the player."),
                 (from, to) => navigation.FindPath(Source(from), Source(to)).Select(Native).ToArray(),
                 _ => true, () => 1, globals, .4f, 9.81f, PlayerCell: () => cell.Cell.FormKey,
                 DialogueBusy: _ => false);

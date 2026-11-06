@@ -82,9 +82,10 @@ The optional signed date arguments, one-based months, default epoch and
 month/year/future-date query quirks are bound to the
 [public JIP author contract, revision 5a30ac4](https://github.com/jazzisparis/JIP-LN-NVSE/blob/5a30ac4356ea0e93b9ff357b5031b1e420240a4d/functions_jip/jip_fn_miscellaneous.h)
 and its date helper. Gregorian arithmetic and the separate GameDaysPassed
-counter are not substitutes. Unknown clocks, invalid inputs and active Hardcore
-mode without the original forced-needs consumer stop visibly before the hour
-write; registering a function does not waive that consumer.
+counter are not substitutes. Unknown clocks and invalid inputs stop visibly
+before the hour write. Hardcore mode does not refuse the write: the Hardcore
+needs owner absorbs any forward jump through its per-need elapsed-time anchors
+on its next update, and a backward jump accrues nothing until time passes them.
 
 Focused contracts cover typed/default arguments, exact Float32 writes,
 inactive branches, source prefix/fault retention, shared/fallback/function

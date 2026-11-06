@@ -190,6 +190,23 @@ internal static class TransientExplosionContracts
         Check(FalloutNativeCampaignSave.AdmitPreviousOwnerSchema(v72).Schema == FalloutNativeCampaignSave.ExpectedSchema,
             "v72 saves were not admitted before casino winnings existed.");
         Reject(() => FalloutNativeCampaignSave.AdmitPreviousOwnerSchema(v72 with { CasinoWinnings = new([]) }));
+        var v73 = admitted with { Schema = FalloutNativeCampaignSave.BeforeCriticalStageSchema };
+        Check(FalloutNativeCampaignSave.AdmitPreviousOwnerSchema(v73).Schema == FalloutNativeCampaignSave.ExpectedSchema,
+            "v73 saves were not admitted before critical stages existed.");
+        Reject(() => FalloutNativeCampaignSave.AdmitPreviousOwnerSchema(v73 with
+            { ActorOverrides = [new(new("Test.esm", 0x91), new string('0', 64), [], [], CriticalStage: 2)] }));
+        // A v73 mine's JSON damage has none of the post-threshold fields; admission restores neutral terms.
+        var damageJson = System.Text.Json.Nodes.JsonNode.Parse(JsonSerializer.Serialize(new FalloutWeaponDamage(30, 1, 50, 1)))!.AsObject();
+        foreach (var name in new[] { "PerkScale", "PerkOffset", "ThresholdReduction", "ResistanceActorValue", "Critical", "AutomaticMeleeRounds" })
+            Check(damageJson.Remove(name), $"Weapon damage JSON lost its {name} field.");
+        var priorDamage = JsonSerializer.Deserialize<FalloutWeaponDamage>(damageJson.ToJsonString());
+        var priorMine = new FalloutDynamicMineSnapshot(0xff000001, Key(1), Key(2), Key(3), null!, null!, null!, priorDamage, 0, 0, null!, []);
+        var admittedMine = FalloutNativeCampaignSave.AdmitPreviousOwnerSchema(v73 with { DynamicMines = [priorMine] }).DynamicMines!.Single().Damage;
+        Check(admittedMine is { Amount: 30, PerkScale: 1, PerkOffset: 0, ThresholdReduction: 0, ResistanceActorValue: -1, Critical: null } &&
+            priorDamage.AfterThreshold(30) == 0 && admittedMine.AfterThreshold(30) == 30,
+            "v73 mine damage was not normalised to neutral post-threshold terms.");
+        admittedMine.Validate();
+        Reject(() => (admittedMine with { ResistanceActorValue = -2 }).Validate());
     }
     private static FalloutFormKey Key(uint id) => new("Explosion.esm", id);
     private static void Check(bool valid, string message) { if (!valid) throw new InvalidDataException(message); }

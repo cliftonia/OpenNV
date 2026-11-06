@@ -373,33 +373,59 @@ def test_opening() -> str:
 
 
 def test_rest() -> str:
-    """Doc Mitchell's owned bed refuses sleep; the Wait control advances the clock."""
+    """Doc Mitchell's owned bed refuses sleep and the Wait key is ignored while a control is disabled;
+    in the world the Wait control advances the clock one hour per real second."""
     with Game("rest", new_game=True) as game:
         drive_opening(game, lambda gameplay, stage:
                       stage >= 200 and (gameplay.get("player") or {}).get("movementEnabled"))
         game.dismiss_popups(3)
+        # VCG01 keeps fighting disabled inside the house; any disabled control
+        # makes the Wait key do nothing.
+        rest = ((game.gameplay().get("opening") or {}).get("rest") or {})
+        require(rest.get("controlsEnabled") is False, f"expected a disabled player control in Doc's house: {rest}")
         game.tap("T")
-        game.wait(lambda: "Wait" in [c.get("text") for c in game.controls()], 30, "Wait menu")
-        for _ in range(2):
-            game.tap("Right")
-            time.sleep(0.3)
-        require(game.press("Wait"), "Wait button is not offered")
-        done = game.wait_log("OPENNV_REST_COMPLETE", 60)
-        require("kind=Wait hours=" in done and "hours=1 " not in done, f"wait did not run the chosen hours: {done}")
-        game.wait(lambda: not game.state()["sceneTreePaused"], 30, "gameplay to resume")
+        time.sleep(3)
+        require("OPENNV_REST_MENU_OPEN" not in game.log_text(), "Wait opened while a player control was disabled")
         # Both of Doc Mitchell's beds are his; activating one must refuse sleep.
-        for bed in ("FalloutNV.esm:103e3a", "FalloutNV.esm:103e5b"):
+        # Doc's closing greeting holds modal input for a while, so retry.
+        refused = None
+        for bed in ("FalloutNV.esm:103e3a", "FalloutNV.esm:103e5b") * 3:
+            game.dismiss_popups(1)
+            game.settle(5)
             game.command({"op": "bot", "mode": "interact", "reference": bed, "distance": 2.0, "pauseAfter": False})
             try:
-                refused = game.wait_log("OPENNV_REST_REFUSED", 60)
+                refused = game.wait_log("OPENNV_REST_REFUSED", 45)
                 break
             except Failure:
                 continue
-        else:
-            raise Failure("no owned bed in Doc Mitchell's house could be activated")
+        require(refused is not None, "no owned bed in Doc Mitchell's house could be activated")
         require("reason=sNoSleepInOwnedBed" in refused, f"owned bed was not refused: {refused}")
         require(not game.fatal_errors(), f"fatal errors: {game.fatal_errors()[:3]}")
-        return done.split("OPENNV_REST_COMPLETE")[1].strip() + "; owned bed refused"
+    require(SAVE.exists(), f"save to copy is missing: {SAVE}")
+    with Game("rest-world", mods=ALL_MODS, save=SAVE) as game:
+        continue_into_world(game)
+        game.settle(10)
+        game.tap("T")
+        game.wait(lambda: "Wait" in [c.get("text") for c in game.controls()] or
+                  "OPENNV_REST_REFUSED" in game.log_text(), 30, "Wait menu")
+        refusal = next((l for l in game.log_text().splitlines() if "OPENNV_REST_REFUSED" in l), None)
+        require(refusal is None, f"waiting in the world was refused: {refusal}")
+        for _ in range(2):
+            game.tap("Right")
+            time.sleep(0.3)
+        divergences = game.log_text().count("OPENNV_NATIVE_REFERENCE_EVENT_DIVERGENCE")
+        started = time.time()
+        require(game.press("Wait"), "Wait button is not offered")
+        done = game.wait_log("OPENNV_REST_COMPLETE", 60)
+        elapsed = time.time() - started
+        require("kind=Wait hours=3 natural=True" in done, f"wait did not run the chosen hours to completion: {done}")
+        require(2.5 <= elapsed <= 15, f"three waited hours took {elapsed:.1f}s, not one real second per hour")
+        game.wait(lambda: not game.state()["sceneTreePaused"], 30, "gameplay to resume")
+        # MenuMode frames must not latch a script fault on any resident reference.
+        require(game.log_text().count("OPENNV_NATIVE_REFERENCE_EVENT_DIVERGENCE") == divergences,
+                "a reference script diverged while the Wait menu ran its MenuMode frames")
+        require(not game.fatal_errors(), f"fatal errors: {game.fatal_errors()[:3]}")
+        return done.split("OPENNV_REST_COMPLETE")[1].strip() + f"; {elapsed:.1f}s; owned bed refused; disabled-control wait ignored"
 
 
 def test_fo3() -> str:

@@ -26,7 +26,7 @@ public partial class NativeActorPerformanceAudit
         var player = new RuntimeNativePlayer(); AddChild(player);
         player.SetProcess(false); player.SetPhysicsProcess(false);
         var context = new NativeActorCombatContext(() => player, () => new(1, 200, 200, 70, 70, 0, 100),
-            (_, _) => throw new InvalidOperationException("Patrol idle component check attacked."),
+            (_, _, _) => throw new InvalidOperationException("Patrol idle component check attacked."),
             (_, to) => [to], _ => true, () => 1, globals, .4f, 9.81f);
         try
         {

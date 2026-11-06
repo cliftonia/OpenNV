@@ -8,15 +8,30 @@ internal sealed partial class FalloutPlayerVitals
     private FalloutBodyPartData? _scriptAnatomy;
 
     // False means another existing value owner must handle this name. A known
-    // health/anatomy name never falls through to SPECIAL or a placed PlayerRef.
+    // health/anatomy/need name never falls through to SPECIAL or a placed PlayerRef.
     internal bool TryChangeActorValue(string name, string operation, double argument)
     {
         var limb = FalloutBodyPartData.LimbActorValue(name);
         var health = name.Equals("health", StringComparison.OrdinalIgnoreCase);
-        if (!health && limb is null) return false;
+        var need = FalloutHardcoreNeeds.ActorValue(name);
+        if (!health && limb is null && need is null) return false;
         var kind = FalloutActorValueCommands.Operation(operation) ??
             throw new NotSupportedException($"Actor-value command {operation} is unbound.");
         var amount = (float)FalloutActorValueCommands.Argument(operation, argument);
+        if (need is { } needValue)
+        {
+            var state = State;
+            var value = state.Need(needValue);
+            // Need damage is additive, like radiation; restoration lowers it.
+            Publish(state.WithNeed(needValue, kind switch
+            {
+                FalloutActorValueOperation.Damage or FalloutActorValueOperation.ModifyPermanent => value + amount,
+                FalloutActorValueOperation.Restore => value - amount,
+                FalloutActorValueOperation.SetBase or FalloutActorValueOperation.ForceCurrent => amount,
+                _ => throw new ArgumentOutOfRangeException(nameof(operation)),
+            }));
+            return true;
+        }
         if (kind is not (FalloutActorValueOperation.Damage or FalloutActorValueOperation.Restore))
             throw new NotSupportedException("Player health/anatomy base/permanent mutation has no retained pool owner.");
         var current = State;

@@ -19,17 +19,17 @@ internal partial class RuntimeNativeOpeningStageDriver
         switch (operation)
         {
             case "cios" or "castimmediateonself" when arguments.Count == 1:
-                if (!player)
+                var spell = bindings.Form(arguments[0]).FormKey;
+                try
                 {
-                    FalloutScriptCommandDeferral.Warn("castimmediateonself", "npc-actor-effect-owner-unbound");
-                    return true;
+                    if (player) _ = _ingestibles.PrepareActorEffect(spell).Commit();
+                    else _ = _scripts.References!.CastActorEffectOnSelf(target, spell, SourcePlayerLevel, _globals, _scripts.Session.Hardcore);
                 }
-                try { _ = _ingestibles.PrepareActorEffect(bindings.Form(arguments[0]).FormKey).Commit(); }
                 catch (NotSupportedException error)
                 {
                     // Spell types, scripted and presentation effects have no
-                    // staged actor lifecycle yet; value effects already applied.
-                    FalloutScriptCommandDeferral.Warn("castimmediateonself", $"player-effect-unbound:{error.Message}");
+                    // staged actor lifecycle yet; nothing was applied.
+                    FalloutScriptCommandDeferral.Warn("castimmediateonself", $"actor-effect-unbound:{error.Message}");
                 }
                 return true;
             case "dispel" when player && arguments.Count == 1:
@@ -37,20 +37,12 @@ internal partial class RuntimeNativeOpeningStageDriver
                 _ = _ingestibles.Dispel(item => item == dispelled);
                 return true;
             case "dispelallspells" when player && arguments.Count == 0:
-                _ = _ingestibles.Dispel(_ => true);
+                _ = _ingestibles.Dispel(item => FalloutScriptEffectCommands.DispelledByDispelAll(_pluginStack, item));
                 return true;
+            // NPC alpha is published by the reference presentation from the
+            // world; only the player's own 3D is applied here.
             case "saa" or "setactoralpha" when arguments.Count == 1:
-                var alpha = float.Parse(arguments[0], NumberStyles.Float, CultureInfo.InvariantCulture);
-                if (player)
-                {
-                    FalloutScriptCommandDeferral.Warn("setactoralpha", "player-self-visibility-owner-unbound");
-                    return true;
-                }
-                // Residency rebuilds presentation from source; the world retains
-                // the alpha for the session. A non-resident actor has no geometry.
-                foreach (var actor in ResidentPresentation(target))
-                    foreach (var geometry in SceneGraph.NodeTraversal.SelfAndDescendants<GeometryInstance3D>(actor))
-                        geometry.Transparency = 1 - alpha;
+                if (player) _player.SetScriptAlpha(float.Parse(arguments[0], NumberStyles.Float, CultureInfo.InvariantCulture));
                 return true;
             // Effect shaders attach to the resident presentation only; a
             // reference that streams in later does not replay a retained shader yet.
@@ -59,12 +51,15 @@ internal partial class RuntimeNativeOpeningStageDriver
                 float? duration = arguments.Count == 2 ? float.Parse(arguments[1], NumberStyles.Float, CultureInfo.InvariantCulture) : null;
                 var content = RuntimeLiveContentSource.Current ?? throw new InvalidOperationException("Owned source is absent.");
                 var mode = EffectShaderEmitMode(target);
-                int resident = 0, attached = 0;
+                int resident = 0, attached = 0, playing = 0;
                 foreach (var node in ResidentPresentation(target))
                 {
                     resident++;
                     if (node.GetChildren().OfType<NativeEffectShader>().Any(existing => existing.Shader == effect.Form && !existing.Releasing))
+                    {
+                        playing++;
                         continue;
+                    }
                     NativeEffectShader? shader;
                     try { shader = NativeEffectShader.Attach(node, effect, content, _pluginStack, duration, mode, _player.UnitsToMeters); }
                     catch (NotSupportedException error)
@@ -79,7 +74,8 @@ internal partial class RuntimeNativeOpeningStageDriver
                 // Two source fire shaders also own a looping fire sound.
                 if (attached != 0 && effect.Form.OwnerPlugin.Equals("FalloutNV.esm", StringComparison.OrdinalIgnoreCase) && effect.Form.ObjectId is 0x0852FE or 0x084A51)
                     FalloutScriptCommandDeferral.Warn("playmagicshadervisuals:fire-loop", "effect-shader-fire-loop-sound-unbound");
-                if (resident == 0) FalloutScriptCommandDeferral.Warn("playmagicshadervisuals", player ? "player-self-visibility-owner-unbound" : "target-not-resident");
+                if (resident == 0) FalloutScriptCommandDeferral.Warn("playmagicshadervisuals", "target-not-resident");
+                else if (attached + playing == 0) FalloutScriptCommandDeferral.Warn("playmagicshadervisuals", "effect-shader-attachment-produced-no-geometry");
                 return true;
             case "sms" or "stopmagicshadervisuals" when arguments.Count == 1:
                 var stopped = bindings.Form(arguments[0]).FormKey;
@@ -126,6 +122,7 @@ internal partial class RuntimeNativeOpeningStageDriver
     // Resident presentation roots of a placed actor or object reference.
     private IEnumerable<Node3D> ResidentPresentation(FalloutFormKey reference)
     {
+        if (_pluginStack.RuntimeFormId(reference) == 0x14) return _player.SelfPresentation.ToArray();
         var key = reference.ToString();
         return SceneGraph.NodeTraversal.SelfAndDescendants<Node3D>(GetTree().Root).Where(node =>
             node.IsInsideTree() && !node.IsQueuedForDeletion() && node switch

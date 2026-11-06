@@ -11,6 +11,12 @@ internal sealed partial class FalloutReferenceInstance
     internal Action? ScriptClearDestruction { get; set; }
 }
 
+internal sealed class FalloutAiToggles
+{
+    internal bool NoAvoidance { get; set; }
+    internal bool AllVisible { get; set; }
+}
+
 // Script-facing actor, alarm and faction commands. Persistent state lives in
 // the existing actor-override owner (ghost flag, player-enemy faction flags).
 internal sealed partial class FalloutReferenceWorld
@@ -23,6 +29,12 @@ internal sealed partial class FalloutReferenceWorld
     {
         if (reference != _enginePlayer) _ = Get(reference);
     }
+
+    internal bool IsScriptActor(FalloutFormKey reference) =>
+        reference == _enginePlayer || records.GetEffective(reference).Signature is "ACHR" or "ACRE";
+
+    // Global AI debug toggles (SetNoAvoidance, SetAllVisible): session-only.
+    internal FalloutAiToggles AiToggles { get; } = new();
 
     internal void RequireScriptActor(FalloutFormKey reference)
     {
@@ -62,27 +74,33 @@ internal sealed partial class FalloutReferenceWorld
         actor.AggroWarning = null;
     }
 
-    // Caller.PushActorAway Target Force knocks the target down and pushes its
-    // ragdoll away from the caller (towards it for a negative force). Only a
-    // resident actor has physics; an unloaded target is unchanged.
+    // The resident player's knockback controller; bound by the native session.
+    internal Action<System.Numerics.Vector3, int>? PushPlayer { get; set; }
+
+    // Caller.PushActorAway Target Force knocks the target down and pushes it
+    // away from the caller with the Agility knockback force of the integer
+    // Force. Only a resident actor has physics; an unloaded target is unchanged.
     internal void PushActorAway(FalloutFormKey source, FalloutFormKey target, float force)
     {
-        if (!float.IsFinite(force)) throw new InvalidDataException("PushActorAway force is not finite.");
+        if (!float.IsFinite(force) || force is < int.MinValue or > int.MaxValue)
+            throw new InvalidDataException("PushActorAway force is not a finite integer parameter.");
+        var amount = (int)MathF.Truncate(force);
         RequireScriptReference(source);
-        if (target == _enginePlayer)
-        {
-            FalloutScriptCommandDeferral.Warn("pushactoraway", "player-knockdown-has-no-ragdoll-owner");
-            return;
-        }
-        var actor = Actor(target);
-        if (actor.ScriptPushAway is not { } resident) return;
         System.Numerics.Vector3? origin = null;
         if (source != _enginePlayer)
         {
             var position = (Get(source).QuerySpatialPlacement?.Invoke() ?? Placement(source)).Position;
             origin = new(position[0], position[1], position[2]);
         }
-        resident(origin, force);
+        if (target == _enginePlayer)
+        {
+            // The player is pushed by its controller; the forced third-person
+            // ragdoll knockdown has no player presentation owner yet.
+            if (origin is { } from && PushPlayer is { } push) push(from, amount);
+            FalloutScriptCommandDeferral.Warn("pushactoraway", "player-ragdoll-knockdown-owner-unbound");
+            return;
+        }
+        if (Actor(target).ScriptPushAway is { } resident) resident(origin, amount);
     }
 
     internal void RemoveFromAllFactions(FalloutFormKey reference)

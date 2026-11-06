@@ -14,7 +14,7 @@ internal static class GameTimeCommandContracts
         FunctionCommands();
         Console.WriteLine("OPENNV_GAME_TIME_COMMANDS_PASS reference=true questSharedAndFallback=true function=true " +
             "optionalSignedDate=true float32=true lazy=true pendingClockCold=true prefixAndFaultRetained=true " +
-            "hardcoreNeedsUnownedRefused=true noGameplayOrDllClaim=true");
+            "hardcoreSetGameHour=true noGameplayOrDllClaim=true");
     }
 
     private static (FalloutGlobalState Globals, FalloutGameTime Clock) Clock(FalloutPluginStack records)
@@ -96,9 +96,12 @@ internal static class GameTimeCommandContracts
         Refused("SetGameHour 8", clockPresent: false, new FalloutScriptSession(), queryPresent: true, expected: "clock owner");
         Refused("set suffix to GetGameDaysPassed", clockPresent: false, new FalloutScriptSession(),
             queryPresent: false, expected: "clock owner");
-        Refused("SetGameHour 8", clockPresent: true, new FalloutScriptSession(), queryPresent: false, expected: "Hardcore query");
-        Refused("SetGameHour 8", clockPresent: true, new FalloutScriptSession { Hardcore = true },
-            queryPresent: true, expected: "Hardcore-needs update owner");
+        // Hardcore needs absorb a forced hour change through their anchors.
+        using var hardcore = new ScriptSaveFixture("SetGameHour 23\nset saved to 1");
+        var (hardcoreGlobals, hardcoreClock) = Clock(hardcore.Records);
+        var session = new FalloutScriptSession { Hardcore = true };
+        Require(Executor(hardcore, hardcoreGlobals, hardcoreClock, () => session.Hardcore).Activate(hardcore.Caller, hardcore.Player).Error is null &&
+            hardcore.Value(1) == 1 && hardcoreClock.Hour == 23, "SetGameHour was refused in Hardcore.");
     }
 
     private static void Refused(string command, bool clockPresent, FalloutScriptSession session, bool queryPresent, string? expected)

@@ -37,6 +37,9 @@ internal sealed partial class FalloutInventoryCommands(FalloutPluginStack record
     internal double ItemCount(FalloutFormKey target, FalloutFormKey item) =>
         FalloutInventoryItemCounts.Count(records, Inventory(target), item, world.FormLists);
 
+    // GetContainerInventoryCount: item stacks, not the summed item count.
+    internal int StackCount(FalloutFormKey target) => Inventory(target).Items.Count(item => item.Count > 0);
+
     internal FalloutFormKey? EquippedObject(FalloutFormKey target, uint slot) => IsPlayer(target)
         ? player.EquippedObject(records, slot) : world.EquippedObject(target, slot, level(), globals);
 
