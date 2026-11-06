@@ -116,6 +116,7 @@ internal enum FalloutConditionFunction : ushort
     GetMapMarkerVisible = 492,
     GetPermanentActorValue = 495,
     IsCombatTarget = 515,
+    IsInCriticalStage = 531,
     IsPS3 = 523,
     IsWin32 = 524,
     GetQuestCompleted = 546,

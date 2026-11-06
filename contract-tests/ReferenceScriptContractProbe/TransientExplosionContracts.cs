@@ -190,6 +190,11 @@ internal static class TransientExplosionContracts
         Check(FalloutNativeCampaignSave.AdmitPreviousOwnerSchema(v72).Schema == FalloutNativeCampaignSave.ExpectedSchema,
             "v72 saves were not admitted before casino winnings existed.");
         Reject(() => FalloutNativeCampaignSave.AdmitPreviousOwnerSchema(v72 with { CasinoWinnings = new([]) }));
+        var v73 = admitted with { Schema = FalloutNativeCampaignSave.BeforeCriticalStageSchema };
+        Check(FalloutNativeCampaignSave.AdmitPreviousOwnerSchema(v73).Schema == FalloutNativeCampaignSave.ExpectedSchema,
+            "v73 saves were not admitted before critical stages existed.");
+        Reject(() => FalloutNativeCampaignSave.AdmitPreviousOwnerSchema(v73 with
+            { ActorOverrides = [new(new("Test.esm", 0x91), new string('0', 64), [], [], CriticalStage: 2)] }));
     }
     private static FalloutFormKey Key(uint id) => new("Explosion.esm", id);
     private static void Check(bool valid, string message) { if (!valid) throw new InvalidDataException(message); }

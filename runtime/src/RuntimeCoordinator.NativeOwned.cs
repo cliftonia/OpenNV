@@ -1616,6 +1616,8 @@ public partial class RuntimeCoordinator
             (damage, part, random) => _nativeOpeningStageDriver!.DamagePlayer(damage, part, random));
         _nativePlayer.ConfigureHitEvents(_nativeReferences!, collider => _nativeReferenceEvents?.CollisionReference(collider));
         _nativePlayer.CanOccupyPosition = NativeCollisionResident;
+        _nativeReferences!.PushPlayer = (origin, amount) =>
+            (_nativePlayer ?? throw new NotSupportedException("PushActorAway has no resident player.")).ScriptPushAway(origin, amount);
         _nativePlayer.IsDefeated = () => _nativeOpeningStageDriver?.Vitals.HitPoints == 0;
         var restore = _nativeContinueOpening
             ? _nativeOpeningRestore ?? throw new InvalidOperationException(
