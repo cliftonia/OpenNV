@@ -39,7 +39,7 @@ public partial class NativeActorPerformanceAudit
         enableOwner.Enabled = !opposite;
         var busy = true;
         var context = new NativeActorCombatContext(() => null, () => throw new InvalidOperationException("Fixture has no player vitals."),
-            (_, _) => throw new InvalidOperationException("Fixture cannot attack."), (_, to) => [to], _ => true, () => 1,
+            (_, _, _) => throw new InvalidOperationException("Fixture cannot attack."), (_, to) => [to], _ => true, () => 1,
             globals, .4f, 9.81f, DialogueBusy: _ => busy);
         var parent = new Node3D { Transform = new(new Basis(Vector3.Up, .37f), new(3, 1, -2)) };
         AddChild(parent);
@@ -156,7 +156,7 @@ public partial class NativeActorPerformanceAudit
                 GamebryoCoordinate.ConvertVector(new(pose.Position[0], pose.Position[1], pose.Position[2])) * units);
         }
         var context = new NativeActorCombatContext(() => null, () => throw new InvalidOperationException("Fixture has no player vitals."),
-            (_, _) => throw new InvalidOperationException("Fixture cannot attack."), (_, to) => [to], _ => true, () => 1,
+            (_, _, _) => throw new InvalidOperationException("Fixture cannot attack."), (_, to) => [to], _ => true, () => 1,
             globals, .4f, 9.81f, DialogueBusy: _ => true);
         var actor = RuntimeNativeNpc.Create(records, content, placed, units, (_, _, _, _) => new StandardMaterial3D(),
             world.EquippedArmor(key, 1, globals), templates);

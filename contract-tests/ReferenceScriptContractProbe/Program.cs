@@ -10,6 +10,11 @@ if (args is ["--script-actor-commands"])
     ScriptActorCommandContracts.Run();
     return;
 }
+if (args is ["--combat"])
+{
+    CombatDamageContracts.Run();
+    return;
+}
 if (args is ["--owned-opening-conversation", var openingConversationRoot, var openingConversationSave])
 {
     OwnedDialogueVoiceProbe.OpeningConversation(openingConversationRoot, openingConversationSave);
@@ -2025,6 +2030,7 @@ PlayerSkillContracts.Run();
 PlayerTagSkillContracts.Run();
 PlayerActorValueContracts.Run();
 PerkParameterContracts.Run();
+CombatDamageContracts.Run();
 InputControlContracts.Run();
 PlayerMoveContracts.Run();
 LoadingScreenContracts.Run();

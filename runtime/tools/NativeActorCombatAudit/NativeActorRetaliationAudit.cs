@@ -33,7 +33,7 @@ public partial class NativeActorCombatAudit
         floor.AddChild(floorShape); AddChild(floor);
         var collisionResident = true;
         var context = new NativeActorCombatContext(() => player, () => new(1, 200, 200, 70, 70, 0, 100),
-            (_, _) => throw new InvalidOperationException("Retaliation fixture attacked the uninvolved player."),
+            (_, _, _) => throw new InvalidOperationException("Retaliation fixture attacked the uninvolved player."),
             (_, to) => [to], _ => collisionResident, () => 1, globals, .4f, 9.81f);
         try
         {

@@ -24,7 +24,7 @@ internal partial class RuntimeNativePlayer
     private Func<int, float>? _combatActorValue;
     private Func<IReadOnlyList<FalloutPerkEntry>>? _combatPerks;
     private Func<FalloutCondition, float>? _combatCondition;
-    private Action<FalloutWeaponDamage, byte>? _damageSelf;
+    private Action<FalloutWeaponDamage, byte, Func<float>?>? _damageSelf;
     private FalloutGlobalState? _combatGlobals;
     private Func<int>? _combatLevel;
     private string? _damageError;
@@ -34,9 +34,11 @@ internal partial class RuntimeNativePlayer
     private object? _weaponResourcePreparation;
     internal void ConfigureCombat(FalloutPluginStack records, FalloutGlobalState globals, Func<int> level,
         Func<int, float> actorValue, Func<IReadOnlyList<FalloutPerkEntry>> perks,
-        Func<FalloutCondition, float> evaluateCondition, Action<FalloutWeaponDamage, byte> damageSelf)
+        Func<FalloutCondition, float> evaluateCondition, Action<FalloutWeaponDamage, byte, Func<float>?> damageSelf)
     {
-        _damage = new(records, _presentationInventory!, actorValue, perks, evaluateCondition);
+        _damage = new(records, _presentationInventory!, actorValue, perks, new(
+            () => ArmConditions(_limbVitals?.Invoke() ?? throw new InvalidOperationException("Player attack arms have no limb state.")),
+            () => 1, () => VatsExecuting), evaluateCondition);
         _combatActorValue = actorValue;
         _combatPerks = perks;
         _combatCondition = evaluateCondition;
@@ -45,6 +47,8 @@ internal partial class RuntimeNativePlayer
         _combatLevel = level;
         _movementSpeed = new(records, _presentationInventory!);
     }
+    internal float CombatActorValue(int value) =>
+        (_combatActorValue ?? throw new InvalidOperationException("Player actor-value owner is absent."))(value);
     private readonly Dictionary<string, string> _shotEffectErrors = new(StringComparer.Ordinal);
     internal object FiringState => new
     {
@@ -68,7 +72,7 @@ internal partial class RuntimeNativePlayer
         preparationTiming = _firePreparationTiming,
         resourcePreparation = _weaponResourcePreparation,
         autoAimShapeCreations = _autoAimShapeCreations,
-        unbound = "auto-aim-screen-percentage-target-ranking-and-retail-correction,encounter-leveled-NPC-health,conditional-resistance,armor-wear,crouch-and-aiming-move-speed-perks,weapon-mod-spread,critical,sneak,weapon-wear,missile-lobber-timing-and-retail-parity,flame-audio,supersonic-projectile-audio-and-retail-parity,continuous-beam,tracers,beam-visuals-and-retail-parity,explosion-distance-attenuation,force,radiation-and-retail-parity"
+        unbound = "auto-aim-screen-percentage-target-ranking-and-retail-correction,encounter-leveled-NPC-health,conditional-resistance,armor-wear,crouch-and-aiming-move-speed-perks,weapon-mod-spread,critical-effects,sneak-attack-detection,weapon-wear,missile-lobber-timing-and-retail-parity,flame-audio,supersonic-projectile-audio-and-retail-parity,continuous-beam,tracers,beam-visuals-and-retail-parity,explosion-distance-attenuation,force,radiation-and-retail-parity"
     };
 
     private float ResolvePlayerShotSpread(FalloutWeaponShot shot)

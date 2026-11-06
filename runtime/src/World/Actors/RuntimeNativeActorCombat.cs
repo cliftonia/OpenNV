@@ -52,6 +52,7 @@ internal sealed partial class RuntimeNativeActorCombat : Node
         lastSeverEffect = _lastSeverEffect,
         goreError = _goreError,
         lastLimbEffect = _lastLimbEffect,
+        lastCritical = _lastCritical,
         weaponTouchError = _weaponTouchError,
         error = Error,
         projectileLaunch = _state.ProjectileLaunch,
@@ -64,7 +65,7 @@ internal sealed partial class RuntimeNativeActorCombat : Node
         packageAnimation = PackageAnimationSelection,
         packageAnimationHandoff = PackageAnimationHandoff,
         hitReaction = HitReactionObservation,
-        unbound = "critical,sneak,conditional-resistance-modifiers,armor-wear,forced-hit-reactions,combat-AI-tactics,confidence-threat-ratios,target-priority,hit-script-events,death-XP,exploded-limbs,source-corpse-weapon-drop-and-dynamic-equipment"
+        unbound = "critical-effects,sneak-attack-detection,block,conditional-resistance-modifiers,armor-wear,forced-hit-reactions,combat-AI-tactics,confidence-threat-ratios,target-priority,hit-script-events,death-XP,exploded-limbs,source-corpse-weapon-drop-and-dynamic-equipment"
     };
 
     internal static RuntimeNativeActorCombat Attach(Node3D actor, RuntimeNativeNifSkeleton skeleton, string skeletonPath,
@@ -178,12 +179,21 @@ internal sealed partial class RuntimeNativeActorCombat : Node
             _hitConditionLocation = explosionDamage ? -1 : part;
             _world.BeforeActorHit(_state.Reference);
             if (!explosionDamage) _world.RecordActorWeaponContact(_state.Reference, attacker, hitWeapon, damage.WeaponScriptInstance);
+            var perks = _world.PerkEntries(_state.Reference).ToArray();
+            var critical = explosionDamage || Dead ? default : FalloutCriticalHits.Roll(_records, damage.Critical,
+                chance => FalloutWeaponDamageResolver.Apply(perks, 36, chance, null), SneakAttack(attacker), nextWeaponRandomUnit);
             var defense = _world.Defense(_state.Reference, level, globals);
-            var amount = defense.Absorb(damage.Amount, FalloutGameSettingFloats.Read(_records, "fMinDamMultiplier"), damage.AmmoEffects);
+            var amount = defense.Mitigate(_records, damage with { Amount = damage.Amount + critical.Damage }, new(
+                _state.PlayerTeammate ? FalloutHitTarget.CompanionScale(PlayerCharisma()) : 1,
+                FalloutWeaponDamageResolver.Apply(perks, 56, 0, null),
+                damage.ResistanceActorValue >= 0 ? _world.WeaponResistance(_state.Reference, damage.ResistanceActorValue, level, globals) : 0));
             var health = _world.Health(_state.Reference);
             var bodyPart = _world.BodyParts(_state.Reference).Parts.Single(value => value.Type == part);
             if (!Dead && amount * bodyPart.DamageMultiplier >= health.Current) PrepareDeath();
-            var hit = _world.DamageActor(_state.Reference, attacker, part, amount, damage.LimbMultiplier, level, globals);
+            var limbMultiplier = amount > 0
+                ? FalloutWeaponDamageResolver.Apply(perks, 6, amount * damage.LimbMultiplier, null) / amount : damage.LimbMultiplier;
+            var hit = _world.DamageActor(_state.Reference, attacker, part, amount, Math.Max(limbMultiplier, 0), level, globals);
+            if (critical.Critical) ReceiveCritical(critical, hit.Died, attacker);
             if (!explosionDamage) _world.HitEvents.Mark(_state.Reference, attacker, hitWeapon, hitKind);
             if (hit.Died)
             {

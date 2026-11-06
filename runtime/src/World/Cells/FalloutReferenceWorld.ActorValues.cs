@@ -51,6 +51,7 @@ internal sealed partial class FalloutReferenceWorld
         if (index == 22) return FalloutActorFatigueSource.Actor(records, actor.Base, actor.Templates,
             ActorValue(actor.Reference, "endurance", FalloutActorValueRead.Permanent));
         if (index < 0) return 0; // Declared user slots have zero initial pools.
+        if (index is 14 or 17 or 56) return DerivedActorValue(actor, index);
         var source = FalloutActorTemplateOwner.Resolve(records, records.GetEffective(actor.Base), 2, actor.Templates);
         if (index == (int)FalloutActorValueId.SpeedMult)
         {
@@ -74,6 +75,22 @@ internal sealed partial class FalloutReferenceWorld
         // they do not borrow combatSkill or an NPC's DNAM table.
         if (index is 37 or 44) return 0;
         throw new NotSupportedException($"Creature {slot} requires its source skill owner.");
+    }
+
+    // CritChance (Luck), MeleeDamage (Strength) and UnarmedDamage (Unarmed) are
+    // derived from the actor's permanent source values through their AVD settings.
+    private float DerivedActorValue(FalloutReferenceInstance actor, int index)
+    {
+        var (source, offset, multiplier) = index switch
+        {
+            14 => ("luck", "fAVDCritLuckBase", "fAVDCritLuckMult"),
+            17 => ("strength", "fAVDMeleeDamageStrengthOffset", "fAVDMeleeDamageStrengthMult"),
+            56 => ("unarmed", "fAVDUnarmedDamageBase", "fAVDUnarmedDamageMult"),
+            _ => throw new ArgumentOutOfRangeException(nameof(index)),
+        };
+        var value = FalloutGameSettingFloats.Read(records, offset) +
+            ActorValue(actor.Reference, source, FalloutActorValueRead.Permanent) * FalloutGameSettingFloats.Read(records, multiplier);
+        return float.IsFinite(value) ? value : throw new InvalidDataException("Derived actor value is not finite.");
     }
 
     private static int? LimbActorValue(string name) => FalloutBodyPartData.LimbActorValue(name);

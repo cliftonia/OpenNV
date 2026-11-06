@@ -1613,7 +1613,7 @@ public partial class RuntimeCoordinator
             () => _nativeOpeningStageDriver!.PlayerLevel, value => _nativeOpeningStageDriver!.PlayerCombatValue(value),
             () => _nativeOpeningStageDriver!.PlayerPerkEntries,
             condition => _nativeOpeningStageDriver!.EvaluateRecipeCondition(condition),
-            (damage, part) => _nativeOpeningStageDriver!.DamagePlayer(damage, part));
+            (damage, part, random) => _nativeOpeningStageDriver!.DamagePlayer(damage, part, random));
         _nativePlayer.ConfigureHitEvents(_nativeReferences!, collider => _nativeReferenceEvents?.CollisionReference(collider));
         _nativePlayer.CanOccupyPosition = NativeCollisionResident;
         _nativePlayer.IsDefeated = () => _nativeOpeningStageDriver?.Vitals.HitPoints == 0;
