@@ -121,6 +121,10 @@ internal sealed class FalloutScriptSession(FalloutNoActivationSound? noActivatio
     FalloutQuestObjectFlags? questObjects = null)
 {
     internal bool Hardcore { get; set; }
+    // The player's rest counter and "is sleeping" flag. They are live only
+    // while a rest runs, which save admission refuses, so they are not saved.
+    internal bool PlayerSleeping { get; set; }
+    internal int PlayerSleepHours { get; set; }
     internal bool AutoDisplayObjectives { get; set; }
     internal bool LocationSpecificLoadScreensOnly { get; set; }
     internal bool InCharGen { get; private set; }
@@ -758,6 +762,10 @@ internal sealed partial class FalloutQuestScripts
                 return new([], _ => Session.LocationSpecificLoadScreensOnly ? 1 : 0) { ReadOnly = true };
             if (parts.Length == 1 && operation == "ishardcore")
                 return new([], _ => Session.Hardcore ? 1 : 0) { ReadOnly = true };
+            if (parts.Length == 1 && operation == "ispcsleeping")
+                return new([], _ => Session.PlayerSleeping ? 1 : 0) { ReadOnly = true };
+            if (parts.Length == 1 && operation == "getpcsleephours")
+                return new([], _ => Session.PlayerSleepHours) { ReadOnly = true };
             if (parts.Length == 1 && operation == "getinchargen")
                 return new([], _ => Session.InCharGen ? 1 : 0) { ReadOnly = true };
             if (parts.Length <= 2 && operation == "getheadingangle")
@@ -897,7 +905,7 @@ internal sealed partial class FalloutQuestScripts
                 return settingFunction;
             if (parts.Length == 1 && FalloutNumericIniSettingCommands.Function(_records, operation) is { } iniSettingFunction)
                 return iniSettingFunction;
-            if (parts.Length == 1 && FalloutGameTimeCommands.Function(operation, host?.GameTime, () => Session.Hardcore) is { } timeFunction)
+            if (parts.Length == 1 && FalloutGameTimeCommands.Function(operation, host?.GameTime) is { } timeFunction)
                 return timeFunction;
             if (parts.Length == 1 && FalloutModQueryCommands.Function(_records, operation) is { } modQueryFunction)
                 return modQueryFunction;

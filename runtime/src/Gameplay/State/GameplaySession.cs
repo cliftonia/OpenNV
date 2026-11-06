@@ -1228,7 +1228,10 @@ internal partial class GameplaySession : Node
             source.GetProperty(nameof(GameplayVitals.ExperiencePoints)).GetInt32(),
             source.GetProperty(nameof(GameplayVitals.NextLevelExperiencePoints)).GetInt32(), hitPointFraction, limbDamage,
             source.TryGetProperty(nameof(GameplayVitals.RadiationRads), out var rads) ? rads.GetSingle() : 0,
-            source.TryGetProperty(nameof(GameplayVitals.ActionPointFraction), out var actionFraction) ? actionFraction.GetSingle() : 0);
+            source.TryGetProperty(nameof(GameplayVitals.ActionPointFraction), out var actionFraction) ? actionFraction.GetSingle() : 0,
+            source.TryGetProperty(nameof(GameplayVitals.Dehydration), out var dehydration) ? dehydration.GetSingle() : 0,
+            source.TryGetProperty(nameof(GameplayVitals.Hunger), out var hunger) ? hunger.GetSingle() : 0,
+            source.TryGetProperty(nameof(GameplayVitals.SleepDeprivation), out var sleep) ? sleep.GetSingle() : 0);
         result.Validate();
         return result;
     }

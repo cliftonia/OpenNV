@@ -66,7 +66,7 @@ internal partial class NativeOwnedGameplayHud : Control
         Func<GameplayVitals>? vitals = null, Func<NativeHudAmmo?>? ammunition = null, Func<string?>? notice = null,
         FalloutUiComponentStore? scriptUi = null, Func<FalloutPlayerControlState>? controls = null,
         Func<float, OpenNV.Runtime.World.Cells.FalloutCompassFrame>? compass = null,
-        Func<NativeHudCondition?>? condition = null, bool showReticle = true)
+        Func<NativeHudCondition?>? condition = null, bool showReticle = true, Func<NativeHudHardcore?>? hardcore = null)
     {
         _compassRecords = records;
         Name = "HUDMainMenuGameplay"; MouseFilter = MouseFilterEnum.Ignore; ProcessMode = ProcessModeEnum.Always;
@@ -116,6 +116,7 @@ internal partial class NativeOwnedGameplayHud : Control
             // simply omits that presentation rather than failing the HUD.
             condition is not null && _ap is not null &&
                 source.Elements().Any(element => (string?)element.Attribute("name") == "CNDArrows") ? Branch("CNDArrows") : null);
+        InitializeHardcore(records, Branch, hardcore);
         if (notice is not null)
         {
             _warning = Template("template_justify_center_text", menu);
@@ -154,6 +155,7 @@ internal partial class NativeOwnedGameplayHud : Control
         if (_hp is not null && _ap is not null)
         {
             LayoutMeterBranches(pixels);
+            LayoutHardcore();
         }
         _tiles.ValidateDrawing();
         QueueRedraw();
@@ -168,6 +170,7 @@ internal partial class NativeOwnedGameplayHud : Control
             UpdateCompass();
             AdvanceCompassBlink((float)delta);
             UpdateCondition();
+            UpdateHardcore(delta);
             var controls = _controls();
             if (controls != _lastControls)
             {

@@ -48,8 +48,8 @@ internal sealed class FalloutAbilityModifiers(FalloutPluginStack records)
         var declarationFields = fields.Where(field => field.Signature == (source.Signature == "SPEL" ? "SPIT" : "ENIT")).ToArray();
         if (declarationFields.Length != 1 || declarationFields[0].Data.Length != 16) return false;
         var declaration = declarationFields[0].Data.Span;
-        if (BinaryPrimitives.ReadUInt32LittleEndian(declaration) != (source.Signature == "SPEL" ? 4u : 3u))
-            return false;
+        var spellType = BinaryPrimitives.ReadUInt32LittleEndian(declaration);
+        if (!IsConstantType(source.Signature, spellType)) return false;
         var result = new List<FalloutAbilityModifier>();
         var scripts = new List<FalloutAbilityScript>();
         var effectOrdinal = 0;
@@ -96,8 +96,11 @@ internal sealed class FalloutAbilityModifiers(FalloutPluginStack records)
                 // For the player, an unconditional Recover ability changes the
                 // permanent pool. Conditional abilities and apparel change the
                 // temporary pool. Non-Recover lifecycle effects remain unbound.
+                // Diseases are ordinary active effects, so they change the
+                // temporary pool like conditional abilities.
                 result.Add(new(form, effect.FormKey, value, (flags & 4) == 0 ? magnitude : -(float)magnitude, conditions,
-                    source.Signature == "SPEL" && conditions.Length == 0 ? FalloutActorValuePool.Permanent : FalloutActorValuePool.Temporary));
+                    source.Signature == "SPEL" && spellType == AbilityType && conditions.Length == 0
+                        ? FalloutActorValuePool.Permanent : FalloutActorValuePool.Temporary));
             }
             else return false;
             index = end - 1;
@@ -108,6 +111,13 @@ internal sealed class FalloutAbilityModifiers(FalloutPluginStack records)
         return true;
     }
 
+    private const uint DiseaseType = 1, AbilityType = 4, ApparelEnchantmentType = 3;
+
+    // Abilities and diseases stay active until removed; apparel enchantments
+    // last while worn. Other spell types are timed or delivered effects.
+    private static bool IsConstantType(string signature, uint type) =>
+        signature == "SPEL" ? type is AbilityType or DiseaseType : type == ApparelEnchantmentType;
+
     internal IReadOnlyList<FalloutAbilityModifier> ConstantModifiers(FalloutFormKey form)
     {
         if (TryGetConstantModifiers(form, out var modifiers) && (modifiers.Count > 0 || _scripts.GetValueOrDefault(form)?.Count > 0))
@@ -116,7 +126,7 @@ internal sealed class FalloutAbilityModifiers(FalloutPluginStack records)
         if (source.Signature is not ("SPEL" or "ENCH")) throw new InvalidDataException("Constant actor effect is neither SPEL nor ENCH.");
         var fields = source.ReadSubrecords().ToArray();
         var declaration = fields.Single(field => field.Signature == (source.Signature == "SPEL" ? "SPIT" : "ENIT")).Data.Span;
-        if (declaration.Length != 16 || BinaryPrimitives.ReadUInt32LittleEndian(declaration) != (source.Signature == "SPEL" ? 4 : 3))
+        if (declaration.Length != 16 || !IsConstantType(source.Signature, BinaryPrimitives.ReadUInt32LittleEndian(declaration)))
             throw new NotSupportedException($"Actor effect {form} requires a timed/scripted effect owner.");
         if (!_scripts.ContainsKey(form))
             throw new NotSupportedException($"Ability {form} contains an effect without its source/runtime owner.");

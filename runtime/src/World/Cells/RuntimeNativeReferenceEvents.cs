@@ -390,6 +390,16 @@ internal partial class RuntimeNativeReferenceEvents : Node
         }
     }
 
+    // MenuMode frames for resident object scripts. The tree is paused while a
+    // menu is open, so the menu's owner drives these frames.
+    internal void DispatchMenuMode(double delta)
+    {
+        foreach (var binding in _bindings.Values.ToArray())
+            if (binding.Instance.Script is not null && _world.IsResident(binding.Reference.FormKey) &&
+                _world.IsEnabled(binding.Reference.FormKey))
+                Report(binding, _scripts.DispatchFrame(binding.Reference.FormKey, [new("MenuMode")], delta));
+    }
+
     private void ProcessBinding(Binding binding, SceneTree tree, double delta)
     {
         if (binding.Instance.Inventory is not null && _world.IsEnabled(binding.Reference.FormKey))

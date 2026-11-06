@@ -8,8 +8,31 @@ internal sealed record GameplayVitals(
     int MaximumActionPoints,
     int ExperiencePoints,
     int NextLevelExperiencePoints, float HitPointFraction = 0,
-    IReadOnlyDictionary<byte, float>? LimbDamage = null, float RadiationRads = 0, float ActionPointFraction = 0)
+    IReadOnlyDictionary<byte, float>? LimbDamage = null, float RadiationRads = 0, float ActionPointFraction = 0,
+    float Dehydration = 0, float Hunger = 0, float SleepDeprivation = 0)
 {
+    // Hardcore needs share the radiation rule: additive damage, never below zero.
+    internal float Need(int actorValue) => actorValue switch
+    {
+        73 => Dehydration,
+        74 => Hunger,
+        75 => SleepDeprivation,
+        _ => throw new ArgumentOutOfRangeException(nameof(actorValue)),
+    };
+    internal GameplayVitals WithNeed(int actorValue, float value)
+    {
+        if (!float.IsFinite(value)) throw new InvalidDataException("Hardcore need value is not finite.");
+        value = Math.Max(0, value);
+        return actorValue switch
+        {
+            73 => this with { Dehydration = value },
+            74 => this with { Hunger = value },
+            75 => this with { SleepDeprivation = value },
+            _ => throw new ArgumentOutOfRangeException(nameof(actorValue)),
+        };
+    }
+    internal bool HasNeeds => Dehydration != 0 || Hunger != 0 || SleepDeprivation != 0;
+
     internal float ExactHitPoints => HitPoints - HitPointFraction;
     internal float ExactActionPoints => ActionPoints - ActionPointFraction;
 
@@ -30,7 +53,8 @@ internal sealed record GameplayVitals(
             ActionPoints = displayedActionPoints,
             ActionPointFraction = displayedActionPoints - actionPoints,
             LimbDamage = LimbDamage is null ? null : new Dictionary<byte, float>(LimbDamage),
-            RadiationRads = RadiationRads
+            RadiationRads = RadiationRads,
+            Dehydration = Dehydration, Hunger = Hunger, SleepDeprivation = SleepDeprivation,
         };
         result.Validate();
         return result;
@@ -79,7 +103,9 @@ internal sealed record GameplayVitals(
             ExperiencePoints < 0 || NextLevelExperiencePoints <= 0 ||
             !float.IsFinite(HitPointFraction) || HitPointFraction is < 0 or >= 1 || ExactHitPoints < 0 ||
             !float.IsFinite(RadiationRads) || RadiationRads < 0 ||
+            !ValidNeed(Dehydration) || !ValidNeed(Hunger) || !ValidNeed(SleepDeprivation) ||
             LimbDamage is { } limbs && limbs.Any(pair => pair.Key > 14 || !float.IsFinite(pair.Value) || pair.Value < 0))
             throw new InvalidOperationException("Saved gameplay vitals are invalid.");
+        static bool ValidNeed(float value) => float.IsFinite(value) && value >= 0;
     }
 }
