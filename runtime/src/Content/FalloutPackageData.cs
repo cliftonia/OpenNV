@@ -61,8 +61,10 @@ internal readonly record struct FalloutPackageData(uint Flags, byte Procedure, u
         var data = fields[0].Data.Span;
         // The legacy form ends after behavior flags. Its type-specific flags
         // are absent; byte 5 and the final two bytes of the longer form are unused.
-        return new(BinaryPrimitives.ReadUInt32LittleEndian(data), data[4],
+        // Type-specific flags share one editor union: keep only this type's bits.
+        var procedure = data[4];
+        return new(BinaryPrimitives.ReadUInt32LittleEndian(data), procedure,
             BinaryPrimitives.ReadUInt16LittleEndian(data[6..]),
-            data.Length == 12 ? BinaryPrimitives.ReadUInt16LittleEndian(data[8..]) : null);
+            data.Length == 12 ? (ushort)(BinaryPrimitives.ReadUInt16LittleEndian(data[8..]) & FalloutPackageFlags.TypeSpecificMask(procedure)) : null);
     }
 }

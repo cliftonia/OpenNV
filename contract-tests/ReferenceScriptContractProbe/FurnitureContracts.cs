@@ -87,7 +87,10 @@ internal static partial class FurnitureContracts
             world.SetPlacement(chair, new(Key(0x800), [1, 0, 0], [0, 0, 0]));
             Require(Candidates(FalloutFindFurniturePackage.Read(records.GetEffective(new("Find.esp", 0x401)))).SequenceEqual(new uint[] { 0x901 }), "Find explicit target lost its adjusted reference.");
             Require(Candidates(FalloutFindFurniturePackage.Read(records.GetEffective(new("Find.esp", 0x402)))).SequenceEqual(Candidates(source)), "Find base target lost its source identity.");
-            foreach (var id in new uint[] { 0x403, 0x404, 0x405 }) Reject(() => FalloutFindFurniturePackage.Read(records.GetEffective(new("Find.esp", id))));
+            foreach (var id in new uint[] { 0x403, 0x404 }) Reject(() => FalloutFindFurniturePackage.Read(records.GetEffective(new("Find.esp", id))));
+            // An unowned general flag is deferred visibly, not a refusal.
+            Require(FalloutFindFurniturePackage.Read(records.GetEffective(new("Find.esp", 0x405))).Flags == 0x9006,
+                "Find Furniture refused an admitted general flag.");
             Require(world.ReserveFurnitureSeat(chair, 0, actor) && world.ReserveFurnitureSeat(chair, 0, actor) &&
                 !world.ReserveFurnitureSeat(chair, 0, otherActor) && !world.ReserveFurnitureSeat(chair, 0, player), "Source seat reservation allowed competing actors.");
             world.ReleaseFurnitureSeat(chair, 0, otherActor);

@@ -253,14 +253,16 @@ internal static class TravelContracts
             Require(!FalloutScriptPackage.Read(hiddenWeaponTravel).WeaponsVisible &&
                 FalloutScriptPackage.Read(record).WeaponsVisible && FalloutTravelPackage.Read(hiddenWeaponTravel) is { Running: true, OncePerDay: true, MustReach: true },
                 "Weapon visibility selector was rejected, conflated with inventory or lost independent Travel flags.");
-            Reject(() => FalloutTravelPackage.Read(records.GetEffective(Key(0x402))));
+            Require(FalloutTravelPackage.Read(records.GetEffective(Key(0x402))).Flags == 0x140c,
+                "Travel refused a shared package door flag.");
             var combatTravel = FalloutTravelPackage.Read(records.GetEffective(Key(0x40c)));
             Require(combatTravel.ContinueCombat && combatTravel.NoCombatAlert && combatTravel.WeaponDrawn && combatTravel.Running,
                 "Travel conflated independent combat, weapon and movement flags.");
             combatTravel.RequireCombatContinuation(engaged: false, complete: false);
             combatTravel.RequireCombatContinuation(engaged: true, complete: true);
             travel.RequireCombatContinuation(engaged: true, complete: false);
-            Reject(() => combatTravel.RequireCombatContinuation(engaged: true, complete: false));
+            // Combat suspends Continue During Combat Travel with a visible deferral.
+            combatTravel.RequireCombatContinuation(engaged: true, complete: false);
             var currentLocation = FalloutTravelPackage.Read(records.GetEffective(Key(0x403)));
             Require(currentLocation.LocationType == 2, "Current-location Travel lost its source selector.");
             Reject(() => currentLocation.Start(records, world, npcActor));
@@ -268,7 +270,9 @@ internal static class TravelContracts
             var idleTravel = FalloutTravelPackage.Read(records.GetEffective(Key(0x406)), ownsIdleCollection: true);
             Require(idleTravel.Reference == marker && idleTravel.MustReach,
                 "Owned NPC idle collection or skipped behavior prevented marker Travel admission.");
-            Reject(() => FalloutTravelPackage.Read(records.GetEffective(Key(0x407)), ownsIdleCollection: true));
+            // Behaviour flags without Skip Fallout Behavior are an inert, deferred lane.
+            Require(FalloutTravelPackage.Read(records.GetEffective(Key(0x407)), ownsIdleCollection: true).MustReach,
+                "Travel refused inert behaviour flags.");
             var start = travel.Start(records, world, actor);
             CheckIdleMarkerTravel(records);
             Require(start.Location.SequenceEqual([10f, 20f, 30f]) && !start.Complete, "Travel did not resolve its actual marker.");

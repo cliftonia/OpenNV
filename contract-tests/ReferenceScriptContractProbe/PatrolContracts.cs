@@ -34,8 +34,9 @@ internal static class PatrolContracts
                 !FalloutScriptPackage.Read(records.GetEffective(new("Patrol.esm", 7))).WeaponsVisible,
                 "Casual patrol lost its route or shared weapons-unequipped policy.");
             Require(Route(5).Points.Count == linear.Points.Count, "Skip Fallout Behavior rejected its disabled behavior lane.");
-            try { Route(6); throw new InvalidOperationException("Unowned patrol behavior was admitted."); }
-            catch (NotSupportedException) { }
+            // Behaviour flags are an inert lane; without Skip Fallout Behavior
+            // they are deferred visibly instead of refusing the route.
+            Require(Route(6).Points.Count == linear.Points.Count, "Inert patrol behavior flags refused the route.");
             var progress = linear.Start(point => Math.Abs(point.Position[0] - 11));
             Require(progress.Index == 1 && linear.WeaponDrawn && !linear.Circular, "Closest point/source flags lost.");
             Require(linear.Advance(progress, false, 100) == progress, "Time moved an actor that never arrived.");

@@ -24,8 +24,11 @@ internal sealed record FalloutTravelPackage(FalloutFormKey Form, uint Flags, int
 
     internal void RequireCombatContinuation(bool engaged, bool complete)
     {
+        // Combat owns the actor's pose while engaged; the package resumes when
+        // combat ends. Moving and firing at once has no shared owner yet.
         if (ContinueCombat && engaged && !complete)
-            throw new NotSupportedException("Travel during combat requires its shared destination movement and firing owner.");
+            FalloutPackageDeferral.Warn("continue-during-combat-travel",
+                "Travel with Continue During Combat is suspended by combat; simultaneous destination movement and firing are unowned.");
     }
 
     internal static FalloutTravelPackage Read(FalloutPluginRecord record, bool ownsIdleCollection = false)
@@ -36,19 +39,13 @@ internal sealed record FalloutTravelPackage(FalloutFormKey Form, uint Flags, int
         var data = FalloutPackageData.Read(record);
         const uint supported = 2 | 4 | 0x200 | 0x400 | 0x1000 | 0x2000 | 0x20000 | 0x800000 | 0x0c000000 | FalloutScriptPackage.AllowFallsFlag | FalloutScriptPackage.HeadTrackingOffFlag |
             FalloutScriptPackage.WeaponsUnequippedFlag;
-        var flags = data.Flags;
-        // Skip Fallout Behavior disables the optional behavior lane. Retained
-        // declarations in that lane do not add a second travel procedure.
         // Allow Falls grants permission to use falling routes; it does not
         // require a fall or invalidate ordinary grounded movement. The native
         // navigation owner still refuses any unsupported descent explicitly.
-        if ((flags & ~supported) != 0 ||
-            (flags & 0x1000) == 0 && data.BehaviorFlags != 0 || data.SpecificFlags is not (null or 0) ||
-            record.ReadSubrecords().Any(field => field.Signature is "PLD2" or "PTDT" or "PTD2") ||
+        var flags = FalloutPackageFlags.Admit(record, data, supported);
+        if (record.ReadSubrecords().Any(field => field.Signature is "PLD2" or "PTDT" or "PTD2") ||
             !ownsIdleCollection && source.Idles.Count != 0)
             throw new NotSupportedException($"Travel {record.FormKey} has unowned inputs: " +
-                $"flags=0x{flags & ~supported:x8}, behavior=0x{data.BehaviorFlags:x4}, " +
-                $"specific={(data.SpecificFlags is { } specific ? $"0x{specific:x4}" : "absent")}, " +
                 $"targets=[{string.Join(',', record.ReadSubrecords().Where(field => field.Signature is "PLD2" or "PTDT" or "PTD2").Select(field => field.Signature))}], " +
                 $"idles={source.Idles.Count}, idleOwner={ownsIdleCollection}.");
         return new(record.FormKey, flags, source.LocationType.Value,

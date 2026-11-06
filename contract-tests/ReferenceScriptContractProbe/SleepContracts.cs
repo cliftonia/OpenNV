@@ -22,18 +22,24 @@ internal static partial class FurnitureContracts
         var flagged = FalloutSleepPackage.Read(flaggedRecord);
         var lifecycle = FalloutScriptPackage.Read(flaggedRecord);
         Require(flagged.Flags == 0x88, "Sleep erased its authored start/end door actions.");
-        Reject(() => FalloutSleepPackage.Read(records.GetEffective(new("Find.esp", 0x412))));
-        foreach (var kind in new[] { "POBA", "POEA", "POCA" }) world.RequirePackageDoorActions(actor, lifecycle, kind);
+        // Lock-at-location and unused general bits are admitted with a deferral.
+        Require(FalloutSleepPackage.Read(records.GetEffective(new("Find.esp", 0x412))).Flags == 0x20 &&
+            FalloutSleepPackage.Read(records.GetEffective(new("Find.esp", 0x40b))).Flags == 0x40000000,
+            "Sleep refused an admitted general flag.");
+        foreach (var kind in new[] { "POBA", "POEA", "POCA" }) world.ApplyPackageDoorActions(actor, lifecycle, kind);
         Require(world.Get(Key(0x90c)).LockState is null && world.Get(Key(0x90d)).LockState is null,
-            "Empty package door actions created a lock on a lockless source door.");
-        // Unlocked is not lockless. The linked side and runtime overrides must
-        // participate in admission, and refusal must preserve their state.
+            "Package door actions created a lock on a lockless source door.");
+        // Unlocked is not lockless: 0x8 locks the CELL's lockable doors at
+        // start and 0x80 unlocks them at end or change.
         world.LockReference(Key(0x90d), 50); world.UnlockReference(Key(0x90d));
-        var retainedLock = world.Get(Key(0x90d)).LockState;
-        foreach (var kind in new[] { "POBA", "POEA", "POCA" }) Reject(() => world.RequirePackageDoorActions(actor, lifecycle, kind));
-        Require(world.Get(Key(0x90d)).LockState == retainedLock && world.Get(Key(0x90c)).LockState is null,
-            "Refused package door work changed a real linked lock.");
-        Console.WriteLine("OPENNV_SLEEP_EMPTY_DOOR_WORK_CONTRACT_PASS flagsRetained=true noLockCreated=true unlockedLockRefused=true linkedOverride=true allLifecyclePhases=true refusalNonMutating=true");
+        world.ApplyPackageDoorActions(actor, lifecycle, "POBA");
+        Require(world.GetLocked(Key(0x90d)) == 1 && world.GetLockLevel(Key(0x90d)) == 50 && world.Get(Key(0x90c)).LockState is null,
+            "Package start did not lock the lockable door or locked a lockless one.");
+        world.ApplyPackageDoorActions(actor, lifecycle, "POEA");
+        Require(world.GetLocked(Key(0x90d)) == 0, "Package end did not unlock its door.");
+        world.ApplyPackageDoorActions(actor, lifecycle, "POBA"); world.ApplyPackageDoorActions(actor, lifecycle, "POCA");
+        Require(world.GetLocked(Key(0x90d)) == 0, "Package change did not unlock its door.");
+        Console.WriteLine("OPENNV_SLEEP_DOOR_ACTIONS_CONTRACT_PASS flagsRetained=true noLockCreated=true startLocks=true endUnlocks=true changeUnlocks=true levelRetained=true");
         var progress = new FalloutActorSleepProgress(cell.Cell.FormKey, bed, false);
         source.Validate(records, world, actor, progress);
         Require(source.Location.Form == cell.Cell.FormKey && source.Candidates(records, world, actor).Single().FormKey == bed,
@@ -56,7 +62,7 @@ internal static partial class FurnitureContracts
         world.SetActorPackageStartLocation(actor, new(cell.Cell.FormKey, [0, 0, 0]));
         foreach (var id in new uint[] { 0x407, 0x408, 0x409 })
             FalloutSleepPackage.Read(records.GetEffective(new("Find.esp", id))).Validate(records, world, actor, progress);
-        foreach (var id in new uint[] { 0x40a, 0x40b }) Reject(() => FalloutSleepPackage.Read(records.GetEffective(new("Find.esp", id))));
+        Reject(() => FalloutSleepPackage.Read(records.GetEffective(new("Find.esp", 0x40a))));
         Reject(() => source.Validate(records, world, actor, progress with { Bed = Key(0x901) }));
         Reject(() => source.Validate(records, world, actor, progress with { Cell = Key(0x801) }));
         var goal = FalloutPackageTravelGoal.Read(records, world, actor, package, progress);

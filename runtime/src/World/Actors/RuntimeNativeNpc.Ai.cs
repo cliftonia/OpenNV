@@ -451,9 +451,9 @@ internal partial class RuntimeNativeNpc
 
     private void DispatchPackageActions(FalloutScriptPackage package, string kind)
     {
-        if ((package.Flags & FalloutScriptPackage.DoorStartEndFlags) != 0)
+        if ((package.Flags & FalloutPackageFlags.DoorFlags) != 0)
             (_aiWorld ?? throw new NotSupportedException("Package door actions have no reference world."))
-                .RequirePackageDoorActions(Appearance.Reference!.Value, package, kind);
+                .ApplyPackageDoorActions(Appearance.Reference!.Value, package, kind);
         // Result scripts precede the event's topic and idle. An unsupported
         // reached effect keeps this event failed, rather than replaying it.
         if (package.EventPrograms.GetValueOrDefault(kind) is { } program)
@@ -559,8 +559,13 @@ internal partial class RuntimeNativeNpc
                 _selectedSourcePackage = markerTravel.Form;
                 return;
             }
-            if (!forced && _editorTravel is { MustComplete: true } && _editorTravelProgress?.Complete != true)
-                throw new NotSupportedException("Incomplete editor travel needs its must-complete package reevaluation owner.");
+            if (!forced && _aiError is null && _aiPackage is { } held && selected?.FormKey != held.FormKey &&
+                FalloutAiPackages.RetainsMustPackage(_aiStack, Appearance.Npc, _templates, held, selected?.FormKey,
+                    _packageEvents?.Done == true, CurrentPackageLocationReached))
+            {
+                _selectedSourcePackage = held.FormKey;
+                return;
+            }
             if (_sitting is 2 or 4)
             {
                 _pendingPackage = selected;
@@ -602,6 +607,7 @@ internal partial class RuntimeNativeNpc
                 ClearFollow();
                 _patrol = null; _patrolProgress = null;
                 _guardPackage = null; _guardProgress = null;
+                ClearSteppedPackage();
                 _sandboxPackage = null; _sandboxWander = null; _pendingCurrentLocationSandbox = null;
                 _sleepPackage = null; _sleepProgress = null; _sleepBeds = null; _pendingCurrentLocationSleep = null;
                 CancelProcedureIdle("eat");
@@ -628,6 +634,7 @@ internal partial class RuntimeNativeNpc
             if (_packageIdleSource.Procedure == 4) { BeginSleep(selected, initializing); return; }
             if (_packageIdleSource.Procedure == 3) { BeginEat(selected, initializing); return; }
             if (_packageIdleSource.Procedure == 13) { BeginPatrol(selected); return; }
+            if (_packageIdleSource.Procedure is 5 or 8 or 9 or 10 or 11 or 16) { BeginSteppedPackage(selected, initializing); return; }
             if (_packageIdleSource.Procedure == 14) { BeginGuard(selected, initializing); return; }
             if (_packageIdleSource is { Procedure: 6, LocationType: 3 }) { BeginEditorTravel(selected, initializing); return; }
             if (_packageIdleSource is { Procedure: 6, LocationType: 2 }) { BeginMarkerTravel(selected, initializing); return; }

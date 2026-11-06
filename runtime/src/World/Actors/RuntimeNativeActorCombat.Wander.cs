@@ -259,7 +259,7 @@ internal sealed partial class RuntimeNativeActorCombat
     }
 
     internal FalloutWanderProgress AdvancePackageWander(FalloutPluginRecord package,
-        FalloutWanderProgress progress, bool running, bool weaponDrawn, double delta)
+        FalloutWanderProgress progress, bool running, bool weaponDrawn, double delta, bool sneaking = false)
     {
         // Keep the accepted request while another owner controls the body.
         // In particular, combat must never consume another wander draw.
@@ -273,7 +273,7 @@ internal sealed partial class RuntimeNativeActorCombat
             throw new NotSupportedException("Wandering has no native actor capsule.");
         var tolerance = 5 * _skeleton.UnitsToMetres;
         var nativeArrival = AdvancePackageMotion(package, destination, tolerance, running, delta, weaponDrawn,
-            requireArrivalHeight: true, navigationSha256: progress.NavigationSha256);
+            requireArrivalHeight: true, sneaking: sneaking, navigationSha256: progress.NavigationSha256);
         progress = progress with
         {
             Arrived = nativeArrival || actor.IsOnFloor() && _actor.GlobalPosition.DistanceTo(destination) <= tolerance

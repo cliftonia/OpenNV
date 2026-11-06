@@ -94,9 +94,9 @@ internal static class FalloutAiPackages
     internal static FalloutPluginRecord TemplateOwner(FalloutPluginStack stack, FalloutPluginRecord record, ushort flag)
         => FalloutActorTemplateOwner.Resolve(stack, record, flag);
 
-    internal static FalloutPluginRecord? Select(FalloutPluginStack stack, FalloutFormKey npc,
-        Func<FalloutCondition, float> evaluate, FalloutActorTemplateSelection? selection = null, FalloutGameTime? clock = null,
-        bool evaluateRunOn = false, Func<FalloutPluginRecord, bool>? eligible = null)
+    // The actor's authored package stack, in priority order (first = highest).
+    internal static IEnumerable<FalloutPluginRecord> Stack(FalloutPluginStack stack, FalloutFormKey npc,
+        FalloutActorTemplateSelection? selection = null)
     {
         var owner = FalloutActorTemplateOwner.Resolve(stack, stack.GetEffective(npc), 32, selection);
         foreach (var field in owner.ReadSubrecords().Where(field => field.Signature == "PKID"))
@@ -104,6 +104,34 @@ internal static class FalloutAiPackages
             if (field.Data.Length != 4) throw new InvalidDataException("NPC package identity has an invalid extent.");
             var package = stack.GetEffective(owner.Plugin.AdjustFormId(BinaryPrimitives.ReadUInt32LittleEndian(field.Data.Span)));
             if (package.Signature != "PACK") throw new InvalidDataException("NPC package identity is not PACK.");
+            yield return package;
+        }
+    }
+
+    // Must Complete holds an unfinished package, and Must Reach Location holds
+    // one whose location is not yet reached, against a lower-priority (or no)
+    // selection. A higher-priority package or an explicit reevaluation wins.
+    internal static bool RetainsMustPackage(FalloutPluginStack stack, FalloutFormKey npc, FalloutActorTemplateSelection? selection,
+        FalloutPluginRecord current, FalloutFormKey? selected, bool done, bool arrived)
+    {
+        var flags = FalloutPackageData.Read(current).Flags;
+        var holds = (flags & FalloutPackageFlags.MustComplete) != 0 && !done ||
+            (flags & FalloutPackageFlags.MustReachLocation) != 0 && !arrived && !done;
+        if (!holds) return false;
+        if (selected is not { } next) return true;
+        var order = Stack(stack, npc, selection).Select(package => package.FormKey).ToList();
+        var currentIndex = order.IndexOf(current.FormKey);
+        var nextIndex = order.IndexOf(next);
+        // Script packages outside the authored stack take precedence.
+        return currentIndex >= 0 && nextIndex > currentIndex;
+    }
+
+    internal static FalloutPluginRecord? Select(FalloutPluginStack stack, FalloutFormKey npc,
+        Func<FalloutCondition, float> evaluate, FalloutActorTemplateSelection? selection = null, FalloutGameTime? clock = null,
+        bool evaluateRunOn = false, Func<FalloutPluginRecord, bool>? eligible = null)
+    {
+        foreach (var package in Stack(stack, npc, selection))
+        {
             // Schedules precede conditions, in authored priority order. An
             // inactive candidate cannot run condition queries or side effects.
             if (!FalloutPackageSchedule.Read(package).IsActive(clock)) continue;

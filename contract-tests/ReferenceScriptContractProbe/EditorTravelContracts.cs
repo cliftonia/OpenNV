@@ -30,8 +30,11 @@ internal static class EditorTravelContracts
                 "Short and long source declarations changed identical editor travel flags.");
             Require(package.Radius == 16 && package.MustComplete && !package.Running && !package.WeaponDrawn,
                 "Editor travel lost source procedure or movement declarations.");
-            foreach (var id in new uint[] { 0x401, 0x402, 0x403, 0x404, 0x405 })
+            foreach (var id in new uint[] { 0x401, 0x402, 0x404, 0x405 })
                 Reject(() => FalloutEditorTravelPackage.Read(records.GetEffective(Key(id))));
+            // A package door flag is a shared lifecycle action, not a refusal.
+            Require(FalloutEditorTravelPackage.Read(records.GetEffective(Key(0x403))).Flags == 0x100e,
+                "Editor travel refused or dropped a shared package door flag.");
             var progress = package.Start(world, actor);
             Require(progress.Cell == Key(0x800) && progress.Location.SequenceEqual([7f, 8f, 9f]) && !progress.Complete,
                 "Editor destination lost its winning source pose or granted arrival.");
