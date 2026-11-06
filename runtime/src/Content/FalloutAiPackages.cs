@@ -110,10 +110,14 @@ internal static class FalloutAiPackages
 
     // Must Complete holds an unfinished package, and Must Reach Location holds
     // one whose location is not yet reached, against a lower-priority (or no)
-    // selection. A higher-priority package or an explicit reevaluation wins.
+    // selection while its schedule is active. A higher-priority package or an
+    // explicit reevaluation wins.
     internal static bool RetainsMustPackage(FalloutPluginStack stack, FalloutFormKey npc, FalloutActorTemplateSelection? selection,
-        FalloutPluginRecord current, FalloutFormKey? selected, bool done, bool arrived)
+        FalloutPluginRecord current, FalloutFormKey? selected, bool done, bool arrived, FalloutGameTime? clock)
     {
+        // A package whose schedule window has ended is released, so a procedure
+        // without its own completion (Sleep, Sandbox) cannot hold forever.
+        if (!FalloutPackageSchedule.Read(current).IsActive(clock)) return false;
         var flags = FalloutPackageData.Read(current).Flags;
         var holds = (flags & FalloutPackageFlags.MustComplete) != 0 && !done ||
             (flags & FalloutPackageFlags.MustReachLocation) != 0 && !arrived && !done;

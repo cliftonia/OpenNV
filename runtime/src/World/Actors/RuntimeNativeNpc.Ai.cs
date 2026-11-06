@@ -519,6 +519,7 @@ internal partial class RuntimeNativeNpc
         _aiPollRemaining = 10;
         FalloutPluginRecord? selected = null;
         var acceptedSelection = _requestedSelection ?? _furniturePendingSelection;
+        var procedureFailed = _aiError is not null;
         var forced = acceptedSelection?.Forced == true;
         try
         {
@@ -559,9 +560,9 @@ internal partial class RuntimeNativeNpc
                 _selectedSourcePackage = markerTravel.Form;
                 return;
             }
-            if (!forced && _aiError is null && _aiPackage is { } held && selected?.FormKey != held.FormKey &&
+            if (!forced && !procedureFailed && _aiPackage is { } held && selected?.FormKey != held.FormKey &&
                 FalloutAiPackages.RetainsMustPackage(_aiStack, Appearance.Npc, _templates, held, selected?.FormKey,
-                    _packageEvents?.Done == true, CurrentPackageLocationReached))
+                    _packageEvents?.Done == true, CurrentPackageLocationReached, _aiClock))
             {
                 _selectedSourcePackage = held.FormKey;
                 return;

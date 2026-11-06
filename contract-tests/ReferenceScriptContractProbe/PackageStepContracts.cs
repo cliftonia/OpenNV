@@ -72,12 +72,10 @@ internal static class PackageStepContracts
         // Must Complete / Must Reach hold against lower priority, never against higher priority or once done.
         var npc = new FalloutFormKey("Steps.esm", 0x800);
         var useWeapon = source(0x15);
-        Require(FalloutAiPackages.RetainsMustPackage(records, npc, null, useWeapon, source(0x10).FormKey, done: false, arrived: false) &&
-            FalloutAiPackages.RetainsMustPackage(records, npc, null, useWeapon, null, done: false, arrived: true) &&
-            !FalloutAiPackages.RetainsMustPackage(records, npc, null, useWeapon, source(0x16).FormKey, done: false, arrived: false) &&
-            !FalloutAiPackages.RetainsMustPackage(records, npc, null, useWeapon, source(0x10).FormKey, done: true, arrived: true) &&
-            FalloutAiPackages.RetainsMustPackage(records, npc, null, source(0x14), null, done: false, arrived: false) &&
-            !FalloutAiPackages.RetainsMustPackage(records, npc, null, source(0x14), null, done: false, arrived: true),
+        bool Retains(uint current, uint? next, bool done, bool arrived) => FalloutAiPackages.RetainsMustPackage(records, npc, null,
+            source(current), next is { } id ? source(id).FormKey : null, done, arrived, null);
+        Require(Retains(0x15, 0x10, false, false) && Retains(0x15, null, false, true) && !Retains(0x15, 0x16, false, false) &&
+            !Retains(0x15, 0x10, true, true) && Retains(0x14, null, false, false) && !Retains(0x14, null, false, true),
             "Must Complete/Must Reach retention ignored stack priority, completion or arrival.");
         Console.WriteLine("OPENNV_PACKAGE_FLAG_ADMISSION_CONTRACT_PASS garbageBehavior=true staleSpecificMasked=true generalFlagsAdmitted=true mustCompleteRetention=true mustReachRetention=true higherPriorityPreempts=true");
     }
@@ -124,10 +122,10 @@ internal static class PackageStepContracts
         var consumed = Step(source, use.Progress with { Timer = 0 }, At() with { UseKind = 9, HasUsedForm = true, HasUseTarget = true, Seated = true });
         Require(consumed.Progress.Step == 3 && consumed.Action.HasFlag(FalloutPackageStepAction.ConsumeItem), "Item use did not consume and complete.");
         var done = Step(source, consumed.Progress, At());
-        Require(done.Action.HasFlag(FalloutPackageStepAction.CompletePackage) && done.Progress.DoneHandled, "Done did not fire the package end once.");
+        Require(done.Action.HasFlag(FalloutPackageStepAction.CompletePackage) && done.Action.HasFlag(FalloutPackageStepAction.ReevaluatePackages) &&
+            done.Progress.DoneHandled, "Done did not fire the package end once and re-evaluate a duration-0 package.");
         var after = Step(source, done.Progress, At());
-        Require(!after.Action.HasFlag(FalloutPackageStepAction.CompletePackage) && after.Action.HasFlag(FalloutPackageStepAction.ReevaluatePackages),
-            "Completed duration-0 package replayed its end or did not re-evaluate.");
+        Require(after.Action == FalloutPackageStepAction.Hold, "Completed package replayed its end or re-evaluated every tick.");
         Require(Step(source, done.Progress, At() with { AtLocation = false }).Progress.Step == 2, "Completed package left its location without re-travel.");
         Require(Step(source, progress, At() with { UseKind = 12, HasUseTarget = true, Seated = true }).Action.HasFlag(FalloutPackageStepAction.WeaponTargetWarning),
             "A weapon UseItemAt target was not reported.");

@@ -134,15 +134,15 @@ internal static class FalloutPackageSteps
     private static FalloutPackageStepResult Done(FalloutSteppedPackage source, FalloutPackageStepProgress progress,
         FalloutPackageStepObservation observation)
     {
+        // Duration 0 re-evaluates the stack at once; a timed package idles until its window ends.
         if (!progress.DoneHandled)
-            return new(progress with { DoneHandled = true }, FalloutPackageStepAction.CompletePackage | FalloutPackageStepAction.Hold);
+            return new(progress with { DoneHandled = true }, FalloutPackageStepAction.CompletePackage | FalloutPackageStepAction.Hold |
+                (source.DurationHours == 0 ? FalloutPackageStepAction.ReevaluatePackages : 0));
         // A Travel- or Acquire-first procedure that has left its location travels again.
         if (source.Steps[0] is FalloutPackageStep.Travel or FalloutPackageStep.Acquire && !observation.AtLocation &&
             source.Location is not null)
             return new(Jump(source, progress, -1), FalloutPackageStepAction.Hold);
-        // Duration 0 re-evaluates the stack at once; a timed package idles until its window ends.
-        return new(progress, FalloutPackageStepAction.Hold |
-            (source.DurationHours == 0 ? FalloutPackageStepAction.ReevaluatePackages : 0));
+        return new(progress, FalloutPackageStepAction.Hold);
     }
 
     // Walk to a point, idle for fAIIdleWaitTime, pick the next point; a leg
