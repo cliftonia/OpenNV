@@ -6,6 +6,9 @@ internal sealed partial class NativeOwnedAnimationSoundPlayer
 {
     private void PlayVoice(Node node)
     {
+        // A handoff or save drain waits for this generation; the shared watcher
+        // ends it by its decoded length when the device never confirms.
+        NativeOwnedAudioCompletion.Watch(node, "animation-sound");
         if (node is AudioStreamPlayer3D spatial)
         { spatial.Finished += () => FinishVoice(node); spatial.Play(); }
         else

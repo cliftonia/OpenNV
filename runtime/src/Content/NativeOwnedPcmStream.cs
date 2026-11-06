@@ -74,6 +74,7 @@ internal sealed class NativeOwnedPcmStream : IDisposable
             Stream.SetMeta("opennv_owned_media_path", data.MediaPath);
             Stream.SetMeta("opennv_owned_media_sha256", data.MediaSha256);
             Stream.SetMeta("opennv_decoded_pcm_sha256", data.Sha256);
+            NativeOwnedAudioCompletion.DeclarePcmLoop(Stream, loop.Mode != FalloutSoundLoopMode.None);
         }
         catch { stream?.Dispose(); throw; }
         finally { _release!(id); }

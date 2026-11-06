@@ -1143,7 +1143,7 @@ if (args is ["--speech-completion-contracts"])
 {
     SpeechCompletionContracts.Run();
     SayToContracts.Run();
-    RecordedSpeechClockContracts.Run();
+    AudioCompletionClockContracts.Run();
     return;
 }
 if (args.Length >= 15 && args[0] == "--audit-owned-speech-completion")
@@ -2076,7 +2076,7 @@ VampireQueryContracts.Run();
 InventoryQueryContracts.Run();
 SayToContracts.Run();
 SpeechCompletionContracts.Run();
-RecordedSpeechClockContracts.Run();
+AudioCompletionClockContracts.Run();
 RadioConversationContracts.Run();
 ScreenBloodContracts.Run();
 VisualEffectContracts.Run();

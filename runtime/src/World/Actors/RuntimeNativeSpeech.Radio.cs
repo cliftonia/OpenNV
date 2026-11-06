@@ -153,7 +153,6 @@ internal partial class RuntimeNativeSpeech
         voice.Pcm = new(RadioPcm(path), new(FalloutSoundLoopMode.None, 0, 0), null, !CanProcess());
         voice.Player.Stream = voice.Pcm.Stream;
         voice.Player.ProcessMode = ProcessModeEnum.Pausable;
-        voice.Clock = new(voice.Pcm.Stream.GetLength(), 0);
         voice.Player.Play();
         voice.UtteranceActive = true;
         UpdateRadioListener(voice);
@@ -171,7 +170,7 @@ internal partial class RuntimeNativeSpeech
             voice.Player.Stop();
             RetireRadioPcm(voice);
             voice.Advance = false;
-            voice.Unrecorded = null; voice.Clock = null;
+            voice.Unrecorded = null;
             voice.Radio = null;
             voice.Info = null;
             voice.Broadcast = false;

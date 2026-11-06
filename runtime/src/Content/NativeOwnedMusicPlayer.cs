@@ -91,6 +91,7 @@ internal sealed partial class NativeOwnedMusicPlayer(FalloutPluginStack records)
                         RetireVoice();
                         GD.Print($"OPENNV_SCRIPT_MUSIC_FINISHED music={source.Form}");
                     };
+                    NativeOwnedAudioCompletion.Watch(voice, "music");
                     AddChild(voice);
                 }
             }

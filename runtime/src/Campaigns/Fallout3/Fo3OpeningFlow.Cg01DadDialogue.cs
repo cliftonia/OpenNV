@@ -86,6 +86,7 @@ internal partial class Fo3OpeningFlow
             }
             CompleteCg01DadDialogue(stage5, context, cues, subtitle);
         };
+        OpenNV.Runtime.Content.NativeOwnedAudioCompletion.Watch(_vaultDialogueVoice, "fo3-opening-dialogue");
         AddChild(_vaultDialogueVoice);
         ShowVaultDialogue(
             subtitle,

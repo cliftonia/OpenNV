@@ -63,6 +63,7 @@ internal static class NativeOwnedSoundVoice
         if (player is AudioStreamPlayer spatiallyFlat) spatiallyFlat.Finished += Retire;
         else if (player is AudioStreamPlayer3D spatial) spatial.Finished += Retire;
         else throw new ArgumentException("Native SOUN registration requires an audio player.", nameof(player));
+        NativeOwnedAudioCompletion.Watch(player, "source-sound");
         if (player.IsInsideTree()) Enter();
     }
 }

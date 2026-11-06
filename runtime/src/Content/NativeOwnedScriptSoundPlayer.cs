@@ -52,6 +52,7 @@ internal sealed partial class NativeOwnedScriptSoundPlayer(FalloutScriptSounds o
             PitchScale = selected.PitchScale,
         };
         voice.Finished += () => owner.Complete(request.Id);
+        NativeOwnedAudioCompletion.Watch(voice, "script-sound");
         try { AddChild(voice); }
         catch { voice.Free(); ownedStream?.Dispose(); throw; }
         var released = false;
@@ -94,6 +95,7 @@ internal sealed partial class NativeOwnedScriptSoundPlayer(FalloutScriptSounds o
             AreaMask = 0,
         };
         voice.Finished += () => owner.Complete(request.Id);
+        NativeOwnedAudioCompletion.Watch(voice, "script-sound");
         voice.TreeExiting += () => owner.Complete(request.Id);
         try { emitter.AddChild(voice); _spatial.Add(voice, selected); ApplyListener(voice, selected); }
         catch { _spatial.Remove(voice); voice.Free(); ownedStream?.Dispose(); throw; }

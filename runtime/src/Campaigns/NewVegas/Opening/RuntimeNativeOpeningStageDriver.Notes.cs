@@ -68,6 +68,7 @@ internal partial class RuntimeNativeOpeningStageDriver
                 }
                 next.ProcessMode = ProcessModeEnum.Always;
                 next.Finished += () => { next.QueueFree(); PlayNext(); };
+                NativeOwnedAudioCompletion.Watch(next, "pipboy-note");
                 next.Play();
             }
             PlayNext();

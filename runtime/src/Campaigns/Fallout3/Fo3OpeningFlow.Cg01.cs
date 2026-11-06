@@ -624,6 +624,7 @@ internal partial class Fo3OpeningFlow
                 subtitle,
                 acceptanceProof);
         };
+        OpenNV.Runtime.Content.NativeOwnedAudioCompletion.Watch(_vaultDialogueVoice, "fo3-opening-dialogue");
         AddChild(_vaultDialogueVoice);
         ShowVaultDialogue(
             subtitle,
@@ -925,6 +926,7 @@ internal partial class Fo3OpeningFlow
                 stage14,
                 subtitle);
         };
+        OpenNV.Runtime.Content.NativeOwnedAudioCompletion.Watch(_vaultDialogueVoice, "fo3-opening-dialogue");
         AddChild(_vaultDialogueVoice);
         ShowVaultDialogue(subtitle, coverage.Cg01DadActor.Actor.Name, cue.Response.Text);
         _vaultDialogueVoice.Play();
@@ -1202,6 +1204,7 @@ internal partial class Fo3OpeningFlow
                 Callable.From(() => PlayCg01DadReturnCue(
                     cues, index + 1, completed)).CallDeferred();
         };
+        OpenNV.Runtime.Content.NativeOwnedAudioCompletion.Watch(_vaultDialogueVoice, "fo3-opening-dialogue");
         AddChild(_vaultDialogueVoice);
         _vaultDialogueVoice.Play();
     }

@@ -698,6 +698,7 @@ internal partial class Fo3OpeningFlow : CanvasLayer
             sex,
             selection,
             stage65);
+        OpenNV.Runtime.Content.NativeOwnedAudioCompletion.Watch(_vaultDialogueVoice, "fo3-opening-dialogue");
         AddChild(_vaultDialogueVoice);
         ShowVaultDialogue(
             subtitle,
@@ -794,6 +795,7 @@ internal partial class Fo3OpeningFlow : CanvasLayer
             stage65,
             stage80,
             stage85);
+        OpenNV.Runtime.Content.NativeOwnedAudioCompletion.Watch(_vaultDialogueVoice, "fo3-opening-dialogue");
         AddChild(_vaultDialogueVoice);
         ShowVaultDialogue(
             subtitle,
