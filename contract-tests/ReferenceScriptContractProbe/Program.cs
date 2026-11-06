@@ -2068,6 +2068,7 @@ SayToContracts.Run();
 SpeechCompletionContracts.Run();
 RadioConversationContracts.Run();
 ScreenBloodContracts.Run();
+VisualEffectContracts.Run();
 QuestMenuContracts.Run();
 QuestUpdateContracts.Run();
 QuestStateQueryContracts.Run();

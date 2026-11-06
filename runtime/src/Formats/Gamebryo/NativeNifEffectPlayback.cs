@@ -120,23 +120,14 @@ internal sealed class NativeNifEffectPlayback
     {
         if (!double.IsFinite(delta) || delta < 0) throw new ArgumentOutOfRangeException(nameof(delta));
         if (!Active) return;
+        // Controllers first, then one variable-step system update. Emitters
+        // walk their authored active windows, so short bursts between two
+        // frames still emit at their exact times.
         foreach (var particle in Particles) particle.BeginParentMotion(delta);
-        var remaining = delta;
-        while (remaining > 1e-9)
-        {
-            var emitting = _elapsed < _duration;
-            var step = Math.Min(remaining, 1.0 / 120);
-            if (emitting) step = Math.Min(step, _duration - _elapsed);
-            // Authored bursts can be only ten microseconds long. Split at
-            // controller edges so a render frame cannot skip their emission.
-            foreach (var controller in _controllers)
-                if (controller.SecondsToBoundary is > 1e-10 and var boundary)
-                    step = Math.Min(step, boundary);
-            foreach (var controller in _controllers) controller._Process(step * .5);
-            foreach (var particle in Particles) { particle.EmissionEnabled = emitting; particle.Advance((float)step); }
-            foreach (var controller in _controllers) controller._Process(step * .5);
-            _elapsed += step; remaining -= step;
-        }
+        foreach (var controller in _controllers) controller._Process(delta);
+        var emitting = _elapsed < _duration;
+        foreach (var particle in Particles) { particle.EmissionEnabled = emitting; particle.Advance((float)delta); }
+        _elapsed += delta;
         foreach (var particle in Particles) { particle.EmissionEnabled = _elapsed < _duration; particle.EndParentMotion(); particle.Publish(); }
         if (_elapsed < _duration) return;
         foreach (var (node, _) in _surfaces) node.Visible = false;

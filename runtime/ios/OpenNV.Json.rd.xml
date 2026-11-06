@@ -297,6 +297,7 @@
       <Type Name="System.Text.Json.Serialization.Converters.EnumConverter`1[[OpenNV.Runtime.Gameplay.State.RuntimeManualSaveOrigin, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.EnumConverter`1[[OpenNV.Runtime.Gameplay.State.RuntimeManualSavePreparationPhase, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.EnumConverter`1[[OpenNV.Runtime.Presentation.CharacterCreation.ClassicPortraitMode, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.EnumConverter`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShaderEmitMode, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.EnumConverter`1[[OpenNV.Runtime.Presentation.Rendering.RuntimePresentationQualityKind, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.EnumConverter`1[[OpenNV.Runtime.Presentation.Ui.GameplayUiController+WristUiState, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.EnumConverter`1[[OpenNV.Runtime.Presentation.Ui.GameplayUiPanel, OpenNV]]" Dynamic="Required All" />
@@ -452,6 +453,7 @@
       <Type Name="System.Text.Json.Serialization.Converters.IEnumerableOfTConverter`2[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutCellDefinition, OpenNV]], System.Private.CoreLib],[OpenNV.Runtime.Content.FalloutCellDefinition, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.IEnumerableOfTConverter`2[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutCompletedVoiceGeneration, OpenNV]], System.Private.CoreLib],[OpenNV.Runtime.Content.FalloutCompletedVoiceGeneration, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.IEnumerableOfTConverter`2[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutCondition, OpenNV]], System.Private.CoreLib],[OpenNV.Runtime.Content.FalloutCondition, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.IEnumerableOfTConverter`2[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutDebrisModel, OpenNV]], System.Private.CoreLib],[OpenNV.Runtime.Content.FalloutDebrisModel, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.IEnumerableOfTConverter`2[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutDestructionStage, OpenNV]], System.Private.CoreLib],[OpenNV.Runtime.Content.FalloutDestructionStage, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.IEnumerableOfTConverter`2[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutDialogueResponse, OpenNV]], System.Private.CoreLib],[OpenNV.Runtime.Content.FalloutDialogueResponse, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.IEnumerableOfTConverter`2[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutEffectShaderColorKey, OpenNV]], System.Private.CoreLib],[OpenNV.Runtime.Content.FalloutEffectShaderColorKey, OpenNV]]" Dynamic="Required All" />
@@ -2984,10 +2986,12 @@
       <Type Name="System.Text.Json.Serialization.Converters.NullableConverter`1[[OpenNV.Runtime.Content.FalloutDefaultObject, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.NullableConverter`1[[OpenNV.Runtime.Content.FalloutDeflateExtentResult, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.NullableConverter`1[[OpenNV.Runtime.Content.FalloutDialogueCategory, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.NullableConverter`1[[OpenNV.Runtime.Content.FalloutEffectShaderAddonClock, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.NullableConverter`1[[OpenNV.Runtime.Content.FalloutEffectShaderBlend, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.NullableConverter`1[[OpenNV.Runtime.Content.FalloutEffectShaderColor, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.NullableConverter`1[[OpenNV.Runtime.Content.FalloutEffectShaderColorKey, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.NullableConverter`1[[OpenNV.Runtime.Content.FalloutEffectShaderEnvelope, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.NullableConverter`1[[OpenNV.Runtime.Content.FalloutEffectShaderParticleSample, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.NullableConverter`1[[OpenNV.Runtime.Content.FalloutEffectShaderPulse, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.NullableConverter`1[[OpenNV.Runtime.Content.FalloutEffectShaderScaleKey, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.NullableConverter`1[[OpenNV.Runtime.Content.FalloutEscortAction, OpenNV]]" Dynamic="Required All" />
@@ -3235,6 +3239,7 @@
       <Type Name="System.Text.Json.Serialization.Converters.NullableConverter`1[[OpenNV.Runtime.Presentation.OpenXR.FirstPersonRig+LoadedHand, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.NullableConverter`1[[OpenNV.Runtime.Presentation.OpenXR.FirstPersonRig+LoadedRig, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.NullableConverter`1[[OpenNV.Runtime.Presentation.Rendering.NativeDdsTextureCache+Key, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.NullableConverter`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShaderEmitMode, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.NullableConverter`1[[OpenNV.Runtime.Presentation.Rendering.OwnedNifParticleEffect+OwnedParticleClock+ActiveKey, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.NullableConverter`1[[OpenNV.Runtime.Presentation.Rendering.OwnedNifParticleEffect+SourceRange, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.NullableConverter`1[[OpenNV.Runtime.Presentation.Rendering.RetailEnvironmentRenderer+Application, OpenNV]]" Dynamic="Required All" />
@@ -4452,6 +4457,8 @@
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Content.FalloutCreatureEatItem, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Content.FalloutDat1Archive, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Content.FalloutDat1Entry, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Content.FalloutDebris, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Content.FalloutDebrisModel, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Content.FalloutDeflateExtent+Huffman, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Content.FalloutDeflateExtentResult, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Content.FalloutDestructible, OpenNV]]" Dynamic="Required All" />
@@ -4474,6 +4481,7 @@
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Content.FalloutEatPackage, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Content.FalloutEditorTravelPackage, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Content.FalloutEffectShader, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Content.FalloutEffectShaderAddonClock, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Content.FalloutEffectShaderAddons, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Content.FalloutEffectShaderBlend, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Content.FalloutEffectShaderColor, OpenNV]]" Dynamic="Required All" />
@@ -4481,6 +4489,9 @@
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Content.FalloutEffectShaderEnvelope, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Content.FalloutEffectShaderHoles, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Content.FalloutEffectShaderMembrane, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Content.FalloutEffectShaderParticleCloud+Batch, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Content.FalloutEffectShaderParticleCloud, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Content.FalloutEffectShaderParticleSample, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Content.FalloutEffectShaderParticles, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Content.FalloutEffectShaderPulse, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Content.FalloutEffectShaderScaleKey, OpenNV]]" Dynamic="Required All" />
@@ -5323,6 +5334,8 @@
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleData, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleDrag, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleEmitter, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleEmitterClock, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleEmitterCurves, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleGravity, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleGrowFade, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleLifecycleEvent, OpenNV]]" Dynamic="Required All" />
@@ -5864,9 +5877,9 @@
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Presentation.Rendering.NativeDdsTextureCache+Entry, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Presentation.Rendering.NativeDdsTextureCache+Key, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Presentation.Rendering.NativeDdsTextureCache, OpenNV]]" Dynamic="Required All" />
-      <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShaderMembrane+MethodName, OpenNV]]" Dynamic="Required All" />
-      <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShaderMembrane+PropertyName, OpenNV]]" Dynamic="Required All" />
-      <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShaderMembrane+SignalName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShader+MethodName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShader+PropertyName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShader+SignalName, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Presentation.Rendering.NativeIsolatedViewLighting+MethodName, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Presentation.Rendering.NativeIsolatedViewLighting+PropertyName, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.ObjectDefaultConverter`1[[OpenNV.Runtime.Presentation.Rendering.NativeIsolatedViewLighting+SignalName, OpenNV]]" Dynamic="Required All" />
@@ -7088,6 +7101,8 @@
       <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.Content.FalloutConversationChoice, OpenNV],[OpenNV.Runtime.Content.FalloutFormKey, OpenNV],[OpenNV.Runtime.Content.FalloutFormKey, OpenNV],[System.String, System.Private.CoreLib],[System.Object, System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.Content.FalloutCreationAgeControl, OpenNV],[System.String, System.Private.CoreLib],[System.Int32, System.Private.CoreLib],[System.Int32, System.Private.CoreLib],[System.Object, System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.Content.FalloutCreatureAnimationSounds+Declaration, OpenNV],[OpenNV.Runtime.Content.FalloutFormKey, OpenNV],[System.UInt32, System.Private.CoreLib],[System.Nullable`1[[OpenNV.Runtime.Content.FalloutFormKey, OpenNV]], System.Private.CoreLib],[System.Byte, System.Private.CoreLib]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.Content.FalloutDebris, OpenNV],[OpenNV.Runtime.Content.FalloutFormKey, OpenNV],[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutDebrisModel, OpenNV]], System.Private.CoreLib],[System.Object, System.Private.CoreLib],[System.Object, System.Private.CoreLib]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.Content.FalloutDebrisModel, OpenNV],[System.Byte, System.Private.CoreLib],[System.String, System.Private.CoreLib],[System.Byte, System.Private.CoreLib],[System.Object, System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.Content.FalloutDialogueQuestSelection, OpenNV],[OpenNV.Runtime.Content.FalloutPluginStack, OpenNV],[OpenNV.Runtime.Content.FalloutQuestState, OpenNV],[System.Object, System.Private.CoreLib],[System.Object, System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.Content.FalloutDialogueTopicCache, OpenNV],[OpenNV.Runtime.Content.FalloutPluginStack, OpenNV],[System.Object, System.Private.CoreLib],[System.Object, System.Private.CoreLib],[System.Object, System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Converters.SmallObjectWithParameterizedConstructorConverter`5[[OpenNV.Runtime.Content.FalloutDialogueTriggerLocation, OpenNV],[System.Int32, System.Private.CoreLib],[System.Nullable`1[[OpenNV.Runtime.Content.FalloutFormKey, OpenNV]], System.Private.CoreLib],[System.Int32, System.Private.CoreLib],[System.Object, System.Private.CoreLib]]" Dynamic="Required All" />
@@ -8993,6 +9008,8 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Content.FalloutCreatureEatItem, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Content.FalloutDat1Archive, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Content.FalloutDat1Entry, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Content.FalloutDebris, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Content.FalloutDebrisModel, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Content.FalloutDefaultObject, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Content.FalloutDeflateExtent+Huffman, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Content.FalloutDeflateExtentResult, OpenNV]]" Dynamic="Required All" />
@@ -9017,6 +9034,7 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Content.FalloutEatPackage, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Content.FalloutEditorTravelPackage, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Content.FalloutEffectShader, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderAddonClock, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderAddons, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderBlend, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderColor, OpenNV]]" Dynamic="Required All" />
@@ -9024,6 +9042,9 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderEnvelope, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderHoles, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderMembrane, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderParticleCloud+Batch, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderParticleCloud, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderParticleSample, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderParticles, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderPulse, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderScaleKey, OpenNV]]" Dynamic="Required All" />
@@ -9922,6 +9943,8 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleData, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleDrag, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleEmitter, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleEmitterClock, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleEmitterCurves, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleGravity, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleGrowFade, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleLifecycleEvent, OpenNV]]" Dynamic="Required All" />
@@ -10514,9 +10537,10 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeDdsTextureCache+Entry, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeDdsTextureCache+Key, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeDdsTextureCache, OpenNV]]" Dynamic="Required All" />
-      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShaderMembrane+MethodName, OpenNV]]" Dynamic="Required All" />
-      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShaderMembrane+PropertyName, OpenNV]]" Dynamic="Required All" />
-      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShaderMembrane+SignalName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShader+MethodName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShader+PropertyName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShader+SignalName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShaderEmitMode, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeIsolatedViewLighting+MethodName, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeIsolatedViewLighting+PropertyName, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeIsolatedViewLighting+SignalName, OpenNV]]" Dynamic="Required All" />
@@ -11759,6 +11783,7 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutCellDefinition, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutCompletedVoiceGeneration, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutCondition, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutDebrisModel, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutDestructionStage, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutDialogueResponse, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutEffectShaderColorKey, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
@@ -12228,10 +12253,12 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutDefaultObject, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutDeflateExtentResult, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutDialogueCategory, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEffectShaderAddonClock, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEffectShaderBlend, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEffectShaderColor, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEffectShaderColorKey, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEffectShaderEnvelope, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEffectShaderParticleSample, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEffectShaderPulse, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEffectShaderScaleKey, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEscortAction, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
@@ -12479,6 +12506,7 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Nullable`1[[OpenNV.Runtime.Presentation.OpenXR.FirstPersonRig+LoadedHand, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Nullable`1[[OpenNV.Runtime.Presentation.OpenXR.FirstPersonRig+LoadedRig, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Nullable`1[[OpenNV.Runtime.Presentation.Rendering.NativeDdsTextureCache+Key, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Nullable`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShaderEmitMode, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Nullable`1[[OpenNV.Runtime.Presentation.Rendering.OwnedNifParticleEffect+OwnedParticleClock+ActiveKey, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Nullable`1[[OpenNV.Runtime.Presentation.Rendering.OwnedNifParticleEffect+SourceRange, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonParameterInfo`1[[System.Nullable`1[[OpenNV.Runtime.Presentation.Rendering.RetailEnvironmentRenderer+Application, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
@@ -13901,6 +13929,8 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Content.FalloutCreatureEatItem, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Content.FalloutDat1Archive, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Content.FalloutDat1Entry, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Content.FalloutDebris, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Content.FalloutDebrisModel, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Content.FalloutDefaultObject, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Content.FalloutDeflateExtent+Huffman, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Content.FalloutDeflateExtentResult, OpenNV]]" Dynamic="Required All" />
@@ -13925,6 +13955,7 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Content.FalloutEatPackage, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Content.FalloutEditorTravelPackage, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Content.FalloutEffectShader, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderAddonClock, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderAddons, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderBlend, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderColor, OpenNV]]" Dynamic="Required All" />
@@ -13932,6 +13963,9 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderEnvelope, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderHoles, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderMembrane, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderParticleCloud+Batch, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderParticleCloud, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderParticleSample, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderParticles, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderPulse, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderScaleKey, OpenNV]]" Dynamic="Required All" />
@@ -14830,6 +14864,8 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleData, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleDrag, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleEmitter, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleEmitterClock, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleEmitterCurves, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleGravity, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleGrowFade, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleLifecycleEvent, OpenNV]]" Dynamic="Required All" />
@@ -15422,9 +15458,10 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeDdsTextureCache+Entry, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeDdsTextureCache+Key, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeDdsTextureCache, OpenNV]]" Dynamic="Required All" />
-      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShaderMembrane+MethodName, OpenNV]]" Dynamic="Required All" />
-      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShaderMembrane+PropertyName, OpenNV]]" Dynamic="Required All" />
-      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShaderMembrane+SignalName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShader+MethodName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShader+PropertyName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShader+SignalName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShaderEmitMode, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeIsolatedViewLighting+MethodName, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeIsolatedViewLighting+PropertyName, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeIsolatedViewLighting+SignalName, OpenNV]]" Dynamic="Required All" />
@@ -16667,6 +16704,7 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutCellDefinition, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutCompletedVoiceGeneration, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutCondition, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutDebrisModel, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutDestructionStage, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutDialogueResponse, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutEffectShaderColorKey, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
@@ -17136,10 +17174,12 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutDefaultObject, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutDeflateExtentResult, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutDialogueCategory, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEffectShaderAddonClock, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEffectShaderBlend, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEffectShaderColor, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEffectShaderColorKey, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEffectShaderEnvelope, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEffectShaderParticleSample, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEffectShaderPulse, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEffectShaderScaleKey, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEscortAction, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
@@ -17387,6 +17427,7 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Nullable`1[[OpenNV.Runtime.Presentation.OpenXR.FirstPersonRig+LoadedHand, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Nullable`1[[OpenNV.Runtime.Presentation.OpenXR.FirstPersonRig+LoadedRig, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Nullable`1[[OpenNV.Runtime.Presentation.Rendering.NativeDdsTextureCache+Key, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Nullable`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShaderEmitMode, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Nullable`1[[OpenNV.Runtime.Presentation.Rendering.OwnedNifParticleEffect+OwnedParticleClock+ActiveKey, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Nullable`1[[OpenNV.Runtime.Presentation.Rendering.OwnedNifParticleEffect+SourceRange, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonPropertyInfo`1[[System.Nullable`1[[OpenNV.Runtime.Presentation.Rendering.RetailEnvironmentRenderer+Application, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
@@ -18809,6 +18850,8 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Content.FalloutCreatureEatItem, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Content.FalloutDat1Archive, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Content.FalloutDat1Entry, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Content.FalloutDebris, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Content.FalloutDebrisModel, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Content.FalloutDefaultObject, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Content.FalloutDeflateExtent+Huffman, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Content.FalloutDeflateExtentResult, OpenNV]]" Dynamic="Required All" />
@@ -18833,6 +18876,7 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Content.FalloutEatPackage, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Content.FalloutEditorTravelPackage, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Content.FalloutEffectShader, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderAddonClock, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderAddons, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderBlend, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderColor, OpenNV]]" Dynamic="Required All" />
@@ -18840,6 +18884,9 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderEnvelope, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderHoles, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderMembrane, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderParticleCloud+Batch, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderParticleCloud, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderParticleSample, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderParticles, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderPulse, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Content.FalloutEffectShaderScaleKey, OpenNV]]" Dynamic="Required All" />
@@ -19738,6 +19785,8 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleData, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleDrag, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleEmitter, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleEmitterClock, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleEmitterCurves, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleGravity, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleGrowFade, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Formats.Gamebryo.FalloutNifParticleLifecycleEvent, OpenNV]]" Dynamic="Required All" />
@@ -20330,9 +20379,10 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeDdsTextureCache+Entry, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeDdsTextureCache+Key, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeDdsTextureCache, OpenNV]]" Dynamic="Required All" />
-      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShaderMembrane+MethodName, OpenNV]]" Dynamic="Required All" />
-      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShaderMembrane+PropertyName, OpenNV]]" Dynamic="Required All" />
-      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShaderMembrane+SignalName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShader+MethodName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShader+PropertyName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShader+SignalName, OpenNV]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShaderEmitMode, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeIsolatedViewLighting+MethodName, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeIsolatedViewLighting+PropertyName, OpenNV]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[OpenNV.Runtime.Presentation.Rendering.NativeIsolatedViewLighting+SignalName, OpenNV]]" Dynamic="Required All" />
@@ -21575,6 +21625,7 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutCellDefinition, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutCompletedVoiceGeneration, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutCondition, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutDebrisModel, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutDestructionStage, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutDialogueResponse, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Collections.Generic.IReadOnlyList`1[[OpenNV.Runtime.Content.FalloutEffectShaderColorKey, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
@@ -22044,10 +22095,12 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutDefaultObject, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutDeflateExtentResult, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutDialogueCategory, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEffectShaderAddonClock, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEffectShaderBlend, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEffectShaderColor, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEffectShaderColorKey, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEffectShaderEnvelope, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEffectShaderParticleSample, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEffectShaderPulse, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEffectShaderScaleKey, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Nullable`1[[OpenNV.Runtime.Content.FalloutEscortAction, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
@@ -22295,6 +22348,7 @@
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Nullable`1[[OpenNV.Runtime.Presentation.OpenXR.FirstPersonRig+LoadedHand, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Nullable`1[[OpenNV.Runtime.Presentation.OpenXR.FirstPersonRig+LoadedRig, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Nullable`1[[OpenNV.Runtime.Presentation.Rendering.NativeDdsTextureCache+Key, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
+      <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Nullable`1[[OpenNV.Runtime.Presentation.Rendering.NativeEffectShaderEmitMode, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Nullable`1[[OpenNV.Runtime.Presentation.Rendering.OwnedNifParticleEffect+OwnedParticleClock+ActiveKey, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Nullable`1[[OpenNV.Runtime.Presentation.Rendering.OwnedNifParticleEffect+SourceRange, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />
       <Type Name="System.Text.Json.Serialization.Metadata.JsonTypeInfo`1[[System.Nullable`1[[OpenNV.Runtime.Presentation.Rendering.RetailEnvironmentRenderer+Application, OpenNV]], System.Private.CoreLib]]" Dynamic="Required All" />

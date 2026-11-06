@@ -44,27 +44,44 @@ internal partial class RuntimeNativeOpeningStageDriver
             case "saa" or "setactoralpha" when arguments.Count == 1:
                 if (player) _player.SetScriptAlpha(float.Parse(arguments[0], NumberStyles.Float, CultureInfo.InvariantCulture));
                 return true;
-            // Membranes attach to the resident presentation only; a reference
-            // that streams in later does not replay a retained shader yet.
+            // Effect shaders attach to the resident presentation only; a
+            // reference that streams in later does not replay a retained shader yet.
             case "pms" or "playmagicshadervisuals" when arguments.Count is 1 or 2:
                 var effect = FalloutEffectShader.Read(_pluginStack, bindings.Form(arguments[0]).FormKey);
                 float? duration = arguments.Count == 2 ? float.Parse(arguments[1], NumberStyles.Float, CultureInfo.InvariantCulture) : null;
                 var content = RuntimeLiveContentSource.Current ?? throw new InvalidOperationException("Owned source is absent.");
-                var attached = 0;
+                var mode = EffectShaderEmitMode(target);
+                int resident = 0, attached = 0, playing = 0;
                 foreach (var node in ResidentPresentation(target))
                 {
-                    if (node.GetChildren().OfType<NativeEffectShaderMembrane>().Any(existing => existing.Shader == effect.Form && !existing.Stopping))
+                    resident++;
+                    if (node.GetChildren().OfType<NativeEffectShader>().Any(existing => existing.Shader == effect.Form && !existing.Releasing))
+                    {
+                        playing++;
                         continue;
-                    if (NativeEffectShaderMembrane.Attach(node, effect, content, duration) is not null) attached++;
+                    }
+                    NativeEffectShader? shader;
+                    try { shader = NativeEffectShader.Attach(node, effect, content, _pluginStack, duration, mode, _player.UnitsToMeters); }
+                    catch (NotSupportedException error)
+                    {
+                        FalloutScriptCommandDeferral.Warn($"playmagicshadervisuals:{effect.Form}", error.Message);
+                        continue;
+                    }
+                    if (shader is null) continue;
+                    attached++;
+                    foreach (var reason in shader.Deferrals) FalloutScriptCommandDeferral.Warn($"playmagicshadervisuals:{reason}", reason);
                 }
-                if (!effect.HasMembrane) FalloutScriptCommandDeferral.Warn("playmagicshadervisuals", "effect-shader-particles-unbound");
-                else if (attached == 0) FalloutScriptCommandDeferral.Warn("playmagicshadervisuals", "membrane-attachment-produced-no-geometry");
+                // Two source fire shaders also own a looping fire sound.
+                if (attached != 0 && effect.Form.OwnerPlugin.Equals("FalloutNV.esm", StringComparison.OrdinalIgnoreCase) && effect.Form.ObjectId is 0x0852FE or 0x084A51)
+                    FalloutScriptCommandDeferral.Warn("playmagicshadervisuals:fire-loop", "effect-shader-fire-loop-sound-unbound");
+                if (resident == 0) FalloutScriptCommandDeferral.Warn("playmagicshadervisuals", "target-not-resident");
+                else if (attached + playing == 0) FalloutScriptCommandDeferral.Warn("playmagicshadervisuals", "effect-shader-attachment-produced-no-geometry");
                 return true;
             case "sms" or "stopmagicshadervisuals" when arguments.Count == 1:
                 var stopped = bindings.Form(arguments[0]).FormKey;
                 foreach (var node in ResidentPresentation(target))
-                    foreach (var membrane in node.GetChildren().OfType<NativeEffectShaderMembrane>().Where(item => item.Shader == stopped))
-                        membrane.Stop();
+                    foreach (var shader in node.GetChildren().OfType<NativeEffectShader>().Where(item => item.Shader == stopped))
+                        shader.Stop();
                 return true;
             // The sky owner commits weather without a transition clock, so the
             // ordinary transition request currently matches ForceWeather.
@@ -84,6 +101,22 @@ internal partial class RuntimeNativeOpeningStageDriver
             default:
                 return false;
         }
+    }
+
+    // Weapons emit along a line, actors and activators from their nodes, and
+    // everything else from its mesh surfaces.
+    private NativeEffectShaderEmitMode EffectShaderEmitMode(FalloutFormKey reference)
+    {
+        // A first-person player emits from its view-model surfaces.
+        if (_pluginStack.RuntimeFormId(reference) == 0x14)
+            return _player.ThirdPersonView ? NativeEffectShaderEmitMode.Skeleton : NativeEffectShaderEmitMode.Surface;
+        if (_pluginStack.GetEffective(reference).Signature is "ACHR" or "ACRE") return NativeEffectShaderEmitMode.Skeleton;
+        return _pluginStack.GetEffective(FalloutReferenceIdentity.Base(_pluginStack, reference)).Signature switch
+        {
+            "WEAP" => NativeEffectShaderEmitMode.Line,
+            "ACTI" => NativeEffectShaderEmitMode.Skeleton,
+            _ => NativeEffectShaderEmitMode.Surface,
+        };
     }
 
     // Resident presentation roots of a placed actor or object reference.
